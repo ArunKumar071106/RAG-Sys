@@ -80,9 +80,6 @@ class AnthropicLLM:
         return LLMAnswer(text=text, model=response.model)
 
 
-_SENT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
-
-
 class ExtractiveAnswerer:
     """No-LLM mode: quote the most query-relevant sentences from the top sources.
 
@@ -92,22 +89,43 @@ class ExtractiveAnswerer:
 
     name = "extractive"
 
-    def answer(self, question: str, chunks: list[RetrievedChunk], max_sources: int = 3, per_source: int = 2) -> str:
+    @staticmethod
+    def _sentences(text: str) -> list[str]:
+        from rag.chunking.text_chunker import split_sentences
+
+        out: list[str] = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue  # headings are context, not answers
+            line = re.sub(r"^[-*•]\s+", "", line)
+            if " | " in line:  # table rows stay whole
+                out.append(line)
+            else:
+                out.extend(split_sentences(line))
+        return out
+
+    def answer(self, question: str, chunks: list[RetrievedChunk], max_sources: int = 3, per_source: int = 2,
+               max_lines: int = 5) -> str:
         q = set(tokenize(question))
         lines: list[str] = []
+        seen: set[str] = set()
         for i, chunk in enumerate(chunks[:max_sources], start=1):
             candidates = []
-            for sentence in _SENT_RE.split(chunk.text):
-                sentence = sentence.strip().lstrip("#").strip()
-                if len(sentence) < 15:
+            local: set[str] = set()
+            for position, sentence in enumerate(self._sentences(chunk.text)):
+                key = re.sub(r"\W+", " ", sentence.lower()).strip()
+                if len(sentence) < 15 or key in seen or key in local:
                     continue
+                local.add(key)
                 overlap = len(q.intersection(tokenize(sentence)))
                 if overlap:
-                    candidates.append((overlap, sentence))
-            candidates.sort(key=lambda c: -c[0])
-            for _, sentence in candidates[:per_source]:
+                    candidates.append((-overlap, position, key, sentence))
+            candidates.sort()
+            for _, _, key, sentence in candidates[:per_source]:
+                seen.add(key)
                 lines.append(f"- {sentence} [S{i}]")
-        return "\n".join(lines)
+        return "\n".join(lines[:max_lines])
 
 
 def anthropic_credentials_present() -> bool:

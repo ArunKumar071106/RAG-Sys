@@ -36,6 +36,18 @@ def test_context_labels_ai_descriptions_separately():
     assert NO_ANSWER_MARKER in SYSTEM_PROMPT
 
 
+def test_extractive_answer_keeps_abbreviations_rows_and_skips_headings_and_duplicates():
+    from rag.llm.client import ExtractiveAnswerer
+
+    text = ("## Fee Structure\n\nProgramme: B.Tech Data Science | Tuition fee per year: Rs. 60,000\n\n"
+            "- The tuition fee is payable in two instalments.\n\nThe tuition fee is payable in two instalments.")
+    chunk = RetrievedChunk(chunk_id="c", doc_id="d", url="u", page_title="P", heading_path=[], text=text, score=1)
+    answer = ExtractiveAnswerer().answer("tuition fee for data science", [chunk])
+    assert answer.splitlines()[0] == "- Programme: B.Tech Data Science | Tuition fee per year: Rs. 60,000 [S1]"
+    assert answer.count("instalments") == 1
+    assert "Fee Structure" not in answer and "- - " not in answer
+
+
 # ---------------------------------------------------------------- service with a fake LLM
 class FakeLLM:
     name = "fake"

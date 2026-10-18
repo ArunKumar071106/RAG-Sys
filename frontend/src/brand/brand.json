@@ -1,0 +1,21 @@
+{
+  "measured": false,
+  "note": "PROVISIONAL brand values. The official site could not be reached from the build environment, so colours, fonts, logo and menu have NOT been measured yet. Run `python scripts/extract_brand.py` on a machine that can reach https://aaaenggcoll.ac.in/ to overwrite this file and brand.css with values measured from the live site.",
+  "source": "https://aaaenggcoll.ac.in/",
+  "measured_at": null,
+  "college_name": "AAA College of Engineering and Technology",
+  "short_name": "AAACET",
+  "tagline": "",
+  "official_url": "https://aaaenggcoll.ac.in/",
+  "logo": null,
+  "logo_alt": "AAA College of Engineering and Technology logo",
+  "badges": [],
+  "nav": [
+    { "label": "Home", "href": "https://aaaenggcoll.ac.in/" }
+  ],
+  "utility_links": [
+    { "label": "Official Website", "href": "https://aaaenggcoll.ac.in/" }
+  ],
+  "contact": { "address": [], "phones": [], "emails": [] },
+  "fonts": { "body": null, "heading": null, "stylesheets": [] }
+}

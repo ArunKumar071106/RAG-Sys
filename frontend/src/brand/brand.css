@@ -1,0 +1,32 @@
+/*
+ * Brand design tokens.
+ * PROVISIONAL: neutral placeholder values (not measured from the official site).
+ * Regenerate with `python scripts/extract_brand.py` - see README "Matching the official website".
+ */
+:root {
+  --brand-primary: #1f3b63;
+  --brand-primary-dark: #152a47;
+  --brand-on-primary: #ffffff;
+  --brand-accent: #2f6db3;
+  --brand-on-accent: #ffffff;
+  --brand-topbar-bg: #152a47;
+  --brand-topbar-fg: #ffffff;
+  --brand-header-bg: #ffffff;
+  --brand-header-fg: #1f3b63;
+  --brand-nav-bg: #1f3b63;
+  --brand-nav-fg: #ffffff;
+  --brand-nav-hover-bg: #2f6db3;
+  --brand-footer-bg: #152a47;
+  --brand-footer-fg: #e8edf4;
+  --brand-link: #2f6db3;
+  --brand-heading: #1f3b63;
+  --brand-text: #2b2f36;
+  --brand-muted: #5b6472;
+  --brand-page-bg: #f4f6f9;
+  --brand-surface: #ffffff;
+  --brand-border: #d8dee8;
+  --brand-font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --brand-font-heading: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --brand-radius: 4px;
+  --brand-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}

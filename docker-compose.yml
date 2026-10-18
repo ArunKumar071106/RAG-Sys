@@ -1,0 +1,44 @@
+# Production-style stack: Qdrant server + FastAPI backend + nginx-served frontend.
+#   cp .env.example .env   # fill in ANTHROPIC_API_KEY, ADMIN_TOKEN
+#   docker compose up -d --build
+#   docker compose run --rm backend python -m rag.cli all     # crawl + index (first time)
+# Then open http://localhost:8080
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    # not published: only the backend talks to Qdrant
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        WITH_ML: "true"   # BGE-M3 embeddings; set "false" with EMBEDDING_PROVIDER=hashing for a light image
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      QDRANT_URL: http://qdrant:6333
+      CORS_ORIGINS: http://localhost:8080
+      HF_HOME: /data/hf-cache
+    volumes:
+      - rag_data:/data
+    depends_on:
+      - qdrant
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ""
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  qdrant_data:
+  rag_data:
