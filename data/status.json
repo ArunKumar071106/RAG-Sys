@@ -1,7 +1,43 @@
 {
   "crawl": {
-    "state": "running",
-    "started_at": "2026-10-18T22:03:56+00:00",
-    "updated_at": "2026-10-18T22:03:56+00:00"
+    "state": "finished",
+    "started_at": "2026-10-18T23:09:22+00:00",
+    "updated_at": "2026-10-18T23:10:05+00:00",
+    "finished_at": "2026-10-18T23:10:05+00:00",
+    "pages": 2115,
+    "robots_forbidden": 0,
+    "http_errors": 0
+  },
+  "extract": {
+    "documents": 2029,
+    "duplicates": 0,
+    "errors": 0,
+    "images_referenced": 5481,
+    "updated_at": "2026-10-18T23:31:24+00:00"
+  },
+  "chunk": {
+    "documents": 2029,
+    "chunks": 3388,
+    "duplicate_chunks": 53,
+    "avg_tokens": 305.9,
+    "updated_at": "2026-10-18T23:31:26+00:00"
+  },
+  "index": {
+    "state": "finished",
+    "mode": "full",
+    "started_at": "2026-10-18T23:31:28+00:00",
+    "updated_at": "2026-10-18T23:31:40+00:00",
+    "finished_at": "2026-10-18T23:31:40+00:00",
+    "text_documents": 2023,
+    "text_changed_documents": 2023,
+    "text_unchanged_documents": 0,
+    "text_removed_documents": 0,
+    "text_upserted": 3388,
+    "text_deleted": 0,
+    "images_images": 0,
+    "images_upserted": 0,
+    "images_deleted": 0,
+    "validation_ok": true,
+    "embedder": "hashing:1024"
   }
 }
