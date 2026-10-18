@@ -1,0 +1,15 @@
+// Questions about the FICTIONAL demo site (rag/demo/site.py). Used by automated tests.
+{"question": "What is the tuition fee for B.Tech Data Science?", "expected_url_patterns": ["/admissions.html"]}
+{"question": "What is the counselling code of the college?", "expected_url_patterns": ["/admissions.html"]}
+{"question": "Who is the principal?", "expected_url_patterns": ["/about.html"]}
+{"question": "What are the library timings?", "expected_url_patterns": ["re:/facilities(-copy)?\\.html"]}
+{"question": "How many buses does the college operate?", "expected_url_patterns": ["re:/facilities(-copy)?\\.html"]}
+{"question": "How many students were placed in 2025 and what was the highest package?", "expected_url_patterns": ["/placements.html"]}
+{"question": "Which labs does the computer science department have?", "expected_url_patterns": ["/computer-science.html"], "expected_image_patterns": ["computer-lab"]}
+{"question": "What is the phone number and email of the college office?", "expected_url_patterns": ["/contact.html"]}
+{"question": "What is the vision of the college?", "expected_url_patterns": ["/about.html"]}
+{"question": "Who is the head of the computer science department?", "expected_url_patterns": ["/computer-science.html"]}
+{"question": "Show me the admission notice poster", "expected_url_patterns": ["/admissions.html"], "expected_image_patterns": ["admission-notice"]}
+{"question": "Show photos of the hostel", "expected_url_patterns": ["re:/facilities(-copy)?\\.html"], "expected_image_patterns": ["hostel"]}
+{"question": "What is the anti-ragging committee contact number?", "expected_url_patterns": ["prospectus.pdf"]}
+{"question": "What is the cafeteria menu on Mars?", "answerable": false}

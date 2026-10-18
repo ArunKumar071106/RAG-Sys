@@ -1,0 +1,125 @@
+"""Thin wrapper over Qdrant for text and image collections.
+
+Works with a Qdrant server (``QDRANT_URL``) or embedded local mode
+(``QDRANT_PATH``) - the latter needs no extra service and is used for
+development and tests. Note that local mode locks its directory to one
+process: run the API *or* a CLI indexing command, or use a Qdrant server.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from collections.abc import Sequence
+
+import numpy as np
+from qdrant_client import QdrantClient
+from qdrant_client.http import models as qm
+
+log = logging.getLogger(__name__)
+_NAMESPACE = uuid.UUID("6f1c1d1e-7d3b-4c8a-9f43-0000aa000001")
+
+
+def point_id(chunk_id: str) -> str:
+    return str(uuid.uuid5(_NAMESPACE, chunk_id))
+
+
+class VectorDimensionMismatch(RuntimeError):
+    pass
+
+
+class QdrantStore:
+    def __init__(self, client: QdrantClient):
+        self.client = client
+
+    @classmethod
+    def from_settings(cls, settings) -> QdrantStore:
+        if settings.qdrant_url:
+            client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None, timeout=30)
+        else:
+            settings.qdrant_local_path.mkdir(parents=True, exist_ok=True)
+            client = QdrantClient(path=str(settings.qdrant_local_path))
+        return cls(client)
+
+    def close(self) -> None:
+        try:
+            self.client.close()
+        except Exception:  # pragma: no cover
+            pass
+
+    # ------------------------------------------------------------- collections
+    def collection_dim(self, name: str) -> int | None:
+        if not self.client.collection_exists(name):
+            return None
+        info = self.client.get_collection(name)
+        vectors = info.config.params.vectors
+        if isinstance(vectors, dict):
+            vectors = next(iter(vectors.values()))
+        return int(vectors.size)
+
+    def ensure_collection(self, name: str, dim: int, recreate: bool = False) -> None:
+        existing = self.collection_dim(name)
+        if existing is not None and (recreate or existing != dim):
+            if existing != dim and not recreate:
+                raise VectorDimensionMismatch(
+                    f"Collection {name!r} has {existing}-d vectors but the embedder produces {dim}-d. "
+                    "Run a full reindex (python -m rag.cli index --full) to rebuild it."
+                )
+            self.client.delete_collection(name)
+            existing = None
+        if existing is None:
+            self.client.create_collection(name, vectors_config=qm.VectorParams(size=dim, distance=qm.Distance.COSINE))
+            for field in ("doc_id", "url", "source_page"):
+                try:
+                    self.client.create_payload_index(name, field, qm.PayloadSchemaType.KEYWORD)
+                except Exception:  # local mode ignores payload indexes
+                    pass
+
+    def count(self, name: str) -> int:
+        if not self.client.collection_exists(name):
+            return 0
+        return int(self.client.count(name, exact=True).count)
+
+    # ------------------------------------------------------------- writes
+    def upsert(self, name: str, ids: Sequence[str], vectors: np.ndarray, payloads: Sequence[dict],
+               batch_size: int = 64, retries: int = 3) -> None:
+        for start in range(0, len(ids), batch_size):
+            points = [
+                qm.PointStruct(id=point_id(cid), vector=vec.tolist(), payload=payload)
+                for cid, vec, payload in zip(ids[start:start + batch_size], vectors[start:start + batch_size],
+                                             payloads[start:start + batch_size])
+            ]
+            for attempt in range(retries + 1):
+                try:
+                    self.client.upsert(name, points=points, wait=True)
+                    break
+                except Exception as exc:
+                    if attempt == retries:
+                        raise
+                    log.warning("Qdrant upsert failed (%s); retrying", exc)
+                    time.sleep(0.5 * (2 ** attempt))
+
+    def delete_by_field(self, name: str, field: str, values: Sequence[str]) -> None:
+        if not values or not self.client.collection_exists(name):
+            return
+        selector = qm.FilterSelector(filter=qm.Filter(must=[qm.FieldCondition(key=field, match=qm.MatchAny(any=list(values)))]))
+        self.client.delete(name, points_selector=selector, wait=True)
+
+    def delete_ids(self, name: str, chunk_ids: Sequence[str]) -> None:
+        if not chunk_ids or not self.client.collection_exists(name):
+            return
+        self.client.delete(name, points_selector=qm.PointIdsList(points=[point_id(c) for c in chunk_ids]), wait=True)
+
+    # ------------------------------------------------------------- reads
+    def search(self, name: str, vector: np.ndarray, limit: int) -> list[tuple[str, float, dict]]:
+        if not self.client.collection_exists(name):
+            return []
+        result = self.client.query_points(name, query=vector.tolist(), limit=limit, with_payload=True)
+        return [(p.payload.get("chunk_id", ""), float(p.score), p.payload) for p in result.points]
+
+    def get(self, name: str, chunk_id: str) -> dict | None:
+        if not self.client.collection_exists(name):
+            return None
+        points = self.client.retrieve(name, ids=[point_id(chunk_id)], with_payload=True)
+        return points[0].payload if points else None

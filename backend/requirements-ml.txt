@@ -1,0 +1,6 @@
+# BAAI/bge-m3 embeddings (EMBEDDING_PROVIDER=bge-m3) and the optional reranker.
+# Installs PyTorch; for a CPU-only server you can first run:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+-r requirements.txt
+sentence-transformers>=3.0,<6
+transformers>=4.44

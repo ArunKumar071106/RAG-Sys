@@ -1,0 +1,19 @@
+[project]
+name = "aaacet-rag"
+version = "1.0.0"
+description = "Multimodal RAG chatbot for AAA College of Engineering and Technology"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore:Payload indexes have no effect:UserWarning",
+    "ignore::DeprecationWarning:twisted.*",
+]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
