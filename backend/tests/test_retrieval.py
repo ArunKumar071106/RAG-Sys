@@ -55,3 +55,22 @@ def test_retrieval_quality_on_demo_questions(services):
     assert summary["mrr"] >= 0.75, summary
     assert summary["image_hit"] == 1.0, summary
     assert summary["unanswerable_rejected"] == 1.0, summary
+
+
+def test_news_posts_rank_below_official_pages_on_ties(services):
+    retriever = services.retriever
+    query = "college"  # appears on most demo pages, so there are several candidates
+    before = retriever.search_text(query, 3).chunks
+    assert len(before) >= 2
+    top = before[0].chunk_id
+    original = retriever.corpus.chunks[top].metadata.get("kind", "page")
+    weights = dict(retriever.settings.kind_weights)
+    try:
+        retriever.corpus.chunks[top].metadata["kind"] = "news"
+        retriever.settings.kind_weights = {**weights, "news": 0.5}
+        after = retriever.search_text(query, 10).chunks
+        assert after[0].chunk_id == before[1].chunk_id  # the official page now leads
+        assert top in [c.chunk_id for c in after]  # the news post is demoted, not removed
+    finally:
+        retriever.corpus.chunks[top].metadata["kind"] = original
+        retriever.settings.kind_weights = weights

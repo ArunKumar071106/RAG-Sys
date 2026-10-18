@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     image_top_k: int = 4
     image_min_semantic_score: float = 0.35
     text_min_semantic_score: float = 0.25
+    min_query_coverage: float = 0.34  # IDF-weighted share of query terms a lexical-only hit must contain
+    kind_weights: dict[str, float] = {"page": 1.0, "section": 1.0, "document": 0.95, "news": 0.85}
+    title_boost: float = 0.03  # small tie-breaker when the question's terms appear in the page title/headings
     rerank_enabled: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
 

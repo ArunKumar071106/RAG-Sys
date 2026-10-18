@@ -137,7 +137,9 @@ class AnswerService:
                  top_k: int = 6, image_top_k: int = 4):
         self.retriever = retriever
         self.llm = llm
-        self.extractive = ExtractiveAnswerer()
+        idf = getattr(getattr(retriever.bm25_text, "_bm25", None), "idf", None) or {}
+        floor = max(idf.values(), default=1.0)
+        self.extractive = ExtractiveAnswerer(lambda t: max(idf.get(t, floor), 0.05))
         self.history_turns = history_turns
         self.top_k = top_k
         self.image_top_k = image_top_k

@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
+from urllib.parse import urlsplit
 
 from rag.models import PageDocument
 from rag.utils import sha256_text
+
+
+_LANDING_RE = re.compile(r"about|overview|introduction|index|home", re.I)
+
+
+def _landing_page_rank(doc: PageDocument) -> tuple:
+    """Prefer a section's landing page ("/cse/about-department/") over its sub-pages."""
+    path = urlsplit(doc.url).path
+    return (0 if _LANDING_RE.search(path) else 1, path.strip("/").count("/"), len(doc.url), doc.url)
 
 
 def remove_repeated_blocks(docs: list[PageDocument], page_ratio: float = 0.5, min_pages: int = 3,
@@ -15,8 +26,8 @@ def remove_repeated_blocks(docs: list[PageDocument], page_ratio: float = 0.5, mi
     * On more than ``page_ratio`` of all pages: site chrome that survived
       per-page stripping ("Content is protected", marquee text) - removed everywhere.
     * On ``keep_once_min`` or more pages (e.g. a department sidebar or intro shown
-      on every page of that department): kept once, on the page with the shortest
-      URL (usually the section's main page), and removed from the others.
+      on every page of that department): kept once, on the section's landing page
+      (an "about"/"overview" URL, else the shallowest, shortest URL), and removed elsewhere.
 
     Headings are kept so heading paths stay intact; tables are kept because
     repeated tables are rare and usually meaningful.
@@ -31,7 +42,7 @@ def remove_repeated_blocks(docs: list[PageDocument], page_ratio: float = 0.5, mi
     threshold = max(min_pages, int(len(html_docs) * page_ratio))
     remove_everywhere = {t for t, pages in pages_with.items() if len(pages) >= threshold}
     keep_in: dict[str, str] = {
-        t: min(pages, key=lambda d: (len(d.url), d.url)).doc_id
+        t: min(pages, key=_landing_page_rank).doc_id
         for t, pages in pages_with.items() if keep_once_min <= len(pages) < threshold
     }
     if not remove_everywhere and not keep_in:

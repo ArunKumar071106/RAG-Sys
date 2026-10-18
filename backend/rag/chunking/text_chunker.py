@@ -152,7 +152,7 @@ class StructureAwareChunker:
                     chunk_index=index,
                     content_hash=content_hash,
                     duplicate_urls=duplicate_urls or [],
-                    metadata={"content_type": doc.content_type, "fetched_at": doc.fetched_at},
+                    metadata={"content_type": doc.content_type, "fetched_at": doc.fetched_at, "kind": doc.kind},
                 )
             )
         return chunks

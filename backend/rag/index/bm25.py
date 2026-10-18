@@ -59,6 +59,32 @@ class BM25Index:
     def __len__(self) -> int:
         return len(self.ids)
 
+    def weighted_overlap(self, query: str, text: str) -> float:
+        """IDF-weighted share of the query's terms that occur in ``text`` (e.g. a page title)."""
+        terms = set(tokenize(query))
+        if not terms or self._bm25 is None:
+            return 0.0
+        max_idf = max(self._bm25.idf.values(), default=1.0)
+        words = set(tokenize(text))
+        weight = {t: max(self._bm25.idf.get(t, max_idf), 0.05) for t in terms}
+        return sum(w for t, w in weight.items() if t in words) / sum(weight.values())
+
+    def coverage(self, query: str, doc_id: str) -> float:
+        """Share of the query's IDF weight whose terms occur in the document (0..1).
+
+        Rare, meaningful terms ("hostel", "moon") weigh more than common ones ("college");
+        terms that occur nowhere in the corpus get the maximum weight.
+        """
+        terms = set(tokenize(query))
+        if not terms or self._bm25 is None:
+            return 0.0
+        if not hasattr(self, "_sets"):
+            self._sets = {i: set(t) for i, t in zip(self.ids, self.tokens)}
+            self._max_idf = max(self._bm25.idf.values(), default=1.0)
+        doc = self._sets.get(doc_id, set())
+        weight = {t: max(self._bm25.idf.get(t, self._max_idf), 0.05) for t in terms}
+        return sum(w for t, w in weight.items() if t in doc) / sum(weight.values())
+
     def search(self, query: str, limit: int) -> list[tuple[str, float]]:
         if self._bm25 is None:
             return []

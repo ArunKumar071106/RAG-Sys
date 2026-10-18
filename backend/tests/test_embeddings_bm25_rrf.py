@@ -90,3 +90,11 @@ def test_rrf_weights_duplicates_and_validation():
     with pytest.raises(ValueError):
         reciprocal_rank_fusion([["a"]], weights=[1, 2])
     assert reciprocal_rank_fusion([]) == []
+
+
+def test_coverage_weights_rare_terms():
+    index = BM25Index.build([("a", "college hostel for boys"), ("b", "college library"), ("c", "college bus"), ("d", "college canteen")])
+    assert index.coverage("hostel college", "a") == pytest.approx(1.0)
+    assert index.coverage("hostel college", "b") < 0.2  # only the common word matches
+    assert index.coverage("moon college", "a") < 0.2  # unseen terms carry the most weight
+    assert index.weighted_overlap("contact details", "Contact Us") > 0

@@ -65,6 +65,7 @@ class PageDocument(BaseModel):
     content_hash: str = ""
     content_type: str = "text/html"
     fetched_at: str = ""
+    kind: str = "page"  # page | section | news | document (from the CMS page type)
 
 
 class TextChunk(BaseModel):

@@ -102,6 +102,15 @@ def _humanize_filename(name: str) -> str:
     return re.sub(r"\s+", " ", stem).strip()
 
 
+def _looks_like_header(first: list[str], rest: list[list[str]]) -> bool:
+    """A first table row of short, digit-free labels above rows with the same number of cells
+    (e.g. "Department | INTAKE" over "CIVIL ENGINEERING | 60") is a header row."""
+    if len(first) < 2 or any(not v or len(v) > 40 or re.search(r"\d", v) for v in first):
+        return False
+    same_width = [r for r in rest if len(r) == len(first)]
+    return len(same_width) >= max(1, len(rest) // 2) and any(re.search(r"\d", v) for r in same_width for v in r)
+
+
 class _Walker:
     def __init__(self, page_url: str, page_title: str, allowed_domains: list[str]):
         self.page_url = page_url
@@ -235,6 +244,8 @@ class _Walker:
             else:
                 rows.append(values)
         self._collect_inline(table)
+        if not header and len(rows) >= 2 and _looks_like_header(rows[0], rows[1:]):
+            header, rows = rows[0], rows[1:]  # header row written with <td> cells
         if not rows and header:
             rows, header = [header], []
         if not rows:
@@ -375,6 +386,7 @@ def extract_html(html: str, url: str, allowed_domains: list[str], fetched_at: st
     soup = BeautifulSoup(html, "lxml")
     _decode_cf_emails(soup)
     title = _page_title(soup)
+    kind = page_kind(soup)
     url = normalize_url(url)
 
     # Links from the whole page (including nav) are useful for crawl metadata,
@@ -407,7 +419,27 @@ def extract_html(html: str, url: str, allowed_domains: list[str], fetched_at: st
         content_hash=sha256_text(content),
         content_type="text/html",
         fetched_at=fetched_at,
+        kind=kind,
     )
+
+
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_PHONE_RE = re.compile(r"(?:\+?\d[\d\s-]{8,}\d)")
+_PIN_RE = re.compile(r"\b\d{3}\s?\d{3}\b")
+
+
+def _label_contact_line(text: str) -> str:
+    """Footers show contact details next to icons; add the word the icon stands for."""
+    bare = text.lstrip("-• ").strip()
+    if re.match(r"(?i)(e-?mail|phone|tel|mobile|address|call)\b", bare):
+        return text
+    if _EMAIL_RE.fullmatch(bare):
+        return f"Email: {bare}"
+    if _PHONE_RE.fullmatch(bare.replace(",", " ").replace(" ", "")) or re.fullmatch(r"[\d\s,+-]{10,}", bare):
+        return f"Phone: {bare}"
+    if _PIN_RE.search(bare) and re.search(r"[A-Za-z]{3,}", bare) and len(bare) < 140:
+        return f"Address: {bare}"
+    return text
 
 
 def extract_site_chrome(html: str, url: str, allowed_domains: list[str], fetched_at: str = "") -> PageDocument | None:
@@ -450,6 +482,7 @@ def extract_site_chrome(html: str, url: str, allowed_domains: list[str], fetched
         blocks.append(block.model_copy(update={"heading_path": ["Website header and footer"]}))
     if not blocks:
         return None
+    blocks = [b.model_copy(update={"text": _label_contact_line(b.text)}) for b in blocks]
     title = "Website header and footer"
     blocks.insert(0, Block(type="heading", text=title, level=1, heading_path=[title]))
     return PageDocument(
@@ -461,6 +494,16 @@ def extract_site_chrome(html: str, url: str, allowed_domains: list[str], fetched
         content_type="text/html",
         fetched_at=fetched_at,
     )
+
+
+def page_kind(soup: BeautifulSoup) -> str:
+    """Page type from the CMS body classes (WordPress: "single-post", "page", "single-<type>")."""
+    classes = set((soup.body.get("class") if soup.body else None) or [])
+    if "single-post" in classes or "post-template-default" in classes:
+        return "news"
+    if any(c.startswith("single-") for c in classes):
+        return "section"  # custom post types such as department or lab pages
+    return "page"
 
 
 def _dedupe_images(images: list[ImageRef]) -> list[ImageRef]:
@@ -495,6 +538,7 @@ def extract_pdf_text(text: str, url: str, title: str, fetched_at: str = "") -> P
         content_hash=sha256_text(content),
         content_type="application/pdf",
         fetched_at=fetched_at,
+        kind="document",
     )
 
 

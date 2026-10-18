@@ -128,20 +128,49 @@ def test_site_chrome_keeps_header_footer_facts_but_not_menus():
     <footer><h3>Contact</h3><p>Kamarajar Educational Road, Amathur - 626 005</p><p>04562-251111</p></footer></body></html>"""
     doc = extract_site_chrome(html, "https://college.example/", ALLOWED)
     texts = [b.text for b in doc.blocks if b.type == "text"]
-    assert texts == ["COUNSELLING CODE : 4680", "Kamarajar Educational Road, Amathur - 626 005", "04562-251111"]
+    assert texts == ["COUNSELLING CODE : 4680", "Address: Kamarajar Educational Road, Amathur - 626 005", "Phone: 04562-251111"]
     assert doc.doc_id != extract_html(html, "https://college.example/", ALLOWED).doc_id
     assert "Page body" not in texts and "Home" not in " ".join(texts)
 
 
-def test_section_repeated_blocks_kept_once_on_shortest_url():
+def test_section_repeated_blocks_kept_once_on_landing_page():
     pages = []
     for i in range(10):
         dept = i < 6  # six department pages share a sidebar intro; four other pages don't
-        url = "https://college.example/cse/" + ("" if i == 0 else f"page-{i}/") if dept else f"https://college.example/other-{i}/"
+        url = "https://college.example/cse/" + ("about-department/" if i == 3 else f"p{i}/") if dept else f"https://college.example/other-{i}/"
         intro = "<p>The CSE department was established in 2013 with modern labs.</p>" if dept else ""
         pages.append(extract_html(f"<html><body><main><h1>P{i}</h1>{intro}<p>Unique {i}</p><p>{i}</p></main></body></html>", url, ALLOWED))
     cleaned = remove_repeated_blocks(pages, page_ratio=0.8, keep_once_min=5)
     holders = [d.url for d in cleaned if any("established in 2013" in b.text for b in d.blocks)]
-    assert holders == ["https://college.example/cse/"]
+    assert holders == ["https://college.example/cse/about-department/"]  # not the shorter /cse/p1/
     assert all(any(b.text == f"Unique {i}" for b in d.blocks) for i, d in enumerate(cleaned))
     assert not any(b.text.isdigit() for d in cleaned for b in d.blocks)
+
+
+def test_header_row_written_with_td_cells_is_detected():
+    html = """<html><body><main><h2>B.E. Courses</h2><table>
+      <tr><td>Department</td><td>INTAKE</td></tr>
+      <tr><td>CIVIL ENGINEERING</td><td>60</td></tr><tr><td>COMPUTER SCIENCE AND ENGINEERING</td><td>180</td></tr>
+    </table></main></body></html>"""
+    table = next(b for b in extract_html(html, BASE, ALLOWED).blocks if b.type == "table")
+    assert table.rows == ["Department: CIVIL ENGINEERING | INTAKE: 60", "Department: COMPUTER SCIENCE AND ENGINEERING | INTAKE: 180"]
+
+
+def test_contact_lines_get_labels():
+    from rag.extraction.html_extractor import _label_contact_line
+
+    assert _label_contact_line("- enquiry@aaacet.ac.in") == "Email: enquiry@aaacet.ac.in"
+    assert _label_contact_line("- 04562-251111, 18004258807") == "Phone: 04562-251111, 18004258807"
+    assert _label_contact_line("Kamarajar Educational Road, Amathur - 626 005") == "Address: Kamarajar Educational Road, Amathur - 626 005"
+    assert _label_contact_line("Phone: 123 456 7890") == "Phone: 123 456 7890"
+    assert _label_contact_line("COUNSELLING CODE : 4680") == "COUNSELLING CODE : 4680"
+
+
+def test_page_kind_from_wordpress_body_classes():
+    def kind(cls):
+        return extract_html(f"<html><body class='{cls}'><main><p>Text here.</p></main></body></html>", BASE, ALLOWED).kind
+
+    assert kind("wp-singular post-template-default single single-post") == "news"
+    assert kind("wp-singular cse-template-default single single-cse") == "section"
+    assert kind("wp-singular page-template-default page") == "page"
+    assert extract_pdf_text("x", "https://college.example/a.pdf", "").kind == "document"

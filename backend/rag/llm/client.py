@@ -105,27 +105,44 @@ class ExtractiveAnswerer:
                 out.extend(split_sentences(line))
         return out
 
+    def __init__(self, term_weight=None):
+        # term_weight(token) -> importance (e.g. BM25 IDF); rare terms decide which sentence is quoted
+        self.term_weight = term_weight or (lambda token: 1.0)
+
     def answer(self, question: str, chunks: list[RetrievedChunk], max_sources: int = 3, per_source: int = 2,
-               max_lines: int = 5) -> str:
+               max_lines: int = 6, max_table_rows: int = 12) -> str:
         q = set(tokenize(question))
         lines: list[str] = []
         seen: set[str] = set()
         for i, chunk in enumerate(chunks[:max_sources], start=1):
             candidates = []
             local: set[str] = set()
-            for position, sentence in enumerate(self._sentences(chunk.text)):
+            sentences = self._sentences(chunk.text)
+            for position, sentence in enumerate(sentences):
                 key = re.sub(r"\W+", " ", sentence.lower()).strip()
                 if len(sentence) < 15 or key in seen or key in local:
                     continue
                 local.add(key)
-                overlap = len(q.intersection(tokenize(sentence)))
-                if overlap:
-                    candidates.append((-overlap, position, key, sentence))
+                score = sum(self.term_weight(t) for t in q.intersection(tokenize(sentence)))
+                if score > 0:
+                    candidates.append((-score, position, key, sentence))
             candidates.sort()
-            for _, _, key, sentence in candidates[:per_source]:
+            picked = candidates[:per_source]
+            if picked and " | " in picked[0][3]:
+                # a matching table row: quote the table's rows rather than one isolated line
+                rows = [x for x in sentences if " | " in x][:max_table_rows]
+                for row in rows:
+                    key = re.sub(r"\W+", " ", row.lower()).strip()
+                    if key not in seen:
+                        seen.add(key)
+                        lines.append(f"- {row} [S{i}]")
+                picked = [c for c in picked if " | " not in c[3]]
+            for _, _, key, sentence in picked:
                 seen.add(key)
                 lines.append(f"- {sentence} [S{i}]")
-        return "\n".join(lines[:max_lines])
+            if len(lines) >= max_lines:
+                break
+        return "\n".join(lines)
 
 
 def anthropic_credentials_present() -> bool:

@@ -82,15 +82,30 @@ class HybridRetriever:
         floor = s.text_min_semantic_score
         sem_rank = {cid: (i + 1, score) for i, (cid, score) in enumerate(semantic)}
         bm_rank = {cid: (i + 1, score) for i, (cid, score) in enumerate(keyword)}
-        fused = reciprocal_rank_fusion([[c for c, _ in semantic], [c for c, _ in keyword]], k=s.rrf_k)
+        # Third ranking: how much of the question's (IDF-weighted) vocabulary each candidate contains.
+        candidates = list(dict.fromkeys([c for c, _ in semantic] + [c for c, _ in keyword]))
+        coverage = {cid: self.bm25_text.coverage(query, cid) for cid in candidates}
+        by_coverage = sorted(candidates, key=lambda c: -coverage[c])
+        # Field boost: the question's terms in the page title / section headings ("Contact Us").
+        def title_text(cid: str) -> str:
+            chunk = self.corpus.chunks[cid]
+            return " ".join([chunk.page_title.split(" – ")[0].split(" | ")[0], *chunk.heading_path])
+        title_match = {cid: self.bm25_text.weighted_overlap(query, title_text(cid)) for cid in candidates}
+        fused = reciprocal_rank_fusion([[c for c, _ in semantic], [c for c, _ in keyword], by_coverage], k=s.rrf_k)
+        # Tie-breakers, not ranking lists: a mild prior by page type (official pages over news
+        # posts) and a small boost when the question's terms appear in the page title/headings.
+        weights = s.kind_weights
+        fused = sorted(((cid, score * weights.get(self.corpus.chunks[cid].metadata.get("kind", "page"), 1.0)
+                         * (1.0 + s.title_boost * title_match[cid])) for cid, score in fused), key=lambda x: -x[1])
 
         results: list[RetrievedChunk] = []
         seen_hashes: set[str] = set()
         for cid, score in fused:
             sem = sem_rank.get(cid)
             bm = bm_rank.get(cid)
-            if bm is None and (sem is None or sem[1] < floor):
-                continue
+            semantic_ok = sem is not None and sem[1] >= floor
+            if not semantic_ok and (bm is None or coverage[cid] < s.min_query_coverage):
+                continue  # weak lexical overlap and no semantic support
             chunk = self.corpus.chunks[cid]
             if chunk.content_hash in seen_hashes:
                 continue
