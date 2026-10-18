@@ -65,6 +65,38 @@ class BgeM3Embedder:
         return self.embed_documents([text])[0]
 
 
+class FastEmbedEmbedder:
+    """BGE embeddings through FastEmbed (ONNX Runtime, no PyTorch); a light semantic option.
+
+    Uses ``query_embed`` for questions, which adds BGE's retrieval instruction prefix.
+    """
+
+    def __init__(self, model_name: str = "BAAI/bge-base-en-v1.5", cache_dir: str | None = None, model=None):
+        if model is None:
+            try:
+                from fastembed import TextEmbedding  # type: ignore
+            except ImportError as exc:
+                raise MissingMLExtras("EMBEDDING_PROVIDER=fastembed needs: pip install fastembed") from exc
+            model = TextEmbedding(model_name, cache_dir=cache_dir)
+        self.model = model
+        self.name = f"fastembed:{model_name}"
+        self.dim = len(next(iter(self.model.embed(["dimension probe"]))))
+
+    @staticmethod
+    def _normalise(vectors) -> np.ndarray:
+        arr = np.asarray(list(vectors), dtype=np.float32)
+        norms = np.linalg.norm(arr, axis=1, keepdims=True)
+        return arr / np.where(norms == 0, 1, norms)
+
+    def embed_documents(self, texts: list[str]) -> np.ndarray:
+        if not texts:
+            return np.zeros((0, self.dim), dtype=np.float32)
+        return self._normalise(self.model.embed(texts))
+
+    def embed_query(self, text: str) -> np.ndarray:
+        return self._normalise(self.model.query_embed([text]))[0]
+
+
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 
@@ -113,12 +145,25 @@ class HashingEmbedder:
 
 
 def get_embedder(settings) -> Embedder:
+    """Best available embedder for the requested provider.
+
+    ``bge-m3`` falls back to FastEmbed (BGE-base, no PyTorch) when the ML extras are not
+    installed, and to the offline hashing embedder when no model can be loaded, so the app
+    always starts. The index records which embedder built it and rebuilds automatically
+    when that changes.
+    """
     if settings.embedding_provider == "hashing":
         return HashingEmbedder(settings.hashing_dim)
+    if settings.embedding_provider == "fastembed":
+        return FastEmbedEmbedder(settings.fastembed_model, settings.fastembed_cache_dir or None)
     try:
         return BgeM3Embedder(settings.embedding_model, settings.embedding_device, settings.embedding_batch_size)
     except MissingMLExtras:
-        # Keep the app usable out of the box; a wrong model path etc. still fails loudly.
-        log.warning("EMBEDDING_PROVIDER=bge-m3 but sentence-transformers is not installed; using the offline hashing "
-                    "embedder. Install backend/requirements-ml.txt for BGE-M3 semantic search (the index rebuilds automatically).")
+        log.warning("BGE-M3 needs the ML extras (backend/requirements-ml.txt); trying FastEmbed %s instead",
+                    settings.fastembed_model)
+    try:
+        return FastEmbedEmbedder(settings.fastembed_model, settings.fastembed_cache_dir or None)
+    except Exception as exc:  # not installed, or the model could not be downloaded
+        log.warning("No semantic embedding model available (%s); using the offline hashing embedder "
+                    "(keyword-style retrieval only).", exc)
         return HashingEmbedder(settings.hashing_dim)

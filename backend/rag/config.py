@@ -64,7 +64,9 @@ class Settings(BaseSettings):
     vision_max_images: int = 300
 
     # ---- embeddings ----------------------------------------------------
-    embedding_provider: Literal["bge-m3", "hashing"] = "bge-m3"
+    embedding_provider: Literal["bge-m3", "fastembed", "hashing"] = "bge-m3"
+    fastembed_model: str = "BAAI/bge-base-en-v1.5"
+    fastembed_cache_dir: str = ""
     embedding_model: str = "BAAI/bge-m3"
     embedding_device: str = "cpu"
     embedding_batch_size: int = 16

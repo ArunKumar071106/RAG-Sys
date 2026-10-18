@@ -43,15 +43,42 @@ def test_get_embedder_selects_provider(settings):
     assert isinstance(get_embedder(settings), HashingEmbedder)
 
 
-def test_bge_m3_without_ml_extras_falls_back_to_hashing(settings, monkeypatch):
+def test_bge_m3_falls_back_to_fastembed_then_hashing(settings, monkeypatch):
     import rag.embeddings.base as emb
 
     def missing(*args, **kwargs):
         raise emb.MissingMLExtras("sentence-transformers not installed")
 
+    class FakeFastEmbed:
+        def __init__(self, *args, **kwargs):
+            self.name, self.dim = "fastembed:fake", 3
+
     monkeypatch.setattr(emb, "BgeM3Embedder", missing)
+    monkeypatch.setattr(emb, "FastEmbedEmbedder", FakeFastEmbed)
     settings.embedding_provider = "bge-m3"
+    assert isinstance(get_embedder(settings), FakeFastEmbed)
+
+    def offline(*args, **kwargs):
+        raise ValueError("Could not load model from any source")
+
+    monkeypatch.setattr(emb, "FastEmbedEmbedder", offline)
     assert isinstance(get_embedder(settings), HashingEmbedder)
+
+
+def test_fastembed_wrapper_uses_query_prefix_and_normalises():
+    from rag.embeddings.base import FastEmbedEmbedder
+
+    class FakeModel:
+        def embed(self, texts):
+            return (np.array([3.0, 4.0]) for _ in texts)
+
+        def query_embed(self, texts):
+            return (np.array([0.0, 2.0]) for _ in texts)
+
+    emb = FastEmbedEmbedder("BAAI/bge-base-en-v1.5", model=FakeModel())
+    assert emb.dim == 2 and emb.name == "fastembed:BAAI/bge-base-en-v1.5"
+    assert np.allclose(emb.embed_documents(["a", "b"]), [[0.6, 0.8], [0.6, 0.8]])
+    assert np.allclose(emb.embed_query("q"), [0.0, 1.0])
 
 
 # ---------------------------------------------------------------- BM25
