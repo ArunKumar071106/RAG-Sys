@@ -141,3 +141,29 @@ def test_logo_on_every_page_marked_boilerplate(tmp_path):
     run_image_stage(settings, downloader=dl)
     [record] = list(read_jsonl(settings.images_file, ImageRecord))
     assert record.status == "boilerplate"
+
+
+def test_interrupted_image_downloads_resume_from_journal(tmp_path):
+    from rag.images.stage import run_image_stage
+    from rag.models import ImageRef, PageDocument
+    from rag.utils import write_jsonl
+    from tests.conftest import make_settings
+
+    settings = make_settings(tmp_path / "data", crawl_allowed_domains=["c.example"])
+    settings.ensure_dirs()
+    refs = [ImageRef(url=f"https://c.example/{i}.png", alt=f"photo {i}", source_page="https://c.example/p") for i in range(3)]
+    write_jsonl(settings.documents_file, [PageDocument(doc_id="p", url="https://c.example/p", title="P", content_hash="h", images=refs)])
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(200, content=png_bytes(color=["red", "green", "blue"][int(str(request.url)[-5])]))
+
+    def downloader():
+        return ImageDownloader(settings.images_dir, 1_000_000, 80, client=httpx.Client(transport=httpx.MockTransport(handler)), retries=0)
+
+    run_image_stage(settings, downloader=downloader())
+    assert len(calls) == 3
+    settings.images_file.unlink()  # simulate a run killed before records were written
+    run_image_stage(settings, downloader=downloader())
+    assert len(calls) == 3  # nothing downloaded twice

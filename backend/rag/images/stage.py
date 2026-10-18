@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from rag.config import Settings
-from rag.images.downloader import ImageDownloader, hamming
+from rag.images.downloader import DownloadResult, ImageDownloader, hamming
 from rag.images.image_chunker import build_image_chunk, extract_keywords, has_searchable_evidence
 from rag.images.ocr import get_ocr_engine
 from rag.images.vision import get_vision_describer
@@ -73,6 +76,36 @@ def run_image_stage(settings: Settings, downloader: ImageDownloader | None = Non
     vision = get_vision_describer(settings.vision_enabled, settings.vision_model)
     described = 0
 
+    def reusable(prev: ImageRecord | None) -> bool:
+        return bool(prev and prev.status == "ok" and prev.local_path and (settings.images_dir / prev.local_path).exists())
+
+    # Downloads are network-bound: fetch in a few parallel workers, then process in order.
+    # Each result is appended to a journal as it completes, so an interrupted run resumes
+    # instead of downloading everything again.
+    journal = settings.processed_dir / "image_downloads.jsonl"
+    fetched: dict[str, DownloadResult] = {}
+    if journal.exists():
+        for line in journal.read_text(encoding="utf-8").splitlines():
+            try:
+                row = json.loads(line)
+                result = DownloadResult(**row["result"])
+            except (ValueError, KeyError, TypeError):
+                continue
+            if result.status != "ok" or (settings.images_dir / result.local_path).exists():
+                fetched[row["url"]] = result
+    to_fetch = [r.url for r in refs if not reusable(previous.get(r.url)) and r.url not in fetched]
+    if to_fetch:
+        log.info("Downloading %d images with %d workers (%d already done)", len(to_fetch),
+                 settings.image_download_workers, len(fetched))
+        with ThreadPoolExecutor(max_workers=settings.image_download_workers) as pool, \
+                journal.open("a", encoding="utf-8") as jf:
+            for i, (url, result) in enumerate(zip(to_fetch, pool.map(downloader.download, to_fetch)), start=1):
+                fetched[url] = result
+                jf.write(json.dumps({"url": url, "result": dataclasses.asdict(result)}) + "\n")
+                if i % 100 == 0:
+                    jf.flush()
+                    log.info("Downloaded %d/%d images", i, len(to_fetch))
+
     records: list[ImageRecord] = []
     by_sha: dict[str, ImageRecord] = {}
     ok_records: list[ImageRecord] = []
@@ -80,13 +113,13 @@ def run_image_stage(settings: Settings, downloader: ImageDownloader | None = Non
         for ref in refs:
             record = _record_from_ref(ref, pages.get(ref.url, []))
             prev = previous.get(ref.url)
-            local_ok = prev is not None and prev.status == "ok" and prev.local_path and (settings.images_dir / prev.local_path).exists()
+            local_ok = reusable(prev)
             if local_ok:
                 for field in ("local_path", "sha256", "ahash", "mime_type", "width", "height", "file_size",
                               "ocr_text", "ocr_confidence", "description", "description_model"):
                     setattr(record, field, getattr(prev, field))
             else:
-                result = downloader.download(ref.url)
+                result = fetched.get(ref.url) or downloader.download(ref.url)
                 record.status = result.status  # type: ignore[assignment]
                 record.error = result.error
                 for field in ("local_path", "sha256", "ahash", "mime_type", "width", "height", "file_size"):

@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     image_download_timeout: int = 30
     image_max_count: int = 1500
     image_allowed_domains: CsvList = []  # extra image/CDN hosts besides the crawl domains
+    image_download_workers: int = 3
     ocr_engine: Literal["rapidocr", "tesseract", "none"] = "rapidocr"
     ocr_min_confidence: float = 0.6
     vision_enabled: bool = False
