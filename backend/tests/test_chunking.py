@@ -100,3 +100,26 @@ def test_demo_pipeline_chunks_have_required_fields(pipeline):
     for c in chunks:
         assert c.chunk_id and c.doc_id and c.url.startswith("http") and c.page_title and c.content_hash
         assert c.token_count <= pipeline.settings.chunk_size_tokens + pipeline.settings.chunk_overlap_tokens + 20
+
+
+@pytest.mark.parametrize("n_long", [1, 3])
+def test_tiny_trailing_piece_is_folded_into_previous(n_long):
+    """Regression: the fold indexed the list after pop(), which crashed with two pieces and,
+    with more, silently overwrote a piece (found on a real department page)."""
+    chunker = StructureAwareChunker(chunk_size=60, overlap=10, min_tokens=20)
+    budget = 60 - count_tokens("## Lab")
+
+    def sentence(i):  # one sentence that fits a piece on its own, but not together with another
+        words = [f"Fact{i}"]
+        while count_tokens(" ".join(words) + ".") < budget - 2:
+            words.append("equipment")
+        return " ".join(words) + "."
+
+    longs = [sentence(i) for i in range(n_long)]
+    blocks = [h("Lab", 1, ["Lab"])] + [t(x, ["Lab"]) for x in longs] + [t("Short end.", ["Lab"])]
+    chunks = chunker.chunk_document(doc(blocks))
+    joined = "\n".join(c.text for c in chunks)
+    assert len(chunks) == n_long
+    assert chunks[-1].text.endswith("Short end.") and joined.count("Short end.") == 1
+    for i in range(n_long):
+        assert joined.count(f"Fact{i} ") == 1  # every piece kept exactly once

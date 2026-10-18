@@ -30,7 +30,11 @@ def _print(data) -> None:
 
 
 def cmd_stage(args, settings) -> int:
-    from rag.pipeline import run_pipeline
+    from rag.pipeline import run_crawl_subprocess, run_pipeline
+
+    if args.command == "crawl" and getattr(args, "urls", None):
+        run_crawl_subprocess(settings, str(Path(args.urls).resolve()))
+        return 0
 
     stages = {"all": ("crawl", "extract", "images", "chunk", "index")}.get(args.command, (args.command,))
     if args.command == "all" and args.skip_crawl:
@@ -115,7 +119,9 @@ def cmd_demo(args, settings) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="rag", description="AAACET multimodal RAG pipeline")
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("crawl", "extract", "images", "chunk"):
+    p = sub.add_parser("crawl")
+    p.add_argument("--urls", help="file with one URL per line: fetch only these pages and merge them into the crawl")
+    for name in ("extract", "images", "chunk"):
         sub.add_parser(name)
     p = sub.add_parser("index")
     p.add_argument("--full", action="store_true", help="drop and rebuild collections")

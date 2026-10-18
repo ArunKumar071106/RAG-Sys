@@ -15,9 +15,11 @@ log = logging.getLogger(__name__)
 STAGES = ("crawl", "extract", "images", "chunk", "index")
 
 
-def run_crawl_subprocess(settings: Settings) -> None:
+def run_crawl_subprocess(settings: Settings, urls_file: str | None = None) -> None:
     """Scrapy's reactor can't restart in-process, so crawls always run in a child process."""
     env = dict(os.environ)
+    if urls_file:
+        env["RAG_CRAWL_URLS_FILE"] = urls_file
     env["DATA_DIR"] = str(settings.data_dir)
     env["CRAWL_START_URLS"] = ",".join(settings.crawl_start_urls)
     env["CRAWL_ALLOWED_DOMAINS"] = ",".join(settings.crawl_allowed_domains)

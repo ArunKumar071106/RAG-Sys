@@ -15,6 +15,9 @@ def test_spider_url_filter():
     assert not spider._should_follow("https://aaaenggcoll.ac.in/category/news/")
     assert not spider._should_follow("https://aaaenggcoll.ac.in/latest-updates/page/3/")
     assert not spider._should_follow("https://aaaenggcoll.ac.in/cdn-cgi/l/email-protection")
+    for archive in ("2025/", "2025/10/", "2021/04/02/"):  # WordPress date archives
+        assert not spider._should_follow(f"https://aaaenggcoll.ac.in/{archive}")
+    assert spider._should_follow("https://aaaenggcoll.ac.in/2025-batch-results/")
     no_pdf = AaacetSpider(start_urls=[], allowed_domains=["aaaenggcoll.ac.in"], include_pdfs=False)
     assert not no_pdf._should_follow("https://aaaenggcoll.ac.in/notice.pdf")
 
@@ -32,3 +35,26 @@ def test_crawl_of_demo_site(pipeline):
     assert pdf["content_type"] == "application/pdf" and "anti-ragging" in pdf["text"]
     status = json.loads(pipeline.settings.status_file.read_text())
     assert status["crawl"]["state"] == "finished" and status["crawl"]["pages"] == len(pages)
+
+
+def test_sitemap_priority_puts_main_pages_first():
+    p = AaacetSpider._sitemap_priority
+    assert p("https://x/wp-sitemap-posts-page-1.xml") > p("https://x/wp-sitemap-posts-cse-1.xml") > p("https://x/wp-sitemap-posts-post-1.xml")
+
+
+def test_crawl_specific_urls_merges_into_existing_pages(pipeline, tmp_path):
+    import shutil
+
+    from rag.pipeline import run_crawl_subprocess
+    from tests.conftest import make_settings
+
+    settings = make_settings(tmp_path / "data", crawl_start_urls=[pipeline.base_url + "/"])
+    settings.ensure_dirs()
+    original = [json.loads(line) for line in pipeline.settings.pages_file.read_text().splitlines()]
+    kept = [p for p in original if not p["url"].endswith("/contact.html")]
+    settings.pages_file.write_text("".join(json.dumps(p) + "\n" for p in kept))
+    urls = tmp_path / "urls.txt"
+    urls.write_text(pipeline.base_url + "/contact.html\n")
+    run_crawl_subprocess(settings, str(urls))
+    merged = {json.loads(line)["url"] for line in settings.pages_file.read_text().splitlines()}
+    assert merged == {p["url"] for p in original}  # the missing page is back, nothing else lost or added

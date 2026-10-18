@@ -27,7 +27,9 @@ SKIP_EXT_RE = re.compile(
 SKIP_PATH_RE = re.compile(
     r"/(wp-admin|wp-login|wp-json|feed|xmlrpc|cgi-bin|cdn-cgi|login|logout|cart|checkout)(/|$)|[?&](replytocom|share)=|"
     # archive listings only repeat post excerpts; the posts themselves are crawled
-    r"/(category|tag|author)/|/page/\d+/?$",
+    r"/(category|tag|author)/|/page/\d+/?$|"
+    # WordPress date archives: /2025/ /2025/10/ /2025/10/17/
+    r"^https?://[^/]+/\d{4}/(\d{2}/){0,2}$",
     re.I,
 )
 
@@ -36,7 +38,8 @@ class AaacetSpider(scrapy.Spider):
     name = "aaacet"
 
     def __init__(self, start_urls: list[str], allowed_domains: list[str], max_pages: int = 3000,
-                 include_pdfs: bool = True, max_pdf_bytes: int = 15 * 1024 * 1024, use_sitemaps: bool = True, **kwargs):
+                 include_pdfs: bool = True, max_pdf_bytes: int = 15 * 1024 * 1024, use_sitemaps: bool = True,
+                 follow_links: bool = True, **kwargs):
         super().__init__(**kwargs)
         self.start_urls = start_urls
         self.allowed_domains = allowed_domains
@@ -44,11 +47,12 @@ class AaacetSpider(scrapy.Spider):
         self.include_pdfs = include_pdfs
         self.max_pdf_bytes = max_pdf_bytes
         self.use_sitemaps = use_sitemaps
+        self.follow_links = follow_links
         self.pages_seen = 0
 
     async def start(self):
         for url in self.start_urls:
-            yield scrapy.Request(url, callback=self.parse, meta={"depth": 0})
+            yield scrapy.Request(url, callback=self.parse, meta={"depth": 0}, priority=100)
         if self.use_sitemaps:
             # robots.txt usually names the sitemap; WordPress always serves /wp-sitemap.xml
             for url in self.start_urls:
@@ -66,6 +70,16 @@ class AaacetSpider(scrapy.Spider):
             if is_allowed_host(url, self.allowed_domains):
                 yield scrapy.Request(url, callback=self.parse_sitemap, meta={"depth": 0})
 
+    @staticmethod
+    def _sitemap_priority(sitemap_url: str) -> int:
+        """Main pages first, then other content types (departments, labs), news posts last,
+        so a page cap never cuts off the pages that matter most."""
+        if re.search(r"posts-page-\d+\.xml", sitemap_url):
+            return 50
+        if re.search(r"posts-post-\d+\.xml", sitemap_url):
+            return 0
+        return 20
+
     def parse_sitemap(self, response: Response):
         """Follow sitemap indexes and queue every listed page (pages are still filtered by _should_follow)."""
         from scrapy.utils.sitemap import Sitemap
@@ -82,11 +96,12 @@ class AaacetSpider(scrapy.Spider):
             loc = response.urljoin(loc)
             if sitemap.type == "sitemapindex":
                 if is_allowed_host(loc, self.allowed_domains):
-                    yield scrapy.Request(loc, callback=self.parse_sitemap, meta={"depth": 0})
+                    yield scrapy.Request(loc, callback=self.parse_sitemap, meta={"depth": 0}, priority=90)
             else:
                 url = normalize_url(loc)
                 if self._should_follow(url):
-                    yield scrapy.Request(url, callback=self.parse, meta={"depth": 1})
+                    yield scrapy.Request(url, callback=self.parse, meta={"depth": 1},
+                                         priority=self._sitemap_priority(response.url))
 
     def _should_follow(self, url: str) -> bool:
         if not url.startswith(("http://", "https://")):
@@ -128,6 +143,8 @@ class AaacetSpider(scrapy.Spider):
             "fetched_at": utc_now(),
         }
 
+        if not self.follow_links:
+            return
         for href in response.css("a::attr(href)").getall():
             href = href.strip()
             if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):

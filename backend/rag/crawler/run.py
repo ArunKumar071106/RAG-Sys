@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -23,25 +24,38 @@ log = logging.getLogger(__name__)
 class JsonlWriterPipeline:
     """Scrapy item pipeline that de-duplicates by URL and appends JSONL."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, append: bool = False):
         self.path = Path(path)
+        self.append = append
         self.seen: set[str] = set()
         self.count = 0
         self.fh = None
 
     @classmethod
     def from_crawler(cls, crawler):
-        return cls(crawler.settings.get("RAG_PAGES_FILE"))
+        return cls(crawler.settings.get("RAG_PAGES_FILE"), crawler.settings.getbool("RAG_APPEND"))
 
     def open_spider(self, spider=None):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.tmp = self.path.with_suffix(".jsonl.partial")
         self.fh = self.tmp.open("w", encoding="utf-8")
+        # in append mode, previously crawled pages are merged back in close_spider
 
     def close_spider(self, spider=None):
-        if self.fh:
-            self.fh.close()
-            self.tmp.replace(self.path)
+        if not self.fh:
+            return
+        if self.append and self.path.exists():
+            with self.path.open(encoding="utf-8") as old:
+                for line in old:
+                    try:
+                        url = json.loads(line)["url"]
+                    except (ValueError, KeyError):
+                        continue
+                    if url not in self.seen:
+                        self.seen.add(url)
+                        self.fh.write(line if line.endswith("\n") else line + "\n")
+        self.fh.close()
+        self.tmp.replace(self.path)
 
     def process_item(self, item, spider=None):
         url = item["url"]
@@ -92,10 +106,16 @@ def scrapy_settings(settings: Settings) -> dict:
         "ITEM_PIPELINES": {"rag.crawler.run.JsonlWriterPipeline": 100},
         "RAG_PAGES_FILE": str(settings.pages_file),
         "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        # breadth-first, so pages close to the home page / sitemap come before deep links
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
     }
 
 
-def run_crawl(settings: Settings | None = None) -> int:
+def run_crawl(settings: Settings | None = None, urls: list[str] | None = None) -> int:
+    """Crawl the site, or with ``urls`` fetch just those pages (no link following,
+    no sitemaps) and merge them into the existing pages file."""
     from scrapy.crawler import CrawlerProcess
 
     from rag.crawler.spider import AaacetSpider
@@ -103,16 +123,19 @@ def run_crawl(settings: Settings | None = None) -> int:
     settings = settings or get_settings()
     settings.ensure_dirs()
     update_status(settings.status_file, "crawl", state="running", started_at=utc_now())
-    process = CrawlerProcess(scrapy_settings(settings))
+    options = scrapy_settings(settings)
+    options["RAG_APPEND"] = bool(urls)
+    process = CrawlerProcess(options)
     crawler = process.create_crawler(AaacetSpider)
     process.crawl(
         crawler,
-        start_urls=settings.crawl_start_urls,
+        start_urls=urls or settings.crawl_start_urls,
         allowed_domains=settings.crawl_allowed_domains,
         max_pages=settings.crawl_max_pages,
         include_pdfs=settings.crawl_include_pdfs,
         max_pdf_bytes=settings.crawl_max_pdf_bytes,
-        use_sitemaps=settings.crawl_use_sitemaps,
+        use_sitemaps=settings.crawl_use_sitemaps and not urls,
+        follow_links=not urls,
     )
     process.start()
     stats = crawler.stats.get_stats() if crawler.stats else {}
@@ -133,4 +156,6 @@ def run_crawl(settings: Settings | None = None) -> int:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("scrapy").setLevel(logging.INFO)
-    sys.exit(0 if run_crawl() > 0 else 1)
+    urls_file = os.environ.get("RAG_CRAWL_URLS_FILE")
+    only = [u.strip() for u in Path(urls_file).read_text(encoding="utf-8").splitlines() if u.strip()] if urls_file else None
+    sys.exit(0 if run_crawl(urls=only) > 0 else 1)

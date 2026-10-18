@@ -207,7 +207,8 @@ class StructureAwareChunker:
         # fold a tiny trailing piece back into its predecessor when it fits
         if len(pieces) > 1 and count_tokens(pieces[-1]) < self.min_tokens and \
                 count_tokens(pieces[-2]) + count_tokens(pieces[-1]) <= self.chunk_size + self.overlap:
-            pieces[-2] = pieces[-2] + "\n\n" + pieces.pop()
+            tail = pieces.pop()
+            pieces[-1] = pieces[-1] + "\n\n" + tail
         return [f"{heading}\n\n{p}" if heading else p for p in pieces]
 
     def _overlap_tail(self, current: list[str], next_kind: str) -> str:
