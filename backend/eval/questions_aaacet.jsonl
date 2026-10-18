@@ -1,18 +1,22 @@
-// Sample evaluation questions for the real AAACET site.
-// expected_url_patterns are URL substrings the answer page is EXPECTED to contain.
-// They were written before the site could be crawled from the build environment:
-// after your first crawl, check `python -m rag.cli search "<question>"` and adjust
-// each pattern to the actual official page URL.
-{"question": "What undergraduate engineering courses does AAACET offer?", "expected_url_patterns": ["re:course|department|programme|academic"]}
-{"question": "What is the admission procedure at AAACET?", "expected_url_patterns": ["admission"]}
-{"question": "Which university is AAACET affiliated to?", "expected_url_patterns": ["re:about|affiliat|profile"]}
-{"question": "What is the TNEA counselling code of AAACET?", "expected_url_patterns": ["re:admission|counsel|about"]}
-{"question": "Tell me about placements and recruiters at AAACET", "expected_url_patterns": ["placement"]}
-{"question": "Does the college have hostel facilities?", "expected_url_patterns": ["re:hostel|facilit"], "expected_image_patterns": ["re:hostel"]}
-{"question": "What facilities does the library have?", "expected_url_patterns": ["re:library|facilit"]}
-{"question": "Is transport available for students?", "expected_url_patterns": ["re:transport|facilit|bus"]}
-{"question": "Who is the principal of AAACET?", "expected_url_patterns": ["re:principal|about|administration"]}
-{"question": "What is the contact address and phone number of the college?", "expected_url_patterns": ["contact"]}
-{"question": "Tell me about the Computer Science and Engineering department", "expected_url_patterns": ["re:cse|computer"]}
-{"question": "Is AAACET NAAC accredited?", "expected_url_patterns": ["re:naac|accredit|about|iqac"]}
+// Evaluation questions for the real AAACET website (https://aaaenggcoll.ac.in/).
+// expected_url_patterns are substrings (or "re:" regexes) of the official page(s) that answer
+// each question, taken from the site's sitemap and menu. Run: python -m rag.cli eval
+{"question": "Which B.E. and B.Tech courses does AAACET offer and what is the intake?", "expected_url_patterns": ["/admission/"]}
+{"question": "What is the admission procedure at AAACET?", "expected_url_patterns": ["re:/admission/"]}
+{"question": "What scholarships are available for students?", "expected_url_patterns": ["/admission/"]}
+{"question": "What is the TNEA counselling code of AAACET?", "expected_url_patterns": ["re:aaaenggcoll\\.ac\\.in/$|/admission/"]}
+{"question": "Which university is AAACET affiliated to?", "expected_url_patterns": ["re:/affiliation/|/about-us/|/about-college/|/aaacet-approvals/"]}
+{"question": "When was AAA College of Engineering and Technology established?", "expected_url_patterns": ["re:/about-us/|/about-college/"]}
+{"question": "What is the vision and mission of the college?", "expected_url_patterns": ["re:/about-us/|vision-mission"]}
+{"question": "Tell me about the principal's message", "expected_url_patterns": ["/principal-message/"]}
+{"question": "Does the college have hostel facilities for boys and girls?", "expected_url_patterns": ["/aaa-hostels/"]}
+{"question": "Is college bus transport available?", "expected_url_patterns": ["/aaa-transport/"]}
+{"question": "What facilities does the central library have?", "expected_url_patterns": ["/aaacet-central-library/"]}
+{"question": "What is the contact phone number and email of the college?", "expected_url_patterns": ["re:/contact-us/|aaaenggcoll\\.ac\\.in/$"]}
+{"question": "Tell me about the Computer Science and Engineering department", "expected_url_patterns": ["/cse/"]}
+{"question": "Tell me about the Mechanical Engineering department", "expected_url_patterns": ["/mech/"]}
+{"question": "Which companies recruited students in placements?", "expected_url_patterns": ["re:/placement"]}
+{"question": "What is IQAC at AAACET?", "expected_url_patterns": ["/iqac"]}
+{"question": "Is AAACET accredited by NAAC?", "expected_url_patterns": ["re:/naac/|/iqac|/about|/aaacet-approvals/|aaaenggcoll\\.ac\\.in/$"]}
+{"question": "Show photos of the hostel", "expected_url_patterns": ["/aaa-hostels/"], "expected_image_patterns": ["re:wp-content/uploads"]}
 {"question": "What is the weather on the moon today?", "answerable": false}

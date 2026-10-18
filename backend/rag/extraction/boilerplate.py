@@ -2,32 +2,47 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import defaultdict
 
 from rag.models import PageDocument
 from rag.utils import sha256_text
 
 
-def remove_repeated_blocks(docs: list[PageDocument], page_ratio: float = 0.5, min_pages: int = 3) -> list[PageDocument]:
-    """Remove text blocks that appear on more than ``page_ratio`` of pages.
+def remove_repeated_blocks(docs: list[PageDocument], page_ratio: float = 0.5, min_pages: int = 3,
+                           keep_once_min: int = 5) -> list[PageDocument]:
+    """Clean up text blocks repeated across pages.
 
-    These are typically leftover chrome (address strips, marquee text,
-    "Apply now" banners) that survived per-page chrome stripping.
+    * On more than ``page_ratio`` of all pages: site chrome that survived
+      per-page stripping ("Content is protected", marquee text) - removed everywhere.
+    * On ``keep_once_min`` or more pages (e.g. a department sidebar or intro shown
+      on every page of that department): kept once, on the page with the shortest
+      URL (usually the section's main page), and removed from the others.
+
     Headings are kept so heading paths stay intact; tables are kept because
     repeated tables are rare and usually meaningful.
     """
     html_docs = [d for d in docs if d.content_type == "text/html"]
     if len(html_docs) < min_pages:
         return docs
-    counts: Counter[str] = Counter()
+    pages_with: dict[str, list[PageDocument]] = defaultdict(list)
     for doc in html_docs:
-        counts.update({b.text for b in doc.blocks if b.type == "text"})
+        for text in {b.text for b in doc.blocks if b.type == "text"}:
+            pages_with[text].append(doc)
     threshold = max(min_pages, int(len(html_docs) * page_ratio))
-    repeated = {text for text, n in counts.items() if n >= threshold}
-    if not repeated:
+    remove_everywhere = {t for t, pages in pages_with.items() if len(pages) >= threshold}
+    keep_in: dict[str, str] = {
+        t: min(pages, key=lambda d: (len(d.url), d.url)).doc_id
+        for t, pages in pages_with.items() if keep_once_min <= len(pages) < threshold
+    }
+    if not remove_everywhere and not keep_in:
         return docs
     for doc in html_docs:
-        doc.blocks = [b for b in doc.blocks if not (b.type == "text" and b.text in repeated)]
+        kept = []
+        for b in doc.blocks:
+            if b.type == "text" and (b.text in remove_everywhere or keep_in.get(b.text, doc.doc_id) != doc.doc_id):
+                continue
+            kept.append(b)
+        doc.blocks = kept
         doc.content_hash = sha256_text("\n".join(b.text for b in doc.blocks))
     return docs
 

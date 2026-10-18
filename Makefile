@@ -1,6 +1,7 @@
 PY ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 CHROMIUM ?= /opt/pw-browsers/chromium
+PLAYWRIGHT_CHROMIUM_PATH ?=
 
 .PHONY: install install-ml test test-backend test-frontend e2e demo crawl index all serve dev brand eval
 
@@ -44,5 +45,5 @@ serve:              ## API on :8000
 dev:                ## frontend dev server on :5173
 	cd frontend && npm run dev
 
-brand:              ## measure colours/fonts/logo/menu from the official website
-	$(PY) scripts/extract_brand.py
+brand:              ## measure colours/fonts/logo/menu from the rendered official website
+	cd frontend && PLAYWRIGHT_CHROMIUM_PATH=$(PLAYWRIGHT_CHROMIUM_PATH) node ../scripts/measure_brand.mjs --inner /aaa-hostels/

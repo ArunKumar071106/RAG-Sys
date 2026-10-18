@@ -131,3 +131,17 @@ def test_site_chrome_keeps_header_footer_facts_but_not_menus():
     assert texts == ["COUNSELLING CODE : 4680", "Kamarajar Educational Road, Amathur - 626 005", "04562-251111"]
     assert doc.doc_id != extract_html(html, "https://college.example/", ALLOWED).doc_id
     assert "Page body" not in texts and "Home" not in " ".join(texts)
+
+
+def test_section_repeated_blocks_kept_once_on_shortest_url():
+    pages = []
+    for i in range(10):
+        dept = i < 6  # six department pages share a sidebar intro; four other pages don't
+        url = "https://college.example/cse/" + ("" if i == 0 else f"page-{i}/") if dept else f"https://college.example/other-{i}/"
+        intro = "<p>The CSE department was established in 2013 with modern labs.</p>" if dept else ""
+        pages.append(extract_html(f"<html><body><main><h1>P{i}</h1>{intro}<p>Unique {i}</p><p>{i}</p></main></body></html>", url, ALLOWED))
+    cleaned = remove_repeated_blocks(pages, page_ratio=0.8, keep_once_min=5)
+    holders = [d.url for d in cleaned if any("established in 2013" in b.text for b in d.blocks)]
+    assert holders == ["https://college.example/cse/"]
+    assert all(any(b.text == f"Unique {i}" for b in d.blocks) for i, d in enumerate(cleaned))
+    assert not any(b.text.isdigit() for d in cleaned for b in d.blocks)

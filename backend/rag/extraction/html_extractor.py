@@ -126,7 +126,9 @@ class _Walker:
 
     def _emit_text(self, text: str) -> None:
         text = clean_text(text)
-        if not text or not re.search(r"\w", text):
+        if not text or not re.search(r"[^\W\d_]", text) and len(text) <= 3:
+            return  # empty, punctuation or bare counters ("1", "2")
+        if not re.search(r"\w", text):
             return
         if self.blocks and self.blocks[-1].type == "text" and self.blocks[-1].text == text:
             return
