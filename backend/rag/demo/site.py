@@ -231,6 +231,16 @@ def build_demo_site(root: Path) -> Path:
         "The anti-ragging committee can be reached at 0000-654321.",
         "The college bus pass costs Rs. 18,000 per year.",
     ])
+    # Only reachable through the sitemap: proves sitemap seeding works.
+    (root / "notices" / "holiday-list.html").write_text(_page("Holiday List", """
+<h1>Holiday List 2026</h1><p>The college remains closed for Pongal from 14 January to 17 January.</p>"""), encoding="utf-8")
+    (root / "wp-sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<sitemap><loc>/wp-sitemap-pages.xml</loc></sitemap></sitemapindex>", encoding="utf-8")
+    (root / "wp-sitemap-pages.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<url><loc>/about.html</loc></url><url><loc>/notices/holiday-list.html</loc></url>"
+        "<url><loc>/private/staff.html</loc></url></urlset>", encoding="utf-8")
     (root / "robots.txt").write_text("User-agent: *\nDisallow: /private/\n", encoding="utf-8")
     return root
 

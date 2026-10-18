@@ -23,17 +23,23 @@ export default function App() {
         Skip to the question box
       </a>
       <Header />
-      <div className="page-banner">
+      <div
+        className={`page-banner${brand.banner_image ? " page-banner--image" : ""}`}
+        style={brand.banner_image ? { backgroundImage: `url("${brand.banner_image}")` } : undefined}
+      >
         <div className="container">
-          <h1 className="page-banner__title">Virtual Assistant</h1>
-          <nav aria-label="Breadcrumb">
-            <ol className="breadcrumb">
-              <li>
-                <a href={safeHref(brand.official_url)}>Home</a>
-              </li>
-              <li aria-current="page">Virtual Assistant</li>
-            </ol>
-          </nav>
+          <div className="page-banner__box">
+            <h1 className="page-banner__title">Virtual Assistant</h1>
+            <p className="page-banner__lead">Ask about admissions, departments, placements and campus life - answered from the official website.</p>
+            <nav aria-label="Breadcrumb">
+              <ol className="breadcrumb">
+                <li>
+                  <a href={safeHref(brand.official_url)}>Home</a>
+                </li>
+                <li aria-current="page">Virtual Assistant</li>
+              </ol>
+            </nav>
+          </div>
         </div>
       </div>
       <main className="container page-main">

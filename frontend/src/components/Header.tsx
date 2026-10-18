@@ -1,40 +1,80 @@
-import { useId, useState } from "react";
-import { brand, safeHref } from "../brand";
+import { useEffect, useId, useRef, useState } from "react";
+import { brand, safeHref, type BrandLink } from "../brand";
 
 function Logo() {
   if (brand.logo) {
     return <img className="brand-logo" src={brand.logo} alt={brand.logo_alt} />;
   }
-  // No measured logo yet: a text monogram, not an invented emblem.
+  // No measured logo: a text monogram, never an invented emblem.
   return (
-    <span className="brand-monogram" aria-hidden="true">
-      {brand.short_name}
-    </span>
+    <>
+      <span className="brand-monogram" aria-hidden="true">
+        {brand.short_name}
+      </span>
+      <span className="brandbar__name">{brand.college_name}</span>
+    </>
+  );
+}
+
+function MenuItem({ item }: { item: BrandLink }) {
+  const [open, setOpen] = useState(false);
+  const submenuId = useId();
+  const ref = useRef<HTMLLIElement>(null);
+  const children = (item.children ?? []).filter((c) => safeHref(c.href));
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent ? event.key === "Escape" : !ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
+  if (children.length === 0) {
+    const href = safeHref(item.href);
+    return href ? (
+      <li>
+        <a href={href}>{item.label}</a>
+      </li>
+    ) : null;
+  }
+  return (
+    <li ref={ref} className={`has-submenu${open ? " is-open" : ""}`}>
+      <button type="button" aria-expanded={open} aria-controls={submenuId} onClick={() => setOpen((o) => !o)}>
+        {item.label}
+        <span className="submenu-icon" aria-hidden="true" />
+      </button>
+      <ul id={submenuId} className="submenu">
+        {children.map((child) => (
+          <li key={child.label + child.href}>
+            <a href={safeHref(child.href)}>{child.label}</a>
+          </li>
+        ))}
+      </ul>
+    </li>
   );
 }
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const navId = useId();
-  const { contact } = brand;
+  const buttons = (brand.header_buttons ?? []).filter((b) => safeHref(b.href));
 
   return (
     <header className="site-header">
-      <div className="topbar">
-        <div className="container topbar__inner">
-          <ul className="topbar__contact" aria-label="Contact">
-            {contact.phones.slice(0, 2).map((phone) => (
-              <li key={phone}>
-                <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>
-              </li>
-            ))}
-            {contact.emails.slice(0, 1).map((email) => (
-              <li key={email}>
-                <a href={`mailto:${email}`}>{email}</a>
-              </li>
-            ))}
-          </ul>
-          <ul className="topbar__links" aria-label="Quick links">
+      {brand.header_note && (
+        <p className="header-note header-note--mobile">
+          <span>{brand.header_note}</span>
+        </p>
+      )}
+      {brand.utility_links.length > 0 && (
+        <div className="topbar">
+          <ul className="container topbar__links" aria-label="Quick links">
             {brand.utility_links.map((link) => {
               const href = safeHref(link.href);
               return href ? (
@@ -45,25 +85,28 @@ export function Header() {
             })}
           </ul>
         </div>
-      </div>
+      )}
 
       <div className="brandbar">
         <div className="container brandbar__inner">
           <a className="brandbar__home" href={safeHref(brand.official_url)} aria-label={`${brand.college_name} - official website home`}>
             <Logo />
-            <span className="brandbar__text">
-              <span className="brandbar__name">{brand.college_name}</span>
-              {brand.tagline && <span className="brandbar__tagline">{brand.tagline}</span>}
-            </span>
           </a>
-          {brand.badges.length > 0 && (
-            <ul className="brandbar__badges" aria-label="Accreditations">
-              {brand.badges.map((badge) => (
-                <li key={badge.src}>
-                  <img src={badge.src} alt={badge.alt} />
-                </li>
-              ))}
-            </ul>
+          {(brand.header_note || buttons.length > 0) && (
+            <div className="brandbar__aside">
+              {brand.header_note && <p className="header-note">{brand.header_note}</p>}
+              {buttons.length > 0 && (
+                <ul className="header-buttons" aria-label="Quick links">
+                  {buttons.map((b) => (
+                    <li key={b.label}>
+                      <a className="pill" href={safeHref(b.href)}>
+                        {b.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
           <button
             type="button"
@@ -80,19 +123,19 @@ export function Header() {
 
       <nav className={`mainnav${menuOpen ? " mainnav--open" : ""}`} aria-label="Main">
         <ul id={navId} className="container mainnav__list">
-          {brand.nav.map((item) => {
-            const href = safeHref(item.href);
-            return href ? (
-              <li key={item.label}>
-                <a href={href}>{item.label}</a>
-              </li>
-            ) : null;
-          })}
+          {brand.nav.map((item) => (
+            <MenuItem key={item.label} item={item} />
+          ))}
           <li>
             <a href="#assistant" aria-current="page">
               Virtual Assistant
             </a>
           </li>
+          {buttons.map((b) => (
+            <li key={`m-${b.label}`} className="mainnav__mobile-only">
+              <a href={safeHref(b.href)}>{b.label}</a>
+            </li>
+          ))}
         </ul>
       </nav>
     </header>

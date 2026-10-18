@@ -319,6 +319,29 @@ class _Walker:
         flush()
 
 
+def decode_cf_email(encoded: str) -> str:
+    """Decode a Cloudflare email-protection hex string (first byte is the XOR key)."""
+    try:
+        data = bytes.fromhex(encoded)
+    except ValueError:
+        return ""
+    if len(data) < 2:
+        return ""
+    key = data[0]
+    return bytes(b ^ key for b in data[1:]).decode("utf-8", errors="ignore")
+
+
+def _decode_cf_emails(soup: BeautifulSoup) -> None:
+    """Replace Cloudflare-obfuscated addresses ("[email protected]") with the real text."""
+    for tag in soup.find_all(attrs={"data-cfemail": True}):
+        email = decode_cf_email(str(tag["data-cfemail"]))
+        tag.replace_with(email) if email else tag.decompose()
+    for a in soup.find_all("a", href=re.compile(r"/cdn-cgi/l/email-protection#")):
+        email = decode_cf_email(a["href"].split("#", 1)[1])
+        if email:
+            a["href"] = f"mailto:{email}"
+
+
 def _strip_chrome(root: Tag) -> None:
     for tag in root.find_all(REMOVE_TAGS):
         tag.decompose()
@@ -348,6 +371,7 @@ def _page_title(soup: BeautifulSoup) -> str:
 def extract_html(html: str, url: str, allowed_domains: list[str], fetched_at: str = "") -> PageDocument:
     """Parse one HTML page into a :class:`PageDocument`."""
     soup = BeautifulSoup(html, "lxml")
+    _decode_cf_emails(soup)
     title = _page_title(soup)
     url = normalize_url(url)
 
@@ -379,6 +403,59 @@ def extract_html(html: str, url: str, allowed_domains: list[str], fetched_at: st
         links=list(walker.links.values()),
         images=images,
         content_hash=sha256_text(content),
+        content_type="text/html",
+        fetched_at=fetched_at,
+    )
+
+
+def extract_site_chrome(html: str, url: str, allowed_domains: list[str], fetched_at: str = "") -> PageDocument | None:
+    """Text from the site-wide header and footer (counselling code, address, phones...).
+
+    These facts are stripped from every page as chrome; capturing them once, from the
+    home page, keeps them searchable without repeating them in every chunk. Menus and
+    link lists are dropped - only statements are kept.
+    """
+    soup = BeautifulSoup(html, "lxml")
+    _decode_cf_emails(soup)
+    regions = []
+    for tag in soup.find_all(["header", "footer"]) + soup.find_all(attrs={"role": ["banner", "contentinfo"]}):
+        if tag.find_parent(["header", "footer", "main", "article"]) is None and tag not in regions:
+            regions.append(tag)
+    if not regions:
+        return None
+    url = normalize_url(url)
+    walker = _Walker(url, "Website header and footer", allowed_domains)
+    for region in regions:
+        for tag in region.find_all(list(REMOVE_TAGS) + ["nav", "img"]):
+            tag.decompose()
+        for ul in region.find_all(["ul", "ol"]):
+            if not ul.decomposed and len(ul.find_all("a")) >= 3:
+                ul.decompose()  # menus, quick-link and social lists
+        walker.walk(region)
+    seen: set[str] = set()
+    blocks = []
+    for block in walker.blocks:
+        # headings such as "COUNSELLING CODE : 4680" carry facts; bare labels ("Contact") don't
+        if block.type == "heading" and not re.search(r"\d|:", block.text):
+            continue
+        if block.text in seen or len(block.text) < 4:
+            continue
+        if len(block.text) < 25 and not re.search(r"\d|@", block.text):
+            continue  # button and link labels ("APPROVALS", "Read More >>")
+        if block.type == "heading":
+            block = block.model_copy(update={"type": "text", "level": 0})
+        seen.add(block.text)
+        blocks.append(block.model_copy(update={"heading_path": ["Website header and footer"]}))
+    if not blocks:
+        return None
+    title = "Website header and footer"
+    blocks.insert(0, Block(type="heading", text=title, level=1, heading_path=[title]))
+    return PageDocument(
+        doc_id=short_id(url, "site-chrome"),
+        url=url,
+        title=f"{_page_title(soup) or url} - {title}",
+        blocks=blocks,
+        content_hash=sha256_text("\n".join(b.text for b in blocks)),
         content_type="text/html",
         fetched_at=fetched_at,
     )

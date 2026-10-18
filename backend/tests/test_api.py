@@ -123,12 +123,40 @@ def test_admin_reindex_job(pipeline, services):
         assert c.post("/api/chat", json={"message": "library timings"}).status_code == 200
 
 
-def test_not_ready_service_returns_503(tmp_path):
+def test_not_ready_service_returns_503(tmp_path, monkeypatch):
+    import rag.embeddings.base as emb
+
+    def broken_model(*args, **kwargs):
+        raise OSError("model /nonexistent/model not found")
+
+    monkeypatch.setattr(emb, "BgeM3Embedder", broken_model)
     settings = make_settings(tmp_path / "data", embedding_provider="bge-m3", embedding_model="/nonexistent/model")
-    services = Services(settings, load_llm=False)  # bge-m3 unavailable -> degraded, not crashed
+    services = Services(settings, load_llm=False)  # model fails to load -> degraded, not crashed
     app = create_app(settings, services=services)
     with TestClient(app) as c:
         assert c.get("/api/health").json()["status"] == "degraded"
         response = c.post("/api/chat", json={"message": "hello there"})
         assert response.status_code == 503 and "not ready" in response.json()["detail"]
     services.close()
+
+
+def test_api_builds_missing_index_on_startup(pipeline, tmp_path):
+    """A checkout that ships only data/processed must work without running the pipeline."""
+    import shutil
+
+    from rag.embeddings.base import HashingEmbedder
+
+    settings = make_settings(tmp_path / "data")
+    settings.ensure_dirs()
+    for name in ("chunks.jsonl", "image_chunks.jsonl", "images.jsonl"):
+        shutil.copy(pipeline.settings.processed_dir / name, settings.processed_dir / name)
+    services = Services(settings, embedder=HashingEmbedder(settings.hashing_dim), load_llm=False)
+    try:
+        assert services.ready, services.error
+        assert services.store.count(settings.qdrant_text_collection) == len(services.corpus.chunks) > 0
+        app = create_app(settings, services=services)
+        with TestClient(app) as c:
+            data = c.post("/api/chat", json={"message": "What is the tuition fee for B.Tech Data Science?"}).json()
+        assert data["mode"] == "extractive" and "60,000" in data["answer"]
+    finally:
+        services.close()

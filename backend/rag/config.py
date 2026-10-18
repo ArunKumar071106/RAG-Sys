@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     # ---- crawling ------------------------------------------------------
     crawl_start_urls: CsvList = ["https://aaaenggcoll.ac.in/"]
     crawl_allowed_domains: CsvList = ["aaaenggcoll.ac.in", "www.aaaenggcoll.ac.in"]
-    crawl_max_pages: int = 400
+    crawl_max_pages: int = 3000
+    crawl_use_sitemaps: bool = True  # seed from robots.txt / wp-sitemap.xml sitemaps
     crawl_max_depth: int = 4
     crawl_delay_seconds: float = 1.0
     crawl_concurrency: int = 2
@@ -102,6 +103,7 @@ class Settings(BaseSettings):
     max_question_chars: int = 1000
     max_request_bytes: int = 64 * 1024
     log_level: str = "INFO"
+    auto_index_on_startup: bool = True  # build the index at API start when only processed chunks exist
 
     @field_validator(
         "crawl_start_urls", "crawl_allowed_domains", "image_allowed_domains", "cors_origins", mode="before"
@@ -116,6 +118,13 @@ class Settings(BaseSettings):
                 return json.loads(value)
             return [v.strip() for v in value.split(",") if v.strip()]
         return value
+
+    @field_validator("data_dir")
+    @classmethod
+    def _resolve_data_dir(cls, value: Path) -> Path:
+        # A relative DATA_DIR (e.g. "./data" from .env) is relative to the project root,
+        # not to whichever folder the command happens to run in.
+        return value if value.is_absolute() else (PROJECT_DIR / value).resolve()
 
     @field_validator("chunk_overlap_tokens")
     @classmethod

@@ -35,7 +35,12 @@ def utc_now() -> str:
 
 
 def normalize_url(url: str, base: str | None = None) -> str:
-    """Absolute URL without fragment, tracking params or trailing-slash noise."""
+    """Absolute URL without fragment or tracking params.
+
+    The trailing slash is kept: servers such as WordPress redirect "/page" to
+    "/page/", so stripping it would cost a redirect per request and produce
+    non-canonical citation links.
+    """
     if base:
         url = urljoin(base, url)
     parts = urlsplit(url.strip())
@@ -46,8 +51,6 @@ def normalize_url(url: str, base: str | None = None) -> str:
     if netloc.endswith(":443") and scheme == "https":
         netloc = netloc[:-4]
     path = re.sub(r"/{2,}", "/", parts.path) or "/"
-    if path != "/" and path.endswith("/"):
-        path = path[:-1]
     query = urlencode(
         sorted((k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k.lower() not in _TRACKING_PARAMS)
     )

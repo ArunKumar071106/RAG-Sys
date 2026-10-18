@@ -10,8 +10,16 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# pipeline data (crawled pages, images, indexes)
-data/
+# pipeline data: raw HTML, downloaded images and indexes are rebuilt locally;
+# the processed knowledge base snapshot (chunks + image metadata) is committed
+data/*
+!data/processed/
+data/processed/*
+!data/processed/chunks.jsonl
+!data/processed/image_chunks.jsonl
+!data/processed/images.jsonl
+!data/status.json
+backend/data/
 
 # frontend
 node_modules/

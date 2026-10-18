@@ -1,21 +1,484 @@
 {
-  "measured": false,
-  "note": "PROVISIONAL brand values. The official site could not be reached from the build environment, so colours, fonts, logo and menu have NOT been measured yet. Run `python scripts/extract_brand.py` on a machine that can reach https://aaaenggcoll.ac.in/ to overwrite this file and brand.css with values measured from the live site.",
+  "measured": true,
+  "method": "rendered",
+  "note": "Measured from the rendered pages of https://aaaenggcoll.ac.in/ by scripts/measure_brand.mjs. Re-run after the website's design changes.",
   "source": "https://aaaenggcoll.ac.in/",
-  "measured_at": null,
+  "measured_at": "2026-10-18T22:06:31Z",
   "college_name": "AAA College of Engineering and Technology",
   "short_name": "AAACET",
   "tagline": "",
   "official_url": "https://aaaenggcoll.ac.in/",
-  "logo": null,
+  "logo": "/brand/logo.png",
   "logo_alt": "AAA College of Engineering and Technology logo",
+  "favicon": "/brand/favicon.png",
+  "banner_image": "/brand/banner.jpg",
+  "header_note": "COUNSELLING CODE : 4680",
+  "header_buttons": [
+    {
+      "label": "APPROVALS",
+      "href": "https://aaaenggcoll.ac.in/aaacet-approvals/"
+    },
+    {
+      "label": "NAAC",
+      "href": "https://aaaenggcoll.ac.in/naac/"
+    },
+    {
+      "label": "LOGIN",
+      "href": "https://aaaenggcoll.ac.in/aaa-login/"
+    },
+    {
+      "label": "ONLINE FEE PAYMENT",
+      "href": "https://aaaenggcollege.org/studentlogin/login.php"
+    }
+  ],
   "badges": [],
   "nav": [
-    { "label": "Home", "href": "https://aaaenggcoll.ac.in/" }
+    {
+      "label": "HOME",
+      "href": "https://aaaenggcoll.ac.in/",
+      "children": []
+    },
+    {
+      "label": "ADMINISTRATION",
+      "href": "",
+      "children": [
+        {
+          "label": "Organogram",
+          "href": "https://aaaenggcoll.ac.in/organogram-2"
+        },
+        {
+          "label": "HR Manual",
+          "href": "https://aaaenggcoll.ac.in/wp-content/uploads/2024/07/HR-Manual-V2-2022-23.pdf"
+        },
+        {
+          "label": "Approvals",
+          "href": "https://aaaenggcoll.ac.in/aaacet-approvals/"
+        }
+      ]
+    },
+    {
+      "label": "ADMISSIONS",
+      "href": "https://aaaenggcoll.ac.in/admission/",
+      "children": []
+    },
+    {
+      "label": "ACADEMICS",
+      "href": "",
+      "children": [
+        {
+          "label": "Civil Engineering",
+          "href": "https://aaaenggcoll.ac.in/civil/about-department/"
+        },
+        {
+          "label": "Computer Science and Engineering",
+          "href": "https://aaaenggcoll.ac.in/cse/about-department/"
+        },
+        {
+          "label": "Electronics & Communication Engineering",
+          "href": "https://aaaenggcoll.ac.in/ece/about-department/"
+        },
+        {
+          "label": "Electrical & Electronics Engineering",
+          "href": "https://aaaenggcoll.ac.in/eee/about-department/"
+        },
+        {
+          "label": "Mechanical Engineering",
+          "href": "https://aaaenggcoll.ac.in/mech/about-department/"
+        },
+        {
+          "label": "Artificial Intelligence and Data Science",
+          "href": "https://aaaenggcoll.ac.in/ai-dept/about-department/"
+        },
+        {
+          "label": "Computer Science and Engineering (Cyber Security)",
+          "href": "https://aaaenggcoll.ac.in/cyber-dept/about-department/"
+        },
+        {
+          "label": "Information Technology",
+          "href": "https://aaaenggcoll.ac.in/it-dept/about-department/"
+        },
+        {
+          "label": "Science & Humanities",
+          "href": "https://aaaenggcoll.ac.in/science-dept/about-department/"
+        },
+        {
+          "label": "Electronics Engineering (VLSI Design & Technology)",
+          "href": "https://aaaenggcoll.ac.in/vlsi/about-department/"
+        },
+        {
+          "label": "Regulations",
+          "href": "https://aaaenggcoll.ac.in/regulations/"
+        },
+        {
+          "label": "COE OFFICE",
+          "href": "https://aaaenggcoll.ac.in/exam-portal/"
+        },
+        {
+          "label": "AAACET Faculty",
+          "href": "https://aaaenggcoll.ac.in/wp-content/uploads/2026/10/AAA-CET-Faculty.pdf"
+        },
+        {
+          "label": "Toppers List",
+          "href": "https://aaaenggcoll.ac.in/toppers-list/"
+        },
+        {
+          "label": "Feedback",
+          "href": "https://aaaenggcoll.ac.in/online-feedback/"
+        },
+        {
+          "label": "NBA",
+          "href": "https://aaaenggcoll.ac.in/nba-2/"
+        }
+      ]
+    },
+    {
+      "label": "CAMPUS",
+      "href": "",
+      "children": [
+        {
+          "label": "Administrative Office",
+          "href": "https://aaaenggcoll.ac.in/administrative-office/"
+        },
+        {
+          "label": "Auditorium & Seminar Halls",
+          "href": "https://aaaenggcoll.ac.in/auditorium-seminar-halls/"
+        },
+        {
+          "label": "Hostel Facilities",
+          "href": "https://aaaenggcoll.ac.in/aaa-hostels/"
+        },
+        {
+          "label": "Transport Facilities",
+          "href": "https://aaaenggcoll.ac.in/aaa-transport/"
+        },
+        {
+          "label": "Blocks & Classrooms",
+          "href": "https://aaaenggcoll.ac.in/blocks-classrooms/"
+        },
+        {
+          "label": "Library Facilites",
+          "href": "https://aaaenggcoll.ac.in/aaacet-central-library/"
+        },
+        {
+          "label": "Sports",
+          "href": "https://aaaenggcoll.ac.in/aaa-sports/"
+        },
+        {
+          "label": "Amenities",
+          "href": "https://aaaenggcoll.ac.in/amenities/"
+        },
+        {
+          "label": "Campus Gallery",
+          "href": "https://aaaenggcoll.ac.in/campus-gallery/"
+        },
+        {
+          "label": "College Virtual Tour",
+          "href": "https://youtu.be/fxUX3T6rtqc?si=KDXhU5MSUXvlJtyi"
+        },
+        {
+          "label": "Latest Updates",
+          "href": "https://aaaenggcoll.ac.in/latest-updates/"
+        }
+      ]
+    },
+    {
+      "label": "STUDENT’S CORNER",
+      "href": "",
+      "children": [
+        {
+          "label": "Life@AAACET",
+          "href": "https://aaaenggcoll.ac.in/students-life-aaacet/"
+        },
+        {
+          "label": "Institution-Industry Interaction Cell (IIIC)",
+          "href": "https://aaaenggcoll.ac.in/institution-industry-interaction-cell-iiic/"
+        },
+        {
+          "label": "Institution Innovation Council",
+          "href": "https://aaaenggcoll.ac.in/institutions-innovation-council-iic/"
+        },
+        {
+          "label": "Fine Arts & Literature Club",
+          "href": "https://aaaenggcoll.ac.in/fine-arts-and-literature-club/"
+        },
+        {
+          "label": "NSS & Rotaract Club",
+          "href": "https://aaaenggcoll.ac.in/nss-rotaract-activities/"
+        },
+        {
+          "label": "UNNAT BHARAT ABHIYAN (UBA)",
+          "href": "https://aaaenggcoll.ac.in/unnat-bharth-abhiyan/"
+        },
+        {
+          "label": "NPTEL - SWAYAM",
+          "href": "https://aaaenggcoll.ac.in/nptel-swayam-local-chapter/"
+        },
+        {
+          "label": "Society of Automotive Engineers",
+          "href": "https://aaaenggcoll.ac.in/society-of-automotive-engineers-sae/"
+        },
+        {
+          "label": "Professional chapter",
+          "href": "https://aaaenggcoll.ac.in/professional-chapter-2/"
+        },
+        {
+          "label": "Centre of excellence",
+          "href": "https://aaaenggcoll.ac.in/centre-of-excellence/"
+        },
+        {
+          "label": "Entrepreneurship Development Cell",
+          "href": "https://aaaenggcoll.ac.in/entrepreneurship-development-cell/"
+        },
+        {
+          "label": "Naan Mudhalvan - TNSDC",
+          "href": "https://aaaenggcoll.ac.in/nan-mudhalvan-tnsdc/"
+        },
+        {
+          "label": "Alumni Association",
+          "href": "https://aaaenggcoll.ac.in/alumni-association/"
+        },
+        {
+          "label": "Youth empowerment program",
+          "href": "https://aaaenggcoll.ac.in/youth-empowerment-program/"
+        },
+        {
+          "label": "Women empowerment Cell",
+          "href": "https://aaaenggcoll.ac.in/women-empowernment-cell/"
+        },
+        {
+          "label": "Eco Nature Club",
+          "href": "https://aaaenggcoll.ac.in/eco-nature-club/"
+        },
+        {
+          "label": "Careme Health",
+          "href": "https://aaaenggcoll.ac.in/careme-health/"
+        }
+      ]
+    },
+    {
+      "label": "PLACEMENTS",
+      "href": "",
+      "children": [
+        {
+          "label": "Placement Training",
+          "href": "https://aaaenggcoll.ac.in/placement/"
+        },
+        {
+          "label": "Placement Records",
+          "href": "https://aaaenggcoll.ac.in/aaa-hostels/#"
+        },
+        {
+          "label": "2022-2026",
+          "href": "https://aaaenggcoll.ac.in/placement/placement-2022-2026/"
+        },
+        {
+          "label": "2021-2025",
+          "href": "https://aaaenggcoll.ac.in/placement/placement-2021-2025/"
+        },
+        {
+          "label": "2020-2024",
+          "href": "https://aaaenggcoll.ac.in/placement/2020-2024/"
+        },
+        {
+          "label": "2019-2023",
+          "href": "https://aaaenggcoll.ac.in/placement/2019-2023/"
+        },
+        {
+          "label": "Industry Interaction",
+          "href": "https://aaaenggcoll.ac.in/aaa-hostels/#"
+        },
+        {
+          "label": "Industry Institute Partnership Cell",
+          "href": "https://aaaenggcoll.ac.in/industry-institute-partnership-cell-iipc/"
+        },
+        {
+          "label": "Announcements",
+          "href": "https://aaaenggcoll.ac.in/placement/announcements/"
+        }
+      ]
+    },
+    {
+      "label": "RESEARCH",
+      "href": "",
+      "children": [
+        {
+          "label": "Research and Innovations",
+          "href": "https://aaaenggcoll.ac.in/research-and-innovations/"
+        },
+        {
+          "label": "SCI Publications",
+          "href": "https://aaaenggcoll.ac.in/sci-publications/"
+        },
+        {
+          "label": "Journal Publications",
+          "href": "https://aaaenggcoll.ac.in/journal-publications/"
+        },
+        {
+          "label": "Books Published",
+          "href": "https://aaaenggcoll.ac.in/books-published/"
+        },
+        {
+          "label": "Patents",
+          "href": "https://aaaenggcoll.ac.in/patents/"
+        },
+        {
+          "label": "Faculty with Anna University Guideship",
+          "href": "https://aaaenggcoll.ac.in/faculty-with-anna-university-guideship/"
+        },
+        {
+          "label": "NEXTGEN’26",
+          "href": "https://aaaenggcoll.ac.in/etmpcsl-2026-2/"
+        },
+        {
+          "label": "2nd ICMIST 2024",
+          "href": "https://aaaenggcoll.ac.in/2nd-icmist-2024/"
+        },
+        {
+          "label": "ICECS 2024",
+          "href": "https://aaaenggcoll.ac.in/icecs-2024/"
+        },
+        {
+          "label": "ICRICCM 2023",
+          "href": "https://aaaenggcoll.ac.in/icriccm-2023/"
+        },
+        {
+          "label": "TNSCST Sponsered Conference",
+          "href": "https://aaaenggcoll.ac.in/tnscst-sponsored-conference/"
+        }
+      ]
+    },
+    {
+      "label": "IQAC",
+      "href": "",
+      "children": [
+        {
+          "label": "IQAC MEMBERS",
+          "href": "https://aaaenggcoll.ac.in/iqac-members/"
+        },
+        {
+          "label": "IQAC Report",
+          "href": "https://aaaenggcoll.ac.in/iqac/"
+        },
+        {
+          "label": "IQAC Initiatives",
+          "href": "https://aaaenggcoll.ac.in/wp-content/uploads/2024/11/IQAC_Quality_Initiatives.pdf"
+        },
+        {
+          "label": "Governing Council Members",
+          "href": "https://aaaenggcoll.ac.in/governing-council-members/"
+        },
+        {
+          "label": "Academic Council Members",
+          "href": "https://aaaenggcoll.ac.in/academic-council-members/"
+        },
+        {
+          "label": "capability enhancement schemes",
+          "href": "https://aaaenggcoll.ac.in/capability-enhancement-schemes/"
+        }
+      ]
+    },
+    {
+      "label": "CAREERS",
+      "href": "https://aaaenggcoll.ac.in/careers/",
+      "children": []
+    }
   ],
-  "utility_links": [
-    { "label": "Official Website", "href": "https://aaaenggcoll.ac.in/" }
+  "utility_links": [],
+  "footer_columns": [
+    {
+      "title": "Quick Links",
+      "links": [
+        {
+          "label": "About Us",
+          "href": "https://aaaenggcoll.ac.in/about-us/"
+        },
+        {
+          "label": "Prospectus",
+          "href": "https://aaaenggcoll.ac.in/wp-content/uploads/2024/07/College_Prospectus.pdf"
+        },
+        {
+          "label": "Contact Us",
+          "href": "https://aaaenggcoll.ac.in/contact-us/"
+        },
+        {
+          "label": "Toppers List",
+          "href": "https://aaaenggcoll.ac.in/toppers-list/"
+        },
+        {
+          "label": "Grievances Redressal",
+          "href": "https://aaaenggcoll.ac.in/grievances-redressal/"
+        },
+        {
+          "label": "Faculty Application Form",
+          "href": "https://aaaenggcoll.ac.in/faculty-application/"
+        }
+      ]
+    },
+    {
+      "title": "External Links",
+      "links": [
+        {
+          "label": "Anna University",
+          "href": "https://www.annauniv.edu/"
+        },
+        {
+          "label": "NBA",
+          "href": "https://www.nbaind.org/"
+        },
+        {
+          "label": "NAAC",
+          "href": "http://naac.gov.in/index.php/en/"
+        },
+        {
+          "label": "NPTEL",
+          "href": "https://nptel.ac.in/"
+        },
+        {
+          "label": "AICTE",
+          "href": "https://www.aicte-india.org/"
+        },
+        {
+          "label": "AICTE (FEEDBACK)",
+          "href": "https://www.aicte-india.org/feedback/index.php"
+        }
+      ]
+    }
   ],
-  "contact": { "address": [], "phones": [], "emails": [] },
-  "fonts": { "body": null, "heading": null, "stylesheets": [] }
+  "social": [
+    {
+      "label": "Facebook",
+      "href": "https://www.facebook.com/aaaengineeringcollege"
+    },
+    {
+      "label": "Instagram",
+      "href": "https://www.instagram.com/aaa_engg_coll/"
+    },
+    {
+      "label": "Linkedin",
+      "href": "https://www.linkedin.com/school/aaa-college-of-engineering-and-technology/"
+    },
+    {
+      "label": "Youtube",
+      "href": "https://www.youtube.com/channel/UCqIwszGCwgfYEAffiLn0XYQ"
+    }
+  ],
+  "contact": {
+    "address": [
+      "Kamarajar Educational Road, Amathur - 626 005"
+    ],
+    "phones": [
+      "04562-251111",
+      "18004258807"
+    ],
+    "emails": [
+      "enquiry@aaacet.ac.in"
+    ]
+  },
+  "fonts": {
+    "body": "Poppins",
+    "heading": "League Spartan",
+    "stylesheets": [
+      "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=League+Spartan:wght@400;500;600;700&display=swap"
+    ]
+  }
 }

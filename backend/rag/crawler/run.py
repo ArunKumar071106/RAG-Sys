@@ -12,6 +12,8 @@ import logging
 import sys
 from pathlib import Path
 
+from scrapy.logformatter import LogFormatter
+
 from rag.config import Settings, get_settings
 from rag.utils import update_status, utc_now
 
@@ -51,6 +53,18 @@ class JsonlWriterPipeline:
         return item
 
 
+class QuietLogFormatter(LogFormatter):
+    """Never dump scraped items (whole HTML pages) into the log; per-page lines go to DEBUG."""
+
+    def scraped(self, item, response, spider):
+        return None
+
+    def crawled(self, request, response, spider):
+        entry = super().crawled(request, response, spider)
+        entry["level"] = logging.DEBUG
+        return entry
+
+
 def scrapy_settings(settings: Settings) -> dict:
     return {
         "BOT_NAME": "aaacet_rag",
@@ -63,7 +77,8 @@ def scrapy_settings(settings: Settings) -> dict:
         "AUTOTHROTTLE_ENABLED": True,
         "AUTOTHROTTLE_START_DELAY": settings.crawl_delay_seconds,
         "AUTOTHROTTLE_MAX_DELAY": 30,
-        "AUTOTHROTTLE_TARGET_CONCURRENCY": 1.0,
+        # DOWNLOAD_DELAY still caps the rate at ~1 request/second per domain
+        "AUTOTHROTTLE_TARGET_CONCURRENCY": float(settings.crawl_concurrency),
         "DOWNLOAD_TIMEOUT": settings.crawl_timeout_seconds,
         "DOWNLOAD_MAXSIZE": max(settings.crawl_max_pdf_bytes, 20 * 1024 * 1024),
         "RETRY_ENABLED": True,
@@ -73,6 +88,7 @@ def scrapy_settings(settings: Settings) -> dict:
         "COOKIES_ENABLED": False,
         "TELNETCONSOLE_ENABLED": False,
         "LOG_LEVEL": "INFO",
+        "LOG_FORMATTER": "rag.crawler.run.QuietLogFormatter",
         "ITEM_PIPELINES": {"rag.crawler.run.JsonlWriterPipeline": 100},
         "RAG_PAGES_FILE": str(settings.pages_file),
         "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
@@ -96,6 +112,7 @@ def run_crawl(settings: Settings | None = None) -> int:
         max_pages=settings.crawl_max_pages,
         include_pdfs=settings.crawl_include_pdfs,
         max_pdf_bytes=settings.crawl_max_pdf_bytes,
+        use_sitemaps=settings.crawl_use_sitemaps,
     )
     process.start()
     stats = crawler.stats.get_stats() if crawler.stats else {}
@@ -114,5 +131,6 @@ def run_crawl(settings: Settings | None = None) -> int:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("scrapy").setLevel(logging.INFO)
     sys.exit(0 if run_crawl() > 0 else 1)

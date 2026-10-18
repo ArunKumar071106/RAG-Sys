@@ -34,6 +34,10 @@ class Embedder(Protocol):
     def embed_query(self, text: str) -> np.ndarray: ...
 
 
+class MissingMLExtras(RuntimeError):
+    """sentence-transformers/torch are not installed."""
+
+
 class BgeM3Embedder:
     """Dense BGE-M3 embeddings; vectors are L2-normalised for cosine search."""
 
@@ -42,7 +46,7 @@ class BgeM3Embedder:
             try:
                 from sentence_transformers import SentenceTransformer  # type: ignore
             except ImportError as exc:  # pragma: no cover - depends on optional deps
-                raise RuntimeError(
+                raise MissingMLExtras(
                     "EMBEDDING_PROVIDER=bge-m3 needs the ML extras: pip install -r backend/requirements-ml.txt"
                 ) from exc
             model = SentenceTransformer(model_name, device=device)
@@ -111,4 +115,10 @@ class HashingEmbedder:
 def get_embedder(settings) -> Embedder:
     if settings.embedding_provider == "hashing":
         return HashingEmbedder(settings.hashing_dim)
-    return BgeM3Embedder(settings.embedding_model, settings.embedding_device, settings.embedding_batch_size)
+    try:
+        return BgeM3Embedder(settings.embedding_model, settings.embedding_device, settings.embedding_batch_size)
+    except MissingMLExtras:
+        # Keep the app usable out of the box; a wrong model path etc. still fails loudly.
+        log.warning("EMBEDDING_PROVIDER=bge-m3 but sentence-transformers is not installed; using the offline hashing "
+                    "embedder. Install backend/requirements-ml.txt for BGE-M3 semantic search (the index rebuilds automatically).")
+        return HashingEmbedder(settings.hashing_dim)

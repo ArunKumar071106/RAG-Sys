@@ -43,6 +43,17 @@ def test_get_embedder_selects_provider(settings):
     assert isinstance(get_embedder(settings), HashingEmbedder)
 
 
+def test_bge_m3_without_ml_extras_falls_back_to_hashing(settings, monkeypatch):
+    import rag.embeddings.base as emb
+
+    def missing(*args, **kwargs):
+        raise emb.MissingMLExtras("sentence-transformers not installed")
+
+    monkeypatch.setattr(emb, "BgeM3Embedder", missing)
+    settings.embedding_provider = "bge-m3"
+    assert isinstance(get_embedder(settings), HashingEmbedder)
+
+
 # ---------------------------------------------------------------- BM25
 def test_tokenize_handles_degrees_stopwords_and_plurals():
     assert tokenize("What are the B.E. courses?") == ["be", "course"]

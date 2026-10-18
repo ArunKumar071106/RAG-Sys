@@ -6,9 +6,9 @@ import logging
 
 from rag.config import Settings
 from rag.extraction.boilerplate import drop_duplicate_documents, remove_repeated_blocks
-from rag.extraction.html_extractor import extract_html, extract_pdf_text
+from rag.extraction.html_extractor import extract_html, extract_pdf_text, extract_site_chrome
 from rag.models import PageDocument, RawPage
-from rag.utils import read_jsonl, update_status, write_jsonl
+from rag.utils import normalize_url, read_jsonl, update_status, write_jsonl
 
 log = logging.getLogger(__name__)
 
@@ -17,6 +17,8 @@ def run_extraction(settings: Settings) -> list[PageDocument]:
     settings.ensure_dirs()
     docs: list[PageDocument] = []
     errors = 0
+    home_urls = {normalize_url(u) for u in settings.crawl_start_urls}
+    chrome_done = False
     for page in read_jsonl(settings.pages_file, RawPage):
         if page.status >= 400:
             continue
@@ -25,6 +27,11 @@ def run_extraction(settings: Settings) -> list[PageDocument]:
                 doc = extract_pdf_text(page.text, page.url, page.title, page.fetched_at)
             else:
                 doc = extract_html(page.html, page.url, settings.crawl_allowed_domains, page.fetched_at)
+                if not chrome_done and normalize_url(page.url) in home_urls:
+                    chrome = extract_site_chrome(page.html, page.url, settings.crawl_allowed_domains, page.fetched_at)
+                    if chrome:
+                        docs.append(chrome)
+                        chrome_done = True
             docs.append(doc)
         except Exception:  # one malformed page must not stop the stage
             errors += 1

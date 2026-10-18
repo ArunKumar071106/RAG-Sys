@@ -24,25 +24,69 @@ SKIP_EXT_RE = re.compile(
     r"doc|docx|xls|xlsx|ppt|pptx|exe|apk|woff2?|ttf|eot)$",
     re.I,
 )
-SKIP_PATH_RE = re.compile(r"/(wp-admin|wp-login|wp-json|feed|xmlrpc|cgi-bin|login|logout|cart|checkout)(/|$)|[?&](replytocom|share)=", re.I)
+SKIP_PATH_RE = re.compile(
+    r"/(wp-admin|wp-login|wp-json|feed|xmlrpc|cgi-bin|cdn-cgi|login|logout|cart|checkout)(/|$)|[?&](replytocom|share)=|"
+    # archive listings only repeat post excerpts; the posts themselves are crawled
+    r"/(category|tag|author)/|/page/\d+/?$",
+    re.I,
+)
 
 
 class AaacetSpider(scrapy.Spider):
     name = "aaacet"
 
-    def __init__(self, start_urls: list[str], allowed_domains: list[str], max_pages: int = 400,
-                 include_pdfs: bool = True, max_pdf_bytes: int = 15 * 1024 * 1024, **kwargs):
+    def __init__(self, start_urls: list[str], allowed_domains: list[str], max_pages: int = 3000,
+                 include_pdfs: bool = True, max_pdf_bytes: int = 15 * 1024 * 1024, use_sitemaps: bool = True, **kwargs):
         super().__init__(**kwargs)
         self.start_urls = start_urls
         self.allowed_domains = allowed_domains
         self.max_pages = max_pages
         self.include_pdfs = include_pdfs
         self.max_pdf_bytes = max_pdf_bytes
+        self.use_sitemaps = use_sitemaps
         self.pages_seen = 0
 
     async def start(self):
         for url in self.start_urls:
             yield scrapy.Request(url, callback=self.parse, meta={"depth": 0})
+        if self.use_sitemaps:
+            # robots.txt usually names the sitemap; WordPress always serves /wp-sitemap.xml
+            for url in self.start_urls:
+                root = url.split("/", 3)[:3]
+                base = "/".join(root)
+                yield scrapy.Request(f"{base}/robots.txt", callback=self.parse_robots, dont_filter=True,
+                                     meta={"base": base, "dont_obey_robotstxt": True})
+
+    def parse_robots(self, response: Response):
+        sitemaps = []
+        if isinstance(response, TextResponse) and response.status == 200:
+            sitemaps = [line.split(":", 1)[1].strip() for line in response.text.splitlines()
+                        if line.lower().startswith("sitemap:")]
+        for url in sitemaps or [f"{response.meta['base']}/wp-sitemap.xml", f"{response.meta['base']}/sitemap.xml"]:
+            if is_allowed_host(url, self.allowed_domains):
+                yield scrapy.Request(url, callback=self.parse_sitemap, meta={"depth": 0})
+
+    def parse_sitemap(self, response: Response):
+        """Follow sitemap indexes and queue every listed page (pages are still filtered by _should_follow)."""
+        from scrapy.utils.sitemap import Sitemap
+
+        try:
+            sitemap = Sitemap(response.body)
+        except Exception:
+            log.warning("Could not parse sitemap %s", response.url)
+            return
+        for entry in sitemap:
+            loc = entry.get("loc", "").strip()
+            if not loc:
+                continue
+            loc = response.urljoin(loc)
+            if sitemap.type == "sitemapindex":
+                if is_allowed_host(loc, self.allowed_domains):
+                    yield scrapy.Request(loc, callback=self.parse_sitemap, meta={"depth": 0})
+            else:
+                url = normalize_url(loc)
+                if self._should_follow(url):
+                    yield scrapy.Request(url, callback=self.parse, meta={"depth": 1})
 
     def _should_follow(self, url: str) -> bool:
         if not url.startswith(("http://", "https://")):

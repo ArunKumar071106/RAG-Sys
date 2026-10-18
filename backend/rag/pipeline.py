@@ -24,6 +24,7 @@ def run_crawl_subprocess(settings: Settings) -> None:
     env["CRAWL_MAX_PAGES"] = str(settings.crawl_max_pages)
     env["CRAWL_DELAY_SECONDS"] = str(settings.crawl_delay_seconds)
     env["CRAWL_OBEY_ROBOTS"] = str(settings.crawl_obey_robots).lower()
+    env["CRAWL_USE_SITEMAPS"] = str(settings.crawl_use_sitemaps).lower()
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(BACKEND_DIR), env.get("PYTHONPATH", "")]))
     result = subprocess.run([sys.executable, "-m", "rag.crawler.run"], env=env, cwd=str(BACKEND_DIR))
     if result.returncode != 0:

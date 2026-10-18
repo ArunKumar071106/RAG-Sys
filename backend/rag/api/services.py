@@ -68,6 +68,8 @@ class Services:
                 if self._load_llm:
                     self.llm = get_llm(self.settings)
                     self._load_llm = False
+                if self.settings.auto_index_on_startup:
+                    self._ensure_index()
                 self.corpus = Corpus.load(self.settings)
                 reranker = None
                 if self.settings.rerank_enabled:
@@ -85,6 +87,23 @@ class Services:
             except Exception as exc:
                 log.exception("Failed to load RAG services")
                 self.error = f"{type(exc).__name__}: {exc}"
+
+    def _ensure_index(self) -> None:
+        """Build the vector/BM25 index when processed chunks exist but the index does not
+        (e.g. a fresh checkout that ships data/processed) or was built with another embedder."""
+        from rag.index.indexer import Indexer, manifest_path
+        from rag.utils import read_json
+
+        s = self.settings
+        if not s.chunks_file.exists():
+            return
+        manifest = read_json(manifest_path(s))
+        stale = manifest.get("embedder") != self.embedder.name or manifest.get("dim") != self.embedder.dim
+        empty = self.store.count(s.qdrant_text_collection) == 0
+        if not (stale or empty):
+            return
+        log.info("Building the search index from %s (first start or embedder change) - this can take a few minutes", s.chunks_file)
+        Indexer(s, self.embedder, self.store).run(full=True)
 
     @property
     def ready(self) -> bool:

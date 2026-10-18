@@ -28,6 +28,31 @@ describe("App layout", () => {
     expect(screen.getByRole("button", { name: "Close menu" })).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("dropdown menus open with the keyboard and close with Escape", async () => {
+    const withChildren = brand.nav.find((item) => (item.children ?? []).length > 0);
+    if (!withChildren) return; // provisional brand without submenus
+    const user = userEvent.setup();
+    render(<App />);
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    const toggle = within(nav).getByRole("button", { name: withChildren.label });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    toggle.focus();
+    await user.keyboard("{Enter}");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const first = withChildren.children![0];
+    expect(within(nav).getByRole("link", { name: first.label })).toHaveAttribute("href", expect.stringMatching(/^https?:/));
+    await user.keyboard("{Escape}");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows the measured header note and buttons", () => {
+    render(<App />);
+    if (brand.header_note) expect(screen.getAllByText(brand.header_note).length).toBeGreaterThan(0);
+    for (const button of brand.header_buttons ?? []) {
+      expect(screen.getAllByRole("link", { name: button.label }).length).toBeGreaterThan(0);
+    }
+  });
+
   it("embed mode renders only the chat panel", () => {
     window.history.replaceState(null, "", "/?embed=1");
     expect(isEmbedMode()).toBe(true);

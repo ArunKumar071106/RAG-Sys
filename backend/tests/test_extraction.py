@@ -103,3 +103,31 @@ def test_pdf_text_becomes_paragraph_blocks():
     assert doc.title == "fee notice 2026"
     assert [b.text for b in doc.blocks if b.type == "text"] == ["Line one.", "Second paragraph here."]
     assert doc.content_type == "application/pdf"
+
+
+def test_cloudflare_obfuscated_emails_are_decoded():
+    from rag.extraction.html_extractor import decode_cf_email
+
+    # "info@aaa.ac.in" XOR-encoded with key 0x42, as Cloudflare does
+    encoded = "42" + "".join(f"{ord(c) ^ 0x42:02x}" for c in "info@aaa.ac.in")
+    assert decode_cf_email(encoded) == "info@aaa.ac.in"
+    html = (f'<html><body><main><p>Email: <a href="/cdn-cgi/l/email-protection#{encoded}">'
+            f'<span class="__cf_email__" data-cfemail="{encoded}">[email&#160;protected]</span></a></p></main></body></html>')
+    doc = extract_html(html, BASE, ALLOWED)
+    assert [b.text for b in doc.blocks] == ["Email: info@aaa.ac.in"]
+    assert decode_cf_email("zz") == "" and decode_cf_email("") == ""
+
+
+def test_site_chrome_keeps_header_footer_facts_but_not_menus():
+    from rag.extraction.html_extractor import extract_site_chrome
+
+    html = """<html><head><title>College</title></head><body>
+    <header><h2>COUNSELLING CODE : 4680</h2><nav><ul><li><a href='/a'>Home</a></li></ul></nav>
+      <ul><li><a href='/x'>Approvals</a></li><li><a href='/y'>NAAC</a></li><li><a href='/z'>Login</a></li></ul></header>
+    <main><p>Page body</p></main>
+    <footer><h3>Contact</h3><p>Kamarajar Educational Road, Amathur - 626 005</p><p>04562-251111</p></footer></body></html>"""
+    doc = extract_site_chrome(html, "https://college.example/", ALLOWED)
+    texts = [b.text for b in doc.blocks if b.type == "text"]
+    assert texts == ["COUNSELLING CODE : 4680", "Kamarajar Educational Road, Amathur - 626 005", "04562-251111"]
+    assert doc.doc_id != extract_html(html, "https://college.example/", ALLOWED).doc_id
+    assert "Page body" not in texts and "Home" not in " ".join(texts)
