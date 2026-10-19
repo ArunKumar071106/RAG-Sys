@@ -1,9 +1,7 @@
-import { RobotAvatar } from "../robot/RobotAvatar";
-
 export function LoadingIndicator({ label = "Searching the official website…" }: { label?: string }) {
   return (
     <div className="message message--assistant" role="status" aria-live="polite">
-      <RobotAvatar />
+      <div className="avatar" aria-hidden="true">AI</div>
       <div className="bubble bubble--assistant bubble--loading">
         <span className="dots" aria-hidden="true">
           <span />

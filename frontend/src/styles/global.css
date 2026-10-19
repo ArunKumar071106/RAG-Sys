@@ -458,30 +458,23 @@ img {
   min-height: 70vh;
 }
 
-/* the robot's stage: colours from the design's States.dc.html cards; the rig itself is src/robot/robot.css */
 .chat__header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas:
-    "robot title actions"
-    "robot subtitle subtitle"
-    "robot status status";
-  align-items: center;
-  column-gap: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
   padding: 18px 22px;
-  background: radial-gradient(circle at 12% 42%, #1d3b7e 0%, #0e1c44 45%, #070f27 80%);
-  color: #ffffff;
+  border-bottom: 1px solid var(--brand-border);
 }
 
 .chat__title {
   margin: 0;
   font-size: 1.4rem;
-  color: #ffffff;
 }
 
 .chat__subtitle {
   margin: 2px 0 0;
-  color: #b9c6dc;
+  color: var(--brand-muted);
   font-size: 0.9rem;
 }
 
@@ -1127,285 +1120,6 @@ img {
   max-height: none;
 }
 
-/* ------------------------------------------------------------------ assistant intro (demo page) */
-.intro {
-  max-width: 760px;
-  padding: 8px 0 24px;
-}
-
-.intro__title {
-  margin: 0 0 10px;
-  font-size: 1.6rem;
-}
-
-.intro__lead {
-  margin: 0 0 18px;
-  color: var(--brand-text);
-}
-
-.intro__subtitle {
-  margin: 28px 0 8px;
-  font-size: 1.05rem;
-}
-
-.intro__list {
-  margin: 0;
-  padding-left: 1.2em;
-  color: var(--brand-muted);
-}
-
-/* ------------------------------------------------------------------ Arivazhai robot */
-.chat__robot {
-  grid-area: robot;
-  width: 96px;
-  height: 104px;
-  margin: -6px 0 -10px -6px;
-}
-
-/* title, subtitle and status sit in the header grid next to the robot */
-.chat__heading {
-  display: contents;
-}
-
-.chat__title {
-  grid-area: title;
-}
-
-.chat__subtitle {
-  grid-area: subtitle;
-}
-
-.chat__status {
-  grid-area: status;
-  margin: 6px 0 0;
-  min-height: 1.4em;
-  color: #6cf0ff;
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.chat__status[data-state="unsure"],
-.chat__status[data-state="error"] {
-  color: #ffc566;
-}
-
-.chat__actions {
-  grid-area: actions;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn--on-dark {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.7);
-  color: #ffffff;
-}
-
-.btn--on-dark:hover:not(:disabled) {
-  background: #ffffff;
-  border-color: #ffffff;
-  color: #0d1b3d;
-}
-
-.chat__close {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  cursor: pointer;
-}
-
-.chat__close:hover {
-  background: rgba(255, 255, 255, 0.24);
-}
-
-.chat__header :focus-visible {
-  outline: 3px solid #6cf0ff;
-  outline-offset: 2px;
-}
-
-.avatar--robot {
-  background: var(--robot-accent, #1f5bff);
-}
-
-/* ------------------------------------------------------------------ floating widget */
-.widget {
-  --robot-accent: #1f5bff;
-}
-
-.widget__launcher {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  color: #ffffff;
-}
-
-.widget__launcher[hidden] {
-  display: none;
-}
-
-.widget__launcher:focus-visible {
-  outline: 3px solid var(--robot-accent);
-  outline-offset: 4px;
-}
-
-/* full body at 96 px and up, per the design's launcher rules */
-.widget__launcher--robot {
-  bottom: 10px;
-  width: 104px;
-  height: 113px;
-  background: none;
-  border-radius: 28px;
-  filter: drop-shadow(0 8px 14px rgba(13, 27, 61, 0.28));
-}
-
-/* head only below 96 px: the design's filled accent disc (Icon.dc.html, 64 px) */
-.widget__launcher--disc {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--robot-accent);
-  box-shadow: 0 6px 16px rgba(13, 27, 61, 0.22);
-}
-
-.widget__launcher--close {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--robot-accent);
-  box-shadow: 0 6px 16px rgba(13, 27, 61, 0.22);
-}
-
-.widget__bubble {
-  position: fixed;
-  right: 124px;
-  bottom: 64px;
-  z-index: 1000;
-  max-width: 230px;
-  margin: 0;
-  padding: 10px 14px;
-  border: 1px solid #dde4ee;
-  border-radius: 16px 16px 4px 16px;
-  background: #ffffff;
-  color: #0d1b3d;
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1.35;
-  box-shadow: 0 6px 20px rgba(13, 27, 61, 0.12);
-  pointer-events: none;
-  animation: widgetIn 0.18s ease-out;
-}
-
-.widget__panel {
-  position: fixed;
-  right: 16px;
-  bottom: 84px;
-  z-index: 1000;
-  width: min(400px, calc(100vw - 32px));
-  height: min(640px, calc(100vh - 104px));
-  border-radius: 18px;
-  overflow: hidden;
-  overflow: clip; /* not a scroll container: scrolling to the newest message must not shift the panel */
-  box-shadow: 0 18px 48px rgba(13, 27, 61, 0.28);
-  transform-origin: bottom right;
-  animation: widgetIn 0.2s ease-out;
-}
-
-.widget__panel .chat {
-  height: 100%;
-  min-height: 0;
-  border: 0;
-}
-
-.widget__panel .chat__log {
-  max-height: none;
-  min-height: 0;
-  padding: 16px;
-}
-
-.widget__panel .chat__header {
-  padding: 12px 14px 12px 16px;
-  gap: 10px;
-}
-
-.widget__panel .chat__subtitle {
-  font-size: 0.8rem;
-}
-
-.widget__panel .chat-input {
-  padding: 12px 16px 14px;
-}
-
-.widget__panel .btn--on-dark {
-  min-height: 34px;
-  padding: 4px 14px;
-  font-size: 0.85rem;
-}
-
-.widget__panel .chat__close {
-  width: 34px;
-  height: 34px;
-}
-
-/* the panel is narrow: icon-only send button, like on phones */
-.widget__panel .chat-input__send {
-  min-width: 52px;
-}
-
-.widget__panel .chat-input__send-label {
-  display: none;
-}
-
-.widget__panel .chat-input__field::placeholder {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.widget.is-narrow .widget__panel {
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-  animation: none;
-}
-
-.widget.is-narrow .chat__robot {
-  width: 72px;
-  height: 78px;
-}
-
-html.is-widget-frame,
-html.is-widget-frame body {
-  background: transparent;
-}
-
-@keyframes widgetIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.97);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .widget__panel,
-  .widget__bubble {
-    animation: none;
-  }
-}
-
 /* ------------------------------------------------------------------ responsive */
 @media (max-width: 1024px) {
   .header-note--mobile {
@@ -1494,10 +1208,6 @@ html.is-widget-frame body {
     padding-top: 16px;
     padding-left: 0;
     padding-right: 0;
-  }
-
-  .intro {
-    padding: 0 16px 24px;
   }
 
   .chat {

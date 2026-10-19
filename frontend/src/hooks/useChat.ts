@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { ApiError, sendChat, type ApiErrorKind } from "../api/client";
+import { ApiError, sendChat } from "../api/client";
 import type { ChatResult, ChatTurn } from "../api/types";
 
 export interface Message {
@@ -24,16 +24,8 @@ export function historyFrom(messages: Message[]): ChatTurn[] {
     .slice(-HISTORY_LIMIT);
 }
 
-/** Request lifecycle, reported as it really happens (the robot animates from these). */
-export type ChatStatusEvent =
-  | { type: "retrieving" }
-  | { type: "answered"; result: ChatResult }
-  | { type: "failed"; kind: ApiErrorKind };
-
-export function useChat(onEvent?: (event: ChatStatusEvent) => void) {
+export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const onEventRef = useRef(onEvent);
-  onEventRef.current = onEvent;
   const [loading, setLoading] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const messagesRef = useRef<Message[]>([]);
@@ -44,18 +36,14 @@ export function useChat(onEvent?: (event: ChatStatusEvent) => void) {
     const ctrl = new AbortController();
     controller.current = ctrl;
     setLoading(true);
-    onEventRef.current?.({ type: "retrieving" });
     try {
       const result = await sendChat(question, history, ctrl.signal);
       if (ctrl.signal.aborted) return;
       setMessages((prev) => [...prev, { id: nextId(), role: "assistant", content: result.answer, result }]);
-      onEventRef.current?.({ type: "answered", result });
     } catch (err) {
       if (ctrl.signal.aborted) return;
-      const error: { message: string; kind: ApiErrorKind } =
-        err instanceof ApiError ? { message: err.message, kind: err.kind } : { message: "Something went wrong. Please try again.", kind: "server" };
+      const error = err instanceof ApiError ? { message: err.message, kind: err.kind } : { message: "Something went wrong. Please try again.", kind: "server" };
       setMessages((prev) => [...prev, { id: nextId(), role: "assistant", content: "", error, question }]);
-      onEventRef.current?.({ type: "failed", kind: error.kind });
     } finally {
       if (controller.current === ctrl) {
         controller.current = null;

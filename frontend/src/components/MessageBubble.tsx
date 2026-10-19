@@ -4,7 +4,6 @@ import remarkGfm from "remark-gfm";
 import type { Message } from "../hooks/useChat";
 import { safeHref } from "../brand";
 import { CITATION_TEXT, linkCitations } from "./citations";
-import { RobotAvatar } from "../robot/RobotAvatar";
 import { ErrorMessage } from "./ErrorMessage";
 import { ImageCard } from "./ImageCard";
 import { SourceList } from "./SourceList";
@@ -67,7 +66,7 @@ export function MessageBubble({ message, onRetry, busy }: Props) {
   if (message.error) {
     return (
       <div className="message message--assistant">
-        <RobotAvatar />
+        <div className="avatar" aria-hidden="true">AI</div>
         <div className="bubble bubble--assistant bubble--error">
           <ErrorMessage message={message.error.message} onRetry={onRetry ? () => onRetry(message.id) : undefined} retryDisabled={busy} />
         </div>
@@ -81,7 +80,7 @@ export function MessageBubble({ message, onRetry, busy }: Props) {
 
   return (
     <div className="message message--assistant">
-      <RobotAvatar />
+      <div className="avatar" aria-hidden="true">AI</div>
       <div className={`bubble bubble--assistant${noAnswer ? " bubble--no-answer" : ""}`}>
         <span className="visually-hidden">Assistant: </span>
         <div className="markdown" dir="auto">
