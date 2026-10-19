@@ -1,6 +1,6 @@
 """Hybrid retrieval: Qdrant semantic search + BM25, fused with RRF.
 
-Text:   semantic top-N  +  BM25 top-N  ->  RRF  ->  de-duplicate  ->  (rerank)  ->  top-k
+Text:   semantic top-N  +  BM25 top-N  +  title/headings BM25 top-N  +  coverage  ->  RRF  ->  de-duplicate  ->  (rerank)  ->  top-k
 Images: semantic top-N over image chunks (caption/OCR/alt/description text)
         + BM25 top-N over the same text
         + "page-linked" ranking: images that live on the pages of the
@@ -70,6 +70,11 @@ def content_query(query: str) -> str:
     return stripped if re.search(r"\w{3,}", stripped) else query
 
 
+def chunk_title_text(chunk) -> str:
+    """The page title (without the site-name suffix) and the chunk's section headings."""
+    return " ".join([chunk.page_title.split(" – ")[0].split(" | ")[0], *chunk.heading_path])
+
+
 class HybridRetriever:
     def __init__(self, settings: Settings, embedder: Embedder, store: QdrantStore, corpus: Corpus,
                  bm25_text: BM25Index, bm25_images: BM25Index, reranker: Reranker | None = None):
@@ -80,6 +85,9 @@ class HybridRetriever:
         self.bm25_text = bm25_text
         self.bm25_images = bm25_images
         self.reranker = reranker
+        # Field index over page titles and section headings: "Who is the principal?" should
+        # find the "Principal Message" page even when news posts mention the principal more.
+        self.bm25_titles = BM25Index.build([(cid, chunk_title_text(chunk)) for cid, chunk in corpus.chunks.items()])
 
     # ------------------------------------------------------------- text
     def search_text(self, query: str, top_k: int | None = None) -> TextSearchResult:
@@ -96,16 +104,32 @@ class HybridRetriever:
         floor = s.text_min_semantic_score
         sem_rank = {cid: (i + 1, score) for i, (cid, score) in enumerate(semantic)}
         bm_rank = {cid: (i + 1, score) for i, (cid, score) in enumerate(keyword)}
+        # Title/headings ranking, kept only where the title itself covers enough of the question
+        # (the same bar as a lexical-only hit), so "Computer Science" in a title does not pull
+        # that page into a question about the Data Science fee.
+        title_match: dict[str, float] = {}
+        titled: list[str] = []
+        if s.title_rank_weight > 0:
+            for cid, _ in self.bm25_titles.search(query, s.bm25_candidates):
+                chunk = self.corpus.chunks.get(cid)
+                if chunk is None:
+                    continue
+                title_match[cid] = self.bm25_text.weighted_overlap(query, chunk_title_text(chunk))
+                if title_match[cid] >= s.min_query_coverage:
+                    titled.append(cid)
+        title_ranked = set(titled)
         # Third ranking: how much of the question's (IDF-weighted) vocabulary each candidate contains.
-        candidates = list(dict.fromkeys([c for c, _ in semantic] + [c for c, _ in keyword]))
+        candidates = list(dict.fromkeys([c for c, _ in semantic] + [c for c, _ in keyword] + titled))
         coverage = {cid: self.bm25_text.coverage(query, cid) for cid in candidates}
         by_coverage = sorted(candidates, key=lambda c: -coverage[c])
         # Field boost: the question's terms in the page title / section headings ("Contact Us").
-        def title_text(cid: str) -> str:
-            chunk = self.corpus.chunks[cid]
-            return " ".join([chunk.page_title.split(" – ")[0].split(" | ")[0], *chunk.heading_path])
-        title_match = {cid: self.bm25_text.weighted_overlap(query, title_text(cid)) for cid in candidates}
+        for cid in candidates:
+            if cid not in title_match:
+                title_match[cid] = self.bm25_text.weighted_overlap(query, chunk_title_text(self.corpus.chunks[cid]))
         fused = reciprocal_rank_fusion([[c for c, _ in semantic], [c for c, _ in keyword], by_coverage], k=s.rrf_k)
+        # The title ranking counts in proportion to how much of the question the title covers.
+        title_rrf = {cid: s.title_rank_weight * title_match[cid] / (s.rrf_k + rank) for rank, cid in enumerate(titled, start=1)}
+        fused = [(cid, score + title_rrf.pop(cid, 0.0)) for cid, score in fused] + list(title_rrf.items())
         # Tie-breakers, not ranking lists: a mild prior by page type (official pages over news
         # posts) and a small boost when the question's terms appear in the page title/headings.
         weights = s.kind_weights
@@ -118,7 +142,8 @@ class HybridRetriever:
             sem = sem_rank.get(cid)
             bm = bm_rank.get(cid)
             semantic_ok = sem is not None and sem[1] >= floor
-            if not semantic_ok and (bm is None or coverage[cid] < s.min_query_coverage):
+            lexical = bm is not None or cid in title_ranked
+            if not semantic_ok and (not lexical or coverage[cid] < s.min_query_coverage):
                 continue  # weak lexical overlap and no semantic support
             chunk = self.corpus.chunks[cid]
             if chunk.content_hash in seen_hashes:

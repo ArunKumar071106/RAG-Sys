@@ -8,6 +8,7 @@
 {"question": "Which university is AAACET affiliated to?", "expected_url_patterns": ["re:/affiliation/|/about-us/|/about-college/|/aaacet-approvals/|/etmpcsl|College_Prospectus"]}
 {"question": "When was AAA College of Engineering and Technology established?", "expected_url_patterns": ["re:/about-us/|/about-college/"]}
 {"question": "What is the vision and mission of the college?", "expected_url_patterns": ["re:/about-us/|vision-mission"]}
+{"question": "Who is the principal of AAACET?", "expected_url_patterns": ["/principal-message/"]}
 {"question": "Tell me about the principal's message", "expected_url_patterns": ["/principal-message/"]}
 {"question": "Does the college have hostel facilities for boys and girls?", "expected_url_patterns": ["/aaa-hostels/"]}
 {"question": "Is college bus transport available?", "expected_url_patterns": ["/aaa-transport/"]}

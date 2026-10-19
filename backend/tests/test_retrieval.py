@@ -82,3 +82,15 @@ def test_request_words_are_not_treated_as_topic():
     assert content_query("Show me photos of the hostel") == "of the hostel"
     assert content_query("What does the library look like?") == "What does the library ?"
     assert content_query("Show photos") == "Show photos"  # nothing topical left: keep the original
+
+
+def test_title_field_ranking_finds_pages_by_their_title(services, monkeypatch):
+    retriever = services.retriever
+    # Leave only the title/headings ranking: the other retrievers find nothing.
+    monkeypatch.setattr(retriever.bm25_text, "search", lambda query, limit: [])
+    monkeypatch.setattr(retriever.store, "search", lambda collection, vector, limit: [])
+    monkeypatch.setattr(retriever.settings, "title_rank_weight", 0.0)
+    assert retriever.search_text("Contact Us", 3).chunks == []
+    monkeypatch.setattr(retriever.settings, "title_rank_weight", 0.5)
+    chunks = retriever.search_text("Contact Us", 3).chunks
+    assert chunks and chunks[0].url.endswith("/contact.html")

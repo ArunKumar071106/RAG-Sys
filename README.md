@@ -25,7 +25,7 @@ images (photos, posters, notices) alongside the answer.
 | Area | Status |
 |---|---|
 | **Knowledge base** | Crawled from https://aaaenggcoll.ac.in/ on 2026-10-18/19: **2,115 pages** (all 1,979 sitemap pages: main pages, department and lab pages, news posts, plus 69 PDFs) → 2,029 documents → **3,388 text chunks**; **4,785 images** (439 duplicates removed) with OCR text in 3,516. Shipped in `data/processed/`. |
-| Retrieval quality on the real site | 18 labelled questions with the official pages that answer them, plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@3 = 1.0, Recall@5 = 1.0, MRR = 0.84**, image hit rate 1.0, all with the offline hashing embedder |
+| Retrieval quality on the real site | 19 labelled questions with the official pages that answer them, plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.84, Recall@3 = 0.95, Recall@5 = 0.95, MRR = 0.89**, image hit rate 1.0, all with the offline hashing embedder. The miss is "Who is the principal of AAACET?": news posts that mention the principal outrank the Principal Message page without a semantic model |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
 | Tests | 110 backend tests, 28 frontend unit tests, 22 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-base** (ONNX, installed by default, downloads ~200 MB on first start) → falls back to an offline hashing embedder. The build environment could not download any model weights, so the numbers above use the hashing embedder; semantic models should do better on paraphrased questions, but that hasn't been measured here. |
@@ -89,7 +89,9 @@ flowchart LR
   `Nearby text`, `AI-generated description`. Keywords come from extracted fields only.
 
 ### Hybrid retrieval (`backend/rag/retrieval/hybrid.py`)
-* **Text:** Qdrant cosine top-30 and BM25 top-30 are fused with RRF (`k=60`). Exact-duplicate chunks are dropped and an
+* **Text:** Qdrant cosine top-30, BM25 top-30 and a BM25 ranking over page titles and section headings (so "Contact Us"
+  or "Principal Message" pages are found by their title, weight `TITLE_RANK_WEIGHT=0.5`) are fused with RRF (`k=60`)
+  together with a query-coverage ranking. Exact-duplicate chunks are dropped and an
   optional cross-encoder reranker can reorder the results. A semantic-only hit below `TEXT_MIN_SEMANTIC_SCORE` cannot
   enter the results on its own, so off-topic questions return "no answer" instead of noise.
 * **Images:** three ranked lists (semantic over image chunks, BM25 over image chunks, and images located on the
