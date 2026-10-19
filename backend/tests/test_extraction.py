@@ -156,6 +156,41 @@ def test_header_row_written_with_td_cells_is_detected():
     assert table.rows == ["Department: CIVIL ENGINEERING | INTAKE: 60", "Department: COMPUTER SCIENCE AND ENGINEERING | INTAKE: 180"]
 
 
+def test_long_header_labels_are_still_a_header_row():
+    long_label = "Date of Leaving (In case Currently Associated is \u201cNo\u201d)"
+    html = f"""<html><body><main><h2>Faculty</h2><table>
+      <tr><td><strong>S.No</strong></td><td><strong>Name of the Faculty</strong></td><td><strong>{long_label}</strong></td></tr>
+      <tr><td>1.</td><td>Dr.C.Senthil Kumar</td><td></td></tr><tr><td>2.</td><td>Dr.R.Pon Vengatesh</td><td></td></tr>
+    </table></main></body></html>"""
+    table = next(b for b in extract_html(html, BASE, ALLOWED).blocks if b.type == "table")
+    assert table.rows == ["S.No: 1. | Name of the Faculty: Dr.C.Senthil Kumar", "S.No: 2. | Name of the Faculty: Dr.R.Pon Vengatesh"]
+
+
+def test_numeric_first_row_is_not_a_header():
+    html = """<html><body><main><table>
+      <tr><td>2024</td><td>Placed 120</td></tr><tr><td>2025</td><td>Placed 140</td></tr><tr><td>2026</td><td>Placed 150</td></tr>
+    </table></main></body></html>"""
+    table = next(b for b in extract_html(html, BASE, ALLOWED).blocks if b.type == "table")
+    assert table.rows[0] == "2024 | Placed 120" and not table.table_header
+
+
+def test_link_card_menu_is_navigation_not_headings():
+    html = """<html><body><main><h2>Artificial Intelligence and Data Science</h2>
+      <h4>Department Menu</h4>
+      <ul><li><a href="/ai-dept/about/"><div><h2>About Department</h2></div></a></li>
+          <li><a href="/ai-dept/faculty-list/"><div><h2>Faculty List</h2></div></a></li></ul>
+      <table><tr><td>S.No</td><td>Name of the Faculty</td></tr><tr><td>1.</td><td>Dr.M.Karuppasamy</td></tr></table>
+      <ul><li><a href="#!"><h4>Respect</h4><p>We respect every member of the college.</p></a></li>
+          <li><a href="#!"><h4>Moral Values</h4><p>We uphold moral values.</p></a></li></ul>
+    </main></body></html>"""
+    doc = extract_html(html, BASE, ALLOWED)
+    table = next(b for b in doc.blocks if b.type == "table")
+    assert table.heading_path == ["Artificial Intelligence and Data Science"]  # not "Faculty List" / "Department Menu"
+    assert not any(b.text in ("About Department", "Faculty List", "Department Menu") for b in doc.blocks)
+    assert any(b.text == "Respect" for b in doc.blocks)  # cards with their own text are content
+    assert any("/ai-dept/faculty-list/" in link.url for link in doc.links)
+
+
 def test_contact_lines_get_labels():
     from rag.extraction.html_extractor import _label_contact_line
 

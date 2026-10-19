@@ -182,6 +182,7 @@ class AnswerService:
 
         if not text.chunks:
             return ChatResult(answer=NO_ANSWER_TEXT, mode="no_answer", insufficient_evidence=True, timings_ms=timings)
+        text.chunks = self.retriever.expand_section(text.chunks)
 
         sources_all = [source_out(i, c) for i, c in enumerate(text.chunks, start=1)]
         images_all = [image_out(i, im) for i, im in enumerate(images, start=1)]
@@ -209,7 +210,7 @@ class AnswerService:
             mode = "extractive"
             notice = "Answers quote the official website directly (AI answer generation is not configured)."
         if mode == "extractive":
-            raw = self.extractive.answer(query, text.chunks)
+            raw = self.extractive.answer(self.retriever.normalize_query(query), text.chunks)
             if raw:
                 raw = "Here is what the official website says:\n\n" + raw
         timings["generation"] = int((time.perf_counter() - t1) * 1000)

@@ -16,6 +16,8 @@ class Corpus:
     images: dict[str, ImageRecord] = field(default_factory=dict)
     images_by_page: dict[str, list[str]] = field(default_factory=dict)
     page_kinds: dict[str, str] = field(default_factory=dict)  # url -> page | section | news | document
+    # (doc_id, heading_path) -> chunk ids in page order: one section split over several chunks (e.g. a long table)
+    sections: dict[tuple[str, tuple[str, ...]], list[str]] = field(default_factory=dict)
 
     @classmethod
     def load(cls, settings: Settings) -> Corpus:
@@ -29,4 +31,6 @@ class Corpus:
             pages = [chunk.source_page, *(record.also_on_pages if record else [])]
             for page in pages:
                 corpus.images_by_page.setdefault(page, []).append(chunk.image_id)
+        for chunk in sorted(corpus.chunks.values(), key=lambda c: c.chunk_index):
+            corpus.sections.setdefault((chunk.doc_id, tuple(chunk.heading_path)), []).append(chunk.chunk_id)
         return corpus

@@ -26,4 +26,14 @@
 {"question": "Tell me about placements and recruiters", "expected_url_patterns": ["/placement"]}
 {"question": "What hostel facilities are available?", "expected_url_patterns": ["/aaa-hostels/"]}
 {"question": "Show me photos of the campus library", "expected_url_patterns": ["/aaacet-central-library/"], "expected_image_patterns": ["re:wp-content/uploads"]}
+{"question": "AI&DS faculty name", "expected_url_patterns": ["/ai-dept/faculty-list/"]}
+{"question": "Who are the faculty members of AI & DS?", "expected_url_patterns": ["/ai-dept/faculty-list/"]}
+{"question": "CSE faculty list", "expected_url_patterns": ["/cse/faculty-list/"]}
+{"question": "ECE faculty names", "expected_url_patterns": ["/ece/faculty-list/"]}
+{"question": "EEE faculty", "expected_url_patterns": ["/eee/faculty-list/"]}
+{"question": "Mech faculty members", "expected_url_patterns": ["/mech/faculty-list/"]}
+{"question": "Civil engineering faculty", "expected_url_patterns": ["/civil/faculty-list/"]}
+{"question": "IT department faculty", "expected_url_patterns": ["/it-dept/faculty-list/"]}
+{"question": "Cyber security faculty", "expected_url_patterns": ["/cyber-dept/faculty-list/"]}
+{"question": "Science and Humanities faculty", "expected_url_patterns": ["/science-dept/faculty-list/"]}
 {"question": "What is the weather on the moon today?", "answerable": false}

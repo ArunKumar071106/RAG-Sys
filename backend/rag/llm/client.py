@@ -110,39 +110,83 @@ class ExtractiveAnswerer:
         self.term_weight = term_weight or (lambda token: 1.0)
 
     def answer(self, question: str, chunks: list[RetrievedChunk], max_sources: int = 3, per_source: int = 2,
-               max_lines: int = 6, max_table_rows: int = 12) -> str:
+               max_lines: int = 6, max_table_rows: int = 40) -> str:
+        from rag.retrieval.hybrid import chunk_title_text
+
         q = set(tokenize(question))
-        lines: list[str] = []
-        seen: set[str] = set()
+        # A sentence or table row is scored on its own words plus its page title and headings:
+        # a row of the "Faculty List" table answers "IT faculty" though no cell says "faculty".
+        scored: list[tuple[float, int, int, str, str]] = []  # (-score, source, position, key, sentence)
         for i, chunk in enumerate(chunks[:max_sources], start=1):
-            candidates = []
+            title_terms = set(tokenize(chunk_title_text(chunk)))
             local: set[str] = set()
-            sentences = self._sentences(chunk.text)
-            for position, sentence in enumerate(sentences):
+            for position, sentence in enumerate(self._sentences(chunk.text)):
                 key = re.sub(r"\W+", " ", sentence.lower()).strip()
-                if len(sentence) < 15 or key in seen or key in local:
+                if len(sentence) < 15 or key in local:
                     continue
                 local.add(key)
-                score = sum(self.term_weight(t) for t in q.intersection(tokenize(sentence)))
-                if score > 0:
-                    candidates.append((-score, position, key, sentence))
-            candidates.sort()
-            picked = candidates[:per_source]
-            if picked and " | " in picked[0][3]:
-                # a matching table row: quote the table's rows rather than one isolated line
-                rows = [x for x in sentences if " | " in x][:max_table_rows]
-                for row in rows:
-                    key = re.sub(r"\W+", " ", row.lower()).strip()
-                    if key not in seen:
-                        seen.add(key)
-                        lines.append(f"- {row} [S{i}]")
-                picked = [c for c in picked if " | " not in c[3]]
-            for _, _, key, sentence in picked:
-                seen.add(key)
-                lines.append(f"- {sentence} [S{i}]")
+                score = sum(self.term_weight(t) for t in q & (set(tokenize(sentence)) | title_terms))
+                if score > 0 and q & set(tokenize(sentence)) or " | " in sentence and score > 0:
+                    scored.append((-score, i, position, key, sentence))
+        if not scored:
+            return ""
+        scored.sort()
+        best = scored[0]
+        # Several parts of one table among the sources, on another page whose title carries a
+        # word of the question the best match's page lacks ("Faculty List" vs "Vision &
+        # Mission" or "Industrial Visit" for "EEE faculty"): the question is about that table.
+        sections: dict[tuple, int] = {}
+        for part in chunks:
+            sections[(part.doc_id, tuple(part.heading_path))] = sections.get((part.doc_id, tuple(part.heading_path)), 0) + 1
+        best_page = chunks[best[1] - 1]
+        best_title = q & set(tokenize(best_page.page_title))
+
+        def names_more(part: RetrievedChunk) -> bool:
+            return part.url != best_page.url and bool((q & set(tokenize(part.page_title))) - best_title)
+
+        rows = [c for c in scored if " | " in c[4] and names_more(chunks[c[1] - 1])
+                and sections[(chunks[c[1] - 1].doc_id, tuple(chunks[c[1] - 1].heading_path))] >= 2]
+        if rows:
+            best = rows[0]
+        if " | " in best[4]:
+            # the table is the answer, with the best plain sentences from the same source as context
+            lines = self._quote_table(chunks, chunks[best[1] - 1], max_table_rows)
+            notes = [c for c in scored if c[1] == best[1] and " | " not in c[4]][:per_source]
+            seen_notes: set[str] = set()
+            for _, i, _, key, sentence in notes:
+                if key not in seen_notes:
+                    seen_notes.add(key)
+                    lines.append(f"- {sentence} [S{i}]")
+            return "\n".join(lines)
+
+        lines: list[str] = []
+        seen: set[str] = set()
+        for i in range(1, min(max_sources, len(chunks)) + 1):
+            for _, _, _, key, sentence in [c for c in scored if c[1] == i][:per_source]:
+                if key not in seen:
+                    seen.add(key)
+                    lines.append(f"- {sentence} [S{i}]")
             if len(lines) >= max_lines:
                 break
         return "\n".join(lines)
+
+    def _quote_table(self, chunks: list[RetrievedChunk], anchor: RetrievedChunk, max_rows: int) -> list[str]:
+        """Every row of the anchor's table, across the sources that hold parts of it, in order."""
+        section = (anchor.doc_id, anchor.heading_path)
+        lines: list[str] = []
+        seen: set[str] = set()
+        for j, part in enumerate(chunks, start=1):
+            if (part.doc_id, part.heading_path) != section:
+                continue
+            rows = [x for x in self._sentences(part.text) if " | " in x]
+            if any(": " in r for r in rows):  # labelled rows repeat the header: drop the bare header line
+                rows = [r for r in rows if ": " in r]
+            for row in rows:
+                key = re.sub(r"\W+", " ", row.lower()).strip()
+                if key not in seen and len(lines) < max_rows:
+                    seen.add(key)
+                    lines.append(f"- {row} [S{j}]")
+        return lines
 
 
 def anthropic_credentials_present() -> bool:

@@ -92,7 +92,21 @@ class Settings(BaseSettings):
     min_query_coverage: float = 0.34  # IDF-weighted share of query terms a lexical-only hit must contain
     kind_weights: dict[str, float] = {"page": 1.0, "section": 1.0, "document": 0.95, "news": 0.85}
     title_boost: float = 0.03  # small tie-breaker when the question's terms appear in the page title/headings
-    title_rank_weight: float = 0.5  # RRF weight of the title/headings field ranking (0 disables it)
+    # Short forms people type -> the names the website uses; appended to the question before
+    # searching (patterns are case-insensitive; "(?-i:...)" keeps one case-sensitive, e.g. "IT" vs "it").
+    query_expansions: dict[str, str] = {
+        r"AI\s*(?:&|and|-)?\s*DS|AIDS": "Artificial Intelligence and Data Science",
+        r"CSE\s*\(?\s*CS\s*\)?|CSE\s*-?\s*cyber": "Computer Science and Engineering Cyber Security",
+        r"CSE": "Computer Science and Engineering",
+        r"ECE": "Electronics and Communication Engineering",
+        r"EEE": "Electrical and Electronics Engineering",
+        r"MECH": "Mechanical Engineering",
+        r"(?-i:IT)": "Information Technology",
+        r"S\s*&\s*H": "Science and Humanities",
+        r"HOD|H\.O\.D": "Head of the Department",
+    }
+    section_expand_max: int = 10  # the best match's whole section (e.g. all rows of a faculty table), up to this many chunks
+    title_rank_weight: float = 6.0  # RRF weight of the title/headings field ranking (0 disables it)
     rerank_enabled: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
 

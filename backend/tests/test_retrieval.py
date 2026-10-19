@@ -57,8 +57,9 @@ def test_retrieval_quality_on_demo_questions(services):
     assert summary["unanswerable_rejected"] == 1.0, summary
 
 
-def test_news_posts_rank_below_official_pages_on_ties(services):
+def test_news_posts_rank_below_official_pages_on_ties(services, monkeypatch):
     retriever = services.retriever
+    monkeypatch.setattr(retriever.settings, "title_rank_weight", 0.0)  # isolate the page-type prior
     query = "college"  # appears on most demo pages, so there are several candidates
     before = retriever.search_text(query, 3).chunks
     assert len(before) >= 2
@@ -69,8 +70,9 @@ def test_news_posts_rank_below_official_pages_on_ties(services):
         retriever.corpus.chunks[top].metadata["kind"] = "news"
         retriever.settings.kind_weights = {**weights, "news": 0.5}
         after = retriever.search_text(query, 10).chunks
-        assert after[0].chunk_id == before[1].chunk_id  # the official page now leads
-        assert top in [c.chunk_id for c in after]  # the news post is demoted, not removed
+        ranked = [c.chunk_id for c in after]
+        assert after[0].chunk_id != top  # an official page now leads
+        assert top in ranked and ranked.index(top) > 0  # the news post is demoted, not removed
     finally:
         retriever.corpus.chunks[top].metadata["kind"] = original
         retriever.settings.kind_weights = weights
@@ -94,3 +96,31 @@ def test_title_field_ranking_finds_pages_by_their_title(services, monkeypatch):
     monkeypatch.setattr(retriever.settings, "title_rank_weight", 0.5)
     chunks = retriever.search_text("Contact Us", 3).chunks
     assert chunks and chunks[0].url.endswith("/contact.html")
+
+
+def test_best_match_brings_the_rest_of_its_section(tmp_path):
+    from rag.index.bm25 import BM25Index
+    from rag.models import RetrievedChunk, TextChunk
+    from rag.retrieval.corpus import Corpus
+    from rag.retrieval.hybrid import HybridRetriever
+    from tests.conftest import make_settings
+
+    def chunk(cid, i, heading):
+        return TextChunk(chunk_id=cid, doc_id="faculty", url="https://c.example/ai-dept/faculty-list/", page_title="Faculty List",
+                         heading_path=[heading], text=f"S.No: {i}. | Name of the Faculty: Dr.X{i}", token_count=10,
+                         chunk_index=i, content_hash=cid)
+
+    corpus = Corpus(chunks={c.chunk_id: c for c in [chunk("t0", 0, "AI&DS"), chunk("t1", 1, "AI&DS"), chunk("t2", 2, "AI&DS"),
+                                                     chunk("other", 3, "Research")]})
+    corpus.sections = {("faculty", ("AI&DS",)): ["t0", "t1", "t2"], ("faculty", ("Research",)): ["other"]}
+    retriever = HybridRetriever(make_settings(tmp_path / "data"), None, None, corpus, BM25Index([], []), BM25Index([], []))
+
+    def hit(cid):
+        c = corpus.chunks[cid]
+        return RetrievedChunk(chunk_id=cid, doc_id=c.doc_id, url=c.url, page_title=c.page_title, heading_path=c.heading_path,
+                              text=c.text, score=1.0)
+
+    expanded = retriever.expand_section([hit("t1"), hit("other")])
+    assert [c.chunk_id for c in expanded] == ["t0", "t1", "t2", "other"]  # page order, other results after
+    assert [c.chunk_id for c in retriever.expand_section([hit("t1"), hit("other")], max_chunks=2)] == ["t1", "t2", "other"]
+    assert [c.chunk_id for c in retriever.expand_section([hit("other"), hit("t1")])] == ["other", "t1"]  # single-chunk section

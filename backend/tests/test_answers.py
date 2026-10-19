@@ -63,6 +63,37 @@ class FakeLLM:
         return LLMAnswer(text=self.reply, model="fake-model", refused=self.refused)
 
 
+def test_extractive_answer_quotes_a_table_across_its_chunks():
+    from rag.llm.client import ExtractiveAnswerer
+
+    def part(cid, rows, heading="AI&DS"):
+        return RetrievedChunk(chunk_id=cid, doc_id="fac", url="https://c.example/fac/", page_title="Faculty List",
+                              heading_path=[heading], text="\n".join(rows), score=1.0)
+
+    chunks = [part("a", ["S.No: 1. | Name of the Faculty: Dr.M.Karuppasamy", "S.No: 2. | Name of the Faculty: Dr.Sugumar"]),
+              part("b", ["S.No: 3. | Name of the Faculty: Dr.R.Prabhu"]),
+              part("c", ["Research centre approved by Anna University for faculty."], heading="Research")]
+    answer = ExtractiveAnswerer().answer("AI&DS faculty name", chunks)
+    assert answer.splitlines() == ["- S.No: 1. | Name of the Faculty: Dr.M.Karuppasamy [S1]",
+                                   "- S.No: 2. | Name of the Faculty: Dr.Sugumar [S1]",
+                                   "- S.No: 3. | Name of the Faculty: Dr.R.Prabhu [S2]"]  # the table is the answer
+
+
+def test_extractive_answer_prefers_the_table_whose_page_title_names_the_question():
+    from rag.llm.client import ExtractiveAnswerer
+
+    def part(cid, url, title, text):
+        return RetrievedChunk(chunk_id=cid, doc_id=url, url=url, page_title=title, heading_path=["Electrical Engineering"],
+                              text=text, score=1.0)
+
+    chunks = [part("v", "https://c.example/eee/vision/", "Vision & Mission",
+                   "Electrical engineering taught by eminent faculty with modern facilities."),
+              part("f1", "https://c.example/eee/faculty-list/", "Faculty List", "S.N.: 1. | Name: Dr.C.Senthil Kumar"),
+              part("f2", "https://c.example/eee/faculty-list/", "Faculty List", "S.N.: 2. | Name: Dr.R.Pon Vengatesh")]
+    answer = ExtractiveAnswerer().answer("Electrical Engineering faculty", chunks)
+    assert answer.splitlines() == ["- S.N.: 1. | Name: Dr.C.Senthil Kumar [S2]", "- S.N.: 2. | Name: Dr.R.Pon Vengatesh [S3]"]
+
+
 def service(services, llm):
     return AnswerService(services.retriever, llm, top_k=4, image_top_k=3)
 

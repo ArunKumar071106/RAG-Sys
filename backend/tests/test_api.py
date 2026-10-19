@@ -297,3 +297,35 @@ def test_keyword_index_from_an_older_tokenizer_is_rebuilt(pipeline, tmp_path):
         assert BM25Index.is_current(path)
     finally:
         services.close()
+
+
+def test_updated_knowledge_base_is_reindexed_incrementally(pipeline, tmp_path):
+    """After a pull that changes data/processed, the next start re-embeds only what changed."""
+    import json
+    import shutil
+
+    from rag.embeddings.base import HashingEmbedder
+    from rag.index.indexer import Indexer
+
+    settings = make_settings(tmp_path / "data")
+    settings.ensure_dirs()
+    for name in ("chunks.jsonl", "image_chunks.jsonl", "images.jsonl"):
+        shutil.copy(pipeline.settings.processed_dir / name, settings.processed_dir / name)
+    embedder = HashingEmbedder(settings.hashing_dim)
+    Services(settings, embedder=embedder, load_llm=False).close()
+
+    lines = settings.chunks_file.read_text(encoding="utf-8").splitlines()
+    first = json.loads(lines[0])
+    first["page_title"] = "Retitled page"
+    settings.chunks_file.write_text("\n".join([json.dumps(first), *lines[1:]]) + "\n", encoding="utf-8")
+
+    from rag.index.qdrant_store import QdrantStore
+    store = QdrantStore.from_settings(settings)
+    try:
+        assert Indexer.build_needed(settings, embedder, store) == "the knowledge base changed"
+        report = Indexer(settings, embedder, store).run()
+        assert report["mode"] == "incremental" and report["text"]["changed_documents"] == 1
+        assert Indexer.build_needed(settings, embedder, store) == ""
+    finally:
+        store.close()
+

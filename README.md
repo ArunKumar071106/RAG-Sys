@@ -25,10 +25,10 @@ images (photos, posters, notices) alongside the answer.
 | Area | Status |
 |---|---|
 | **Knowledge base** | Crawled from https://aaaenggcoll.ac.in/ on 2026-10-18/19: **2,115 pages** (all 1,979 sitemap pages: main pages, department and lab pages, news posts, plus 69 PDFs) → 2,029 documents → **3,388 text chunks**; **4,785 images** (439 duplicates removed) with OCR text in 3,516. Shipped in `data/processed/`. |
-| Retrieval quality on the real site | 25 labelled questions with the official pages that answer them (including every suggested question in the UI), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.88, Recall@3 = 0.92, Recall@5 = 0.92, MRR = 0.89**, image hit rate 1.0, all with the offline hashing embedder. The misses are "What courses does AAACET offer?" (keyword search matches "offer" to a job-offer news post) and "Who is the principal of AAACET?" (news posts that mention the principal outrank the Principal Message page); both need a semantic model |
+| Retrieval quality on the real site | 35 labelled questions with the official pages that answer them (including every suggested question in the UI and a faculty-list question for each department), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.83, Recall@3 = 0.94, Recall@5 = 0.94, MRR = 0.88**, image hit rate 1.0, with the offline hashing embedder. Hybrid search with a semantic stand-in (all-MiniLM-L6-v2, the only model the build environment could download) measured the same: Recall@1 = 0.83, Recall@5 = 0.94, MRR = 0.88. Asked for a department's faculty, the extractive answer lists every name for 9 of 10 departments; the misses are Civil (its faculty page has no department heading, so the non-teaching staff page wins), "What courses does AAACET offer?" ("offer" matches a job-offer post) and "When was AAACET established?" (rank 2) |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
 | Tests | 110 backend tests, 28 frontend unit tests, 22 Playwright tests on desktop, tablet and mobile |
-| Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download any model weights, so the numbers above use the hashing embedder; semantic models should do better on paraphrased questions, but that hasn't been measured here. |
+| Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
 | Claude answers / vision descriptions | Implemented and unit-tested with a mocked client. Needs `ANTHROPIC_API_KEY`. Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
 | Off-topic questions | With Claude, the model replies "not covered" via a `[[NO_ANSWER]]` marker. In extractive mode, an off-topic question that shares a word with some page may still get loosely related quotes. |
 | Docker images / Compose | Written, but not built in the build environment (no Docker daemon). |
@@ -63,7 +63,11 @@ flowchart LR
 
 ### Text: Structure-Aware Recursive Chunking (`backend/rag/chunking/text_chunker.py`)
 1. Each page is parsed in document order into heading / text / table blocks, with a heading stack. Every block records
-   its heading path (`Page title > H1 > H2 > …`).
+   its heading path (`Page title > H1 > H2 > …`). Menus built from link cards (a list whose items are only a link
+   around a heading, like each department's sub-page menu) are navigation, not headings, so a department's faculty
+   table sits under "Artificial Intelligence and Data Science" rather than under the menu's last entry.
+   Table header rows written with `<td>` cells are recognised even with long labels, so every row reads
+   `Name of the Faculty: Dr.M.Karuppasamy | Highest Degree: Ph.D. | …`.
 2. Blocks are grouped into sections by heading. Small sibling sections under the same top-level heading are merged
    while they fit, so short facts stay with their context.
 3. Oversized sections are split recursively: paragraphs/tables, then sentences, then words. The sentence splitter
@@ -89,9 +93,15 @@ flowchart LR
   `Nearby text`, `AI-generated description`. Keywords come from extracted fields only.
 
 ### Hybrid retrieval (`backend/rag/retrieval/hybrid.py`)
-* **Text:** Qdrant cosine top-30, BM25 top-30 and a BM25 ranking over page titles and section headings (so "Contact Us"
-  or "Principal Message" pages are found by their title, weight `TITLE_RANK_WEIGHT=0.5`) are fused with RRF (`k=60`)
-  together with a query-coverage ranking. Exact-duplicate chunks are dropped and an
+* **Query:** request words are dropped ("show me photos of") and department short forms are spelled out the way the
+  website names them (`QUERY_EXPANSIONS`: "AI&DS" → "Artificial Intelligence and Data Science", CSE, ECE, EEE, MECH, IT,
+  S&H, HOD). They are replaced, not appended: event posts repeat "III AI&DS" in class names, department pages don't.
+* **Text:** Qdrant cosine top-30, BM25 top-30 and a BM25 ranking over page titles, URL path words and section headings
+  (so "Faculty List" under "/ai-dept/" or "Principal Message" pages are found by their title; weight
+  `TITLE_RANK_WEIGHT=6`, chosen on the eval set in both keyword-only and hybrid mode) are fused with RRF (`k=60`)
+  together with a query-coverage ranking. The best match's section, and any section with two or more matches, is
+  completed in page order (`SECTION_EXPAND_MAX=10` chunks), so a faculty table split over several chunks reaches the
+  answer whole. Exact-duplicate chunks are dropped and an
   optional cross-encoder reranker can reorder the results. A semantic-only hit below `TEXT_MIN_SEMANTIC_SCORE` cannot
   enter the results on its own, so off-topic questions return "no answer" instead of noise.
 * **Images:** three ranked lists (semantic over image chunks, BM25 over image chunks, and images located on the

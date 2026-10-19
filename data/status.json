@@ -13,27 +13,27 @@
     "duplicates": 0,
     "errors": 0,
     "images_referenced": 5481,
-    "updated_at": "2026-10-19T04:41:49+00:00"
+    "updated_at": "2026-10-19T06:29:22+00:00"
   },
   "chunk": {
     "documents": 2029,
-    "chunks": 3388,
+    "chunks": 3434,
     "duplicate_chunks": 53,
-    "avg_tokens": 305.9,
-    "updated_at": "2026-10-19T04:41:52+00:00"
+    "avg_tokens": 309.6,
+    "updated_at": "2026-10-19T06:29:27+00:00"
   },
   "index": {
     "state": "finished",
     "mode": "incremental",
-    "started_at": "2026-10-19T04:42:57+00:00",
-    "updated_at": "2026-10-19T04:43:10+00:00",
-    "finished_at": "2026-10-19T04:43:10+00:00",
+    "started_at": "2026-10-19T06:29:46+00:00",
+    "updated_at": "2026-10-19T06:29:49+00:00",
+    "finished_at": "2026-10-19T06:29:49+00:00",
     "text_documents": 2023,
-    "text_changed_documents": 2023,
-    "text_unchanged_documents": 0,
+    "text_changed_documents": 26,
+    "text_unchanged_documents": 1997,
     "text_removed_documents": 0,
-    "text_upserted": 3388,
-    "text_deleted": 0,
+    "text_upserted": 181,
+    "text_deleted": 73,
     "images_images": 4785,
     "images_upserted": 0,
     "images_deleted": 0,

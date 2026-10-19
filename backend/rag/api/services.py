@@ -86,7 +86,7 @@ class Services:
                     self._load_llm = False
                 reason = Indexer.build_needed(self.settings, self.embedder, self.store) if self.settings.auto_index_on_startup else ""
                 if reason and defer_vectors:
-                    self._ensure_keyword_index()
+                    self._ensure_keyword_index(force=True)  # seconds; matches the current data/processed
                     self._build_answers(semantic=False)
                     self.error = ""
                     self.indexing, self.starting = True, False
@@ -135,13 +135,13 @@ class Services:
                                 self.settings.retrieval_top_k, self.settings.image_top_k)
         self.corpus, self.retriever, self.answers = corpus, retriever, answers
 
-    def _ensure_keyword_index(self) -> None:
+    def _ensure_keyword_index(self, force: bool = False) -> None:
         """BM25 indexes take seconds to build from data/processed; rebuild if missing or from an older tokenizer."""
         from rag.index.bm25 import BM25Index
         from rag.index.indexer import bm25_image_path, bm25_text_path, build_bm25_indexes
 
         s = self.settings
-        if s.chunks_file.exists() and not (BM25Index.is_current(bm25_text_path(s)) and BM25Index.is_current(bm25_image_path(s))):
+        if s.chunks_file.exists() and (force or not (BM25Index.is_current(bm25_text_path(s)) and BM25Index.is_current(bm25_image_path(s)))):
             log.info("Building the keyword (BM25) index")
             build_bm25_indexes(s)
 
@@ -149,12 +149,12 @@ class Services:
         """Embed data/processed into Qdrant (e.g. a fresh checkout that ships only data/processed)."""
         from rag.index.indexer import Indexer
 
-        log.info("Building the search index from %s (%s) - this can take a while on a CPU", self.settings.chunks_file, reason)
+        log.info("Updating the search index from %s (%s) - this can take a while on a CPU", self.settings.chunks_file, reason)
 
         def progress(name: str, done: int, total: int) -> None:
             self.index_progress = {"collection": name, "done": done, "total": total}
 
-        Indexer(self.settings, self.embedder, self.store, progress).run(full=reason != "an interrupted build")
+        Indexer(self.settings, self.embedder, self.store, progress).run(full=reason in Indexer.FULL_REBUILD)
 
     @property
     def ready(self) -> bool:

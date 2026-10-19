@@ -8,6 +8,7 @@ so vectors from different models are never mixed.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections import defaultdict
 from collections.abc import Callable
@@ -72,6 +73,18 @@ def build_bm25_indexes(settings: Settings, text_chunks: list[TextChunk] | None =
     BM25Index.build([(c.chunk_id, c.text) for c in image_chunks]).save(bm25_image_path(settings))
 
 
+def data_fingerprint(settings: Settings) -> str:
+    """Hash of the processed chunk files, to notice an updated knowledge base (e.g. after a git pull)."""
+    digest = hashlib.sha256()
+    for path in (settings.chunks_file, settings.image_chunks_file):
+        if path.exists():
+            with path.open("rb") as fh:
+                for block in iter(lambda: fh.read(1 << 20), b""):
+                    digest.update(block)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 class Indexer:
     def __init__(self, settings: Settings, embedder: Embedder, store: QdrantStore,
                  progress: Callable[[str, int, int], None] | None = None):
@@ -81,9 +94,15 @@ class Indexer:
         self.progress = progress
         self._skip_existing = False
 
+    FULL_REBUILD = ("first start or embedder change", "empty index")
+
     @staticmethod
     def build_needed(settings: Settings, embedder: Embedder, store: QdrantStore) -> str:
-        """Why the vector index must be (re)built before semantic search can be used, or "" if it is current."""
+        """Why the vector index must be (re)built before semantic search can be used, or "" if it is current.
+
+        Reasons in ``FULL_REBUILD`` need every chunk embedded; the others (an interrupted build, an
+        updated data/processed after a pull) only re-embed what is missing or changed.
+        """
         if not settings.chunks_file.exists():
             return ""
         manifest = read_json(manifest_path(settings))
@@ -93,6 +112,8 @@ class Indexer:
             return "an interrupted build"
         if store.count(settings.qdrant_text_collection) == 0:
             return "empty index"
+        if manifest.get("data") != data_fingerprint(settings):
+            return "the knowledge base changed"
         return ""
 
     def run(self, full: bool = False) -> dict:
@@ -132,6 +153,7 @@ class Indexer:
             "text_docs": text_docs,
             "image_items": image_items,
             "counts": {"text_chunks": len(text_chunks), "image_chunks": len(image_chunks)},
+            "data": data_fingerprint(s),
             "complete": True,
         }
         write_json(manifest_path(s), new_manifest)

@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from rag.config import Settings
 from rag.embeddings.base import Embedder
@@ -71,8 +72,20 @@ def content_query(query: str) -> str:
 
 
 def chunk_title_text(chunk) -> str:
-    """The page title (without the site-name suffix) and the chunk's section headings."""
-    return " ".join([chunk.page_title.split(" – ")[0].split(" | ")[0], *chunk.heading_path])
+    """The page title (without the site-name suffix), the URL path words and the chunk's section
+    headings: "/civil/faculty-list/" says which department a "Faculty List" page belongs to."""
+    path_words = re.sub(r"[-_/]+", " ", urlsplit(chunk.url).path).strip()
+    return " ".join([chunk.page_title.split(" – ")[0].split(" | ")[0], path_words, *chunk.heading_path])
+
+
+def expand_query(query: str, expansions: dict[str, str]) -> str:
+    """Replace short forms in the question with the names the website uses: "AI&DS faculty"
+    searches "Artificial Intelligence and Data Science faculty". Replacing (not appending)
+    matters: event posts repeat "AI&DS" in student class names ("III AI&DS"), while the
+    department's own pages use the full name."""
+    for pattern, expansion in expansions.items():
+        query = re.sub(rf"(?<![\w&])(?:{pattern})(?![\w&])", expansion, query, flags=re.I)
+    return query
 
 
 class HybridRetriever:
@@ -91,11 +104,15 @@ class HybridRetriever:
         # find the "Principal Message" page even when news posts mention the principal more.
         self.bm25_titles = BM25Index.build([(cid, chunk_title_text(chunk)) for cid, chunk in corpus.chunks.items()])
 
+    def normalize_query(self, query: str) -> str:
+        """What is searched for: request words dropped, short forms spelled out the website's way."""
+        return expand_query(content_query(query), self.settings.query_expansions)
+
     # ------------------------------------------------------------- text
     def search_text(self, query: str, top_k: int | None = None) -> TextSearchResult:
         s = self.settings
         top_k = top_k or s.retrieval_top_k
-        query = content_query(query)
+        query = self.normalize_query(query)
         semantic: list[tuple[str, float]] = []
         if self.semantic_enabled:
             vector = self.embedder.embed_query(query)
@@ -169,6 +186,52 @@ class HybridRetriever:
             best_bm25=max((s_ for _, s_ in keyword), default=0.0),
         )
 
+    def expand_section(self, chunks: list[RetrievedChunk], max_chunks: int | None = None,
+                       max_sections: int = 2) -> list[RetrievedChunk]:
+        """Complete the sections the results point at, in page order.
+
+        A long table is split over several chunks; a question like "AI&DS faculty names"
+        matches some of them, but the answer needs every row. A section is completed when it
+        holds the best match or at least two of the matches (at most ``max_sections`` sections,
+        ``max_chunks`` chunks each); every other result keeps its place.
+        """
+        max_chunks = self.settings.section_expand_max if max_chunks is None else max_chunks
+        if not chunks or max_chunks <= 1:
+            return chunks
+        key = lambda c: (c.doc_id, tuple(c.heading_path))  # noqa: E731
+        hits: dict[tuple, list[str]] = {}
+        for c in chunks:
+            hits.setdefault(key(c), []).append(c.chunk_id)
+        by_id = {c.chunk_id: c for c in chunks}
+        expanded: list[RetrievedChunk] = []
+        placed: set[str] = set()
+        done: set[tuple] = set()
+        for position, c in enumerate(chunks):
+            if c.chunk_id in placed:
+                continue
+            k = key(c)
+            section = self.corpus.sections.get(k, [])
+            if k not in done and len(done) < max_sections and len(section) > 1 and c.chunk_id in section \
+                    and (position == 0 or len(hits[k]) >= 2):
+                done.add(k)
+                anchor = min(section.index(cid) for cid in hits[k] if cid in section)
+                start = max(0, min(anchor, len(section) - max_chunks))
+                for cid in section[start:start + max_chunks]:
+                    if cid in placed:
+                        continue
+                    if cid in by_id:
+                        expanded.append(by_id[cid])
+                    else:
+                        part = self.corpus.chunks[cid]
+                        expanded.append(RetrievedChunk(chunk_id=cid, doc_id=part.doc_id, url=part.url, page_title=part.page_title,
+                                                       heading_path=part.heading_path, text=part.text, score=c.score))
+                    placed.add(cid)
+                if c.chunk_id in placed:
+                    continue
+            expanded.append(c)
+            placed.add(c.chunk_id)
+        return expanded
+
     # ------------------------------------------------------------- images
     def search_images(self, query: str, top_k: int | None = None,
                       text_results: list[RetrievedChunk] | None = None) -> list[RetrievedImage]:
@@ -176,7 +239,7 @@ class HybridRetriever:
         top_k = top_k or s.image_top_k
         if not self.corpus.image_chunks:
             return []
-        query = content_query(query)
+        query = self.normalize_query(query)
         semantic: list[tuple[str, float]] = []
         if self.semantic_enabled:
             vector = self.embedder.embed_query(query)

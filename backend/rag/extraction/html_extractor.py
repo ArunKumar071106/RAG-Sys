@@ -60,6 +60,28 @@ def _is_chrome(tag: Tag) -> bool:
     return False
 
 
+def _is_link_card_list(tag: Tag) -> bool:
+    """A list whose every item is just a link to another page wrapping a heading: a menu.
+
+    Cards that carry more than their title (e.g. a "core values" list with descriptions,
+    built with the same widget and ``href="#!"``) are content and are kept.
+    """
+    items = tag.find_all("li", recursive=False)
+    if len(items) < 2:
+        return False
+    for li in items:
+        links = li.find_all("a")
+        if len(links) != 1:
+            return False
+        heading = links[0].find(list(HEADING_TAGS))
+        href = (links[0].get("href") or "").strip()
+        if heading is None or not href or href.startswith(("#", "javascript:")):
+            return False
+        if clean_text(li.get_text(" ", strip=True)) != clean_text(heading.get_text(" ", strip=True)):
+            return False
+    return True
+
+
 def _int_attr(value: object) -> int | None:
     if value is None:
         return None
@@ -103,9 +125,17 @@ def _humanize_filename(name: str) -> str:
 
 
 def _looks_like_header(first: list[str], rest: list[list[str]]) -> bool:
-    """A first table row of short, digit-free labels above rows with the same number of cells
-    (e.g. "Department | INTAKE" over "CIVIL ENGINEERING | 60") is a header row."""
-    if len(first) < 2 or any(not v or len(v) > 40 or re.search(r"\d", v) for v in first):
+    """A first table row of digit-free labels above rows with the same number of cells
+    (e.g. "Department | INTAKE" over "CIVIL ENGINEERING | 60") is a header row.
+
+    Labels may be long ("Date of Leaving (In case Currently Associated is "No")" in the
+    faculty tables) and a few may be blank, but a label never holds a number while the
+    rows below do.
+    """
+    labels = [v for v in first if v]
+    if len(labels) < 2 or len(labels) < 2 * len(first) / 3:
+        return False
+    if any(len(v) > 100 or re.search(r"\d", v) for v in labels):
         return False
     same_width = [r for r in rest if len(r) == len(first)]
     return len(same_width) >= max(1, len(rest) // 2) and any(re.search(r"\d", v) for r in same_width for v in r)
@@ -284,6 +314,12 @@ class _Walker:
         self.heading_stack.append((level, text))
         self.blocks.append(Block(type="heading", text=text, level=level, heading_path=self.heading_path))
 
+    def _drop_trailing_heading(self) -> None:
+        if self.blocks and self.blocks[-1].type == "heading":
+            heading = self.blocks.pop()
+            if self.heading_stack and self.heading_stack[-1][1] == heading.text:
+                self.heading_stack.pop()
+
     def walk(self, node: Tag) -> None:
         buffer: list[str] = []
 
@@ -318,6 +354,13 @@ class _Walker:
             elif name in HEADING_TAGS:
                 flush()
                 self._heading(child)
+            elif name in ("ul", "ol") and _is_link_card_list(child):
+                # a menu of link cards (e.g. a department's sub-page list) is navigation:
+                # its item headings are not sections, and a heading right before it is its label
+                flush()
+                for link in child.find_all("a"):
+                    self._add_link(link)
+                self._drop_trailing_heading()
             elif name == "table":
                 flush()
                 self._table(child)
