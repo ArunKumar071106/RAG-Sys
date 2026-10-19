@@ -71,7 +71,7 @@ class FastEmbedEmbedder:
     Uses ``query_embed`` for questions, which adds BGE's retrieval instruction prefix.
     """
 
-    def __init__(self, model_name: str = "BAAI/bge-base-en-v1.5", cache_dir: str | None = None, model=None):
+    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5", cache_dir: str | None = None, model=None):
         if model is None:
             try:
                 from fastembed import TextEmbedding  # type: ignore

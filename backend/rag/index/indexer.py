@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from collections.abc import Callable
 
 from rag.config import Settings
 from rag.embeddings.base import Embedder
@@ -72,10 +73,27 @@ def build_bm25_indexes(settings: Settings, text_chunks: list[TextChunk] | None =
 
 
 class Indexer:
-    def __init__(self, settings: Settings, embedder: Embedder, store: QdrantStore):
+    def __init__(self, settings: Settings, embedder: Embedder, store: QdrantStore,
+                 progress: Callable[[str, int, int], None] | None = None):
         self.settings = settings
         self.embedder = embedder
         self.store = store
+        self.progress = progress
+        self._skip_existing = False
+
+    @staticmethod
+    def build_needed(settings: Settings, embedder: Embedder, store: QdrantStore) -> str:
+        """Why the vector index must be (re)built before semantic search can be used, or "" if it is current."""
+        if not settings.chunks_file.exists():
+            return ""
+        manifest = read_json(manifest_path(settings))
+        if manifest.get("embedder") != embedder.name or manifest.get("dim") != embedder.dim:
+            return "first start or embedder change"
+        if manifest.get("complete", True) is False:
+            return "an interrupted build"
+        if store.count(settings.qdrant_text_collection) == 0:
+            return "empty index"
+        return ""
 
     def run(self, full: bool = False) -> dict:
         s = self.settings
@@ -86,6 +104,10 @@ class Indexer:
             full = True
         if full:
             manifest = {}
+        # A build that stopped part-way (same embedder) resumes: vectors already stored are kept.
+        self._skip_existing = manifest.get("complete", True) is False
+        if self._skip_existing:
+            log.info("Resuming an interrupted index build")
         update_status(s.status_file, "index", state="running", mode="full" if full else "incremental", started_at=utc_now())
 
         text_chunks = list(read_jsonl(s.chunks_file, TextChunk))
@@ -93,6 +115,7 @@ class Indexer:
 
         self.store.ensure_collection(s.qdrant_text_collection, self.embedder.dim, recreate=full)
         self.store.ensure_collection(s.qdrant_image_collection, self.embedder.dim, recreate=full)
+        write_json(manifest_path(s), {**manifest, "embedder": self.embedder.name, "dim": self.embedder.dim, "complete": False})
 
         text_report, text_docs = self._index_text(text_chunks, manifest.get("text_docs", {}))
         image_report, image_items = self._index_images(image_chunks, manifest.get("image_items", {}))
@@ -109,6 +132,7 @@ class Indexer:
             "text_docs": text_docs,
             "image_items": image_items,
             "counts": {"text_chunks": len(text_chunks), "image_chunks": len(image_chunks)},
+            "complete": True,
         }
         write_json(manifest_path(s), new_manifest)
         report = {"mode": "full" if full else "incremental", "text": text_report, "images": image_report, "validation": validation}
@@ -163,6 +187,15 @@ class Indexer:
         return {"images": len(chunks), "upserted": len(changed), "deleted": len(removed)}, current
 
     def _embed_and_upsert(self, name: str, ids: list[str], texts: list[str], payloads: list[dict]) -> None:
+        total = len(ids)
+        skipped = 0
+        if self._skip_existing:
+            existing = self.store.existing_ids(name, ids)
+            keep = [i for i, cid in enumerate(ids) if cid not in existing]
+            skipped = total - len(keep)
+            ids, texts, payloads = [ids[i] for i in keep], [texts[i] for i in keep], [payloads[i] for i in keep]
+            if skipped:
+                log.info("Indexing %s: %d/%d already done", name, skipped, total)
         batch = max(1, self.settings.embedding_batch_size * 4)
         next_report = 0.1
         for start in range(0, len(ids), batch):
@@ -170,10 +203,12 @@ class Indexer:
             if vectors.shape[1] != self.embedder.dim:
                 raise RuntimeError(f"Embedder returned {vectors.shape[1]}-d vectors, expected {self.embedder.dim}")
             self.store.upsert(name, ids[start:start + batch], vectors, payloads[start:start + batch])
-            done = min(start + batch, len(ids))
-            if done == len(ids) or done / len(ids) >= next_report:
-                log.info("Indexing %s: %d/%d (%d%%)", name, done, len(ids), 100 * done // len(ids))
-                next_report = done / len(ids) + 0.1
+            done = skipped + min(start + batch, len(ids))
+            if self.progress:
+                self.progress(name, done, total)
+            if done == total or done / total >= next_report:
+                log.info("Indexing %s: %d/%d (%d%%)", name, done, total, 100 * done // total)
+                next_report = done / total + 0.1
 
     # ------------------------------------------------------------- validation
     def validate(self, text_chunks: list[TextChunk], image_chunks: list[ImageChunk], samples: int = 5) -> dict:

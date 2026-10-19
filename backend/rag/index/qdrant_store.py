@@ -118,6 +118,17 @@ class QdrantStore:
         result = self.client.query_points(name, query=vector.tolist(), limit=limit, with_payload=True)
         return [(p.payload.get("chunk_id", ""), float(p.score), p.payload) for p in result.points]
 
+    def existing_ids(self, name: str, chunk_ids: Sequence[str], batch_size: int = 256) -> set[str]:
+        """The subset of ``chunk_ids`` already stored in the collection."""
+        if not chunk_ids or not self.client.collection_exists(name):
+            return set()
+        found: set[str] = set()
+        for start in range(0, len(chunk_ids), batch_size):
+            points = self.client.retrieve(name, ids=[point_id(c) for c in chunk_ids[start:start + batch_size]],
+                                          with_payload=["chunk_id"], with_vectors=False)
+            found.update(p.payload.get("chunk_id", "") for p in points)
+        return found
+
     def get(self, name: str, chunk_id: str) -> dict | None:
         if not self.client.collection_exists(name):
             return None

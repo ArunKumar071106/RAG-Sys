@@ -44,6 +44,9 @@ class Services:
         self.retriever = None
         self.answers = None
         self.error = ""
+        self.index_error = ""
+        self.indexing = False
+        self.index_progress: dict = {}
         self.jobs: dict[str, Job] = {}
         self._lock = threading.RLock()
         self._job_lock = threading.Lock()
@@ -57,20 +60,20 @@ class Services:
 
     def _initial_load(self) -> None:
         try:
-            self.load()
+            self.load(defer_vectors=True)
         finally:
             self.starting = False
+            self.indexing = False
 
     # ------------------------------------------------------------ lifecycle
-    def load(self) -> None:
+    def load(self, defer_vectors: bool = False) -> None:
+        """(Re)load everything. When the vector index must be built first and ``defer_vectors``
+        is set (API startup), answer with keyword search right away and switch to hybrid
+        search once the build finishes - on a laptop CPU it can take a long time."""
         from rag.embeddings import get_embedder
-        from rag.index.bm25 import BM25Index
-        from rag.index.indexer import bm25_image_path, bm25_text_path
+        from rag.index.indexer import Indexer
         from rag.index.qdrant_store import QdrantStore
-        from rag.llm.answer import AnswerService
         from rag.llm.client import get_llm
-        from rag.retrieval.corpus import Corpus
-        from rag.retrieval.hybrid import HybridRetriever, Reranker
 
         with self._lock:
             try:
@@ -81,46 +84,77 @@ class Services:
                 if self._load_llm:
                     self.llm = get_llm(self.settings)
                     self._load_llm = False
-                if self.settings.auto_index_on_startup:
-                    self._ensure_index()
-                self.corpus = Corpus.load(self.settings)
-                reranker = None
-                if self.settings.rerank_enabled:
+                reason = Indexer.build_needed(self.settings, self.embedder, self.store) if self.settings.auto_index_on_startup else ""
+                if reason and defer_vectors:
+                    self._ensure_keyword_index()
+                    self._build_answers(semantic=False)
+                    self.error = ""
+                    self.indexing, self.starting = True, False
+                    log.info("Answering with keyword search while the semantic index is built (%s)", reason)
                     try:
-                        reranker = Reranker(self.settings.rerank_model)
+                        self._build_vector_index(reason)
+                        self._build_answers(semantic=True)
+                        self.index_error = ""
+                        log.info("Semantic index ready; answering with hybrid search")
                     except Exception as exc:
-                        log.warning("Reranker unavailable: %s", exc)
-                self.retriever = HybridRetriever(
-                    self.settings, self.embedder, self.store, self.corpus,
-                    BM25Index.load(bm25_text_path(self.settings)), BM25Index.load(bm25_image_path(self.settings)), reranker,
-                )
-                self.answers = AnswerService(self.retriever, self.llm, self.settings.llm_history_turns,
-                                             self.settings.retrieval_top_k, self.settings.image_top_k)
-                self.error = ""
+                        log.exception("Building the semantic index failed; keeping keyword search")
+                        self.index_error = f"{type(exc).__name__}: {exc}"
+                    finally:
+                        self.indexing = False
+                    return
+                if reason:
+                    self._build_vector_index(reason)
+                else:
+                    self._ensure_keyword_index()
+                self._build_answers(semantic=True)
+                self.error = self.index_error = ""
             except Exception as exc:
                 log.exception("Failed to load RAG services")
                 self.error = f"{type(exc).__name__}: {exc}"
 
-    def _ensure_index(self) -> None:
-        """Build the vector/BM25 index when processed chunks exist but the index does not
-        (e.g. a fresh checkout that ships data/processed) or was built with another embedder."""
+    def _build_answers(self, semantic: bool) -> None:
         from rag.index.bm25 import BM25Index
-        from rag.index.indexer import Indexer, bm25_image_path, bm25_text_path, build_bm25_indexes, manifest_path
-        from rag.utils import read_json
+        from rag.index.indexer import bm25_image_path, bm25_text_path
+        from rag.llm.answer import AnswerService
+        from rag.retrieval.corpus import Corpus
+        from rag.retrieval.hybrid import HybridRetriever, Reranker
+
+        corpus = Corpus.load(self.settings)
+        reranker = None
+        if self.settings.rerank_enabled:
+            try:
+                reranker = Reranker(self.settings.rerank_model)
+            except Exception as exc:
+                log.warning("Reranker unavailable: %s", exc)
+        retriever = HybridRetriever(
+            self.settings, self.embedder, self.store, corpus,
+            BM25Index.load(bm25_text_path(self.settings)), BM25Index.load(bm25_image_path(self.settings)), reranker,
+        )
+        retriever.semantic_enabled = semantic
+        answers = AnswerService(retriever, self.llm, self.settings.llm_history_turns,
+                                self.settings.retrieval_top_k, self.settings.image_top_k)
+        self.corpus, self.retriever, self.answers = corpus, retriever, answers
+
+    def _ensure_keyword_index(self) -> None:
+        """BM25 indexes take seconds to build from data/processed; rebuild if missing or from an older tokenizer."""
+        from rag.index.bm25 import BM25Index
+        from rag.index.indexer import bm25_image_path, bm25_text_path, build_bm25_indexes
 
         s = self.settings
-        if not s.chunks_file.exists():
-            return
-        manifest = read_json(manifest_path(s))
-        stale = manifest.get("embedder") != self.embedder.name or manifest.get("dim") != self.embedder.dim
-        empty = self.store.count(s.qdrant_text_collection) == 0
-        if not (stale or empty):
-            if not (BM25Index.is_current(bm25_text_path(s)) and BM25Index.is_current(bm25_image_path(s))):
-                log.info("Rebuilding the keyword (BM25) index: the tokenizer changed")
-                build_bm25_indexes(s)
-            return
-        log.info("Building the search index from %s (first start or embedder change) - this can take a few minutes", s.chunks_file)
-        Indexer(s, self.embedder, self.store).run(full=True)
+        if s.chunks_file.exists() and not (BM25Index.is_current(bm25_text_path(s)) and BM25Index.is_current(bm25_image_path(s))):
+            log.info("Building the keyword (BM25) index")
+            build_bm25_indexes(s)
+
+    def _build_vector_index(self, reason: str) -> None:
+        """Embed data/processed into Qdrant (e.g. a fresh checkout that ships only data/processed)."""
+        from rag.index.indexer import Indexer
+
+        log.info("Building the search index from %s (%s) - this can take a while on a CPU", self.settings.chunks_file, reason)
+
+        def progress(name: str, done: int, total: int) -> None:
+            self.index_progress = {"collection": name, "done": done, "total": total}
+
+        Indexer(self.settings, self.embedder, self.store, progress).run(full=reason != "an interrupted build")
 
     @property
     def ready(self) -> bool:
@@ -132,8 +166,8 @@ class Services:
 
     # ------------------------------------------------------------ reindex jobs
     def start_reindex(self, full: bool, recrawl: bool) -> Job:
-        if self.starting:
-            raise RuntimeError("The service is still starting up")
+        if self.starting or self.indexing:
+            raise RuntimeError("The service is still building its index")
         if not self._job_lock.acquire(blocking=False):
             raise RuntimeError("A reindex job is already running")
         stages = ["crawl", "extract", "images", "chunk", "index"] if recrawl else ["extract", "images", "chunk", "index"]

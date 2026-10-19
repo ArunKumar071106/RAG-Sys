@@ -65,7 +65,9 @@ class Settings(BaseSettings):
 
     # ---- embeddings ----------------------------------------------------
     embedding_provider: Literal["bge-m3", "fastembed", "hashing"] = "bge-m3"
-    fastembed_model: str = "BAAI/bge-base-en-v1.5"
+    # bge-small has a third of bge-base's parameters, so it indexes ~3x faster on a laptop CPU;
+    # its benchmark retrieval scores are slightly lower. Set FASTEMBED_MODEL=BAAI/bge-base-en-v1.5 to trade back.
+    fastembed_model: str = "BAAI/bge-small-en-v1.5"
     fastembed_cache_dir: str = ""
     embedding_model: str = "BAAI/bge-m3"
     embedding_device: str = "cpu"

@@ -85,6 +85,8 @@ class HybridRetriever:
         self.bm25_text = bm25_text
         self.bm25_images = bm25_images
         self.reranker = reranker
+        # False while the vector index is still being built: rank with the keyword lists only.
+        self.semantic_enabled = True
         # Field index over page titles and section headings: "Who is the principal?" should
         # find the "Principal Message" page even when news posts mention the principal more.
         self.bm25_titles = BM25Index.build([(cid, chunk_title_text(chunk)) for cid, chunk in corpus.chunks.items()])
@@ -94,9 +96,11 @@ class HybridRetriever:
         s = self.settings
         top_k = top_k or s.retrieval_top_k
         query = content_query(query)
-        vector = self.embedder.embed_query(query)
-        semantic = self.store.search(s.qdrant_text_collection, vector, s.semantic_candidates)
-        semantic = [(cid, score) for cid, score, _ in semantic if cid in self.corpus.chunks]
+        semantic: list[tuple[str, float]] = []
+        if self.semantic_enabled:
+            vector = self.embedder.embed_query(query)
+            semantic = [(cid, score) for cid, score, _ in self.store.search(s.qdrant_text_collection, vector, s.semantic_candidates)
+                        if cid in self.corpus.chunks]
         keyword = [(cid, score) for cid, score in self.bm25_text.search(query, s.bm25_candidates) if cid in self.corpus.chunks]
 
         # Semantic hits below the floor are noise: they still help ordering
@@ -173,9 +177,11 @@ class HybridRetriever:
         if not self.corpus.image_chunks:
             return []
         query = content_query(query)
-        vector = self.embedder.embed_query(query)
-        semantic = [(cid, score) for cid, score, _ in self.store.search(s.qdrant_image_collection, vector, s.semantic_candidates)
-                    if cid in self.corpus.image_chunks]
+        semantic: list[tuple[str, float]] = []
+        if self.semantic_enabled:
+            vector = self.embedder.embed_query(query)
+            semantic = [(cid, score) for cid, score, _ in self.store.search(s.qdrant_image_collection, vector, s.semantic_candidates)
+                        if cid in self.corpus.image_chunks]
         keyword = [(cid, score) for cid, score in self.bm25_images.search(query, s.bm25_candidates) if cid in self.corpus.image_chunks]
 
         page_linked: list[str] = []

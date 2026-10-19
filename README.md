@@ -28,7 +28,7 @@ images (photos, posters, notices) alongside the answer.
 | Retrieval quality on the real site | 25 labelled questions with the official pages that answer them (including every suggested question in the UI), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.88, Recall@3 = 0.92, Recall@5 = 0.92, MRR = 0.89**, image hit rate 1.0, all with the offline hashing embedder. The misses are "What courses does AAACET offer?" (keyword search matches "offer" to a job-offer news post) and "Who is the principal of AAACET?" (news posts that mention the principal outrank the Principal Message page); both need a semantic model |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
 | Tests | 110 backend tests, 28 frontend unit tests, 22 Playwright tests on desktop, tablet and mobile |
-| Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-base** (ONNX, installed by default, downloads ~200 MB on first start) → falls back to an offline hashing embedder. The build environment could not download any model weights, so the numbers above use the hashing embedder; semantic models should do better on paraphrased questions, but that hasn't been measured here. |
+| Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download any model weights, so the numbers above use the hashing embedder; semantic models should do better on paraphrased questions, but that hasn't been measured here. |
 | Claude answers / vision descriptions | Implemented and unit-tested with a mocked client. Needs `ANTHROPIC_API_KEY`. Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
 | Off-topic questions | With Claude, the model replies "not covered" via a `[[NO_ANSWER]]` marker. In extractive mode, an off-topic question that shares a word with some page may still get loosely related quotes. |
 | Docker images / Compose | Written, but not built in the build environment (no Docker daemon). |
@@ -171,10 +171,11 @@ make dev                                    # UI on http://localhost:5173
 ### 2. Use the real AAACET knowledge base (shipped in the repo)
 The repository includes the processed content of the official website in `data/processed/` (text chunks and image
 metadata, crawled from https://aaaenggcoll.ac.in/). On the first start the API builds the Qdrant and BM25 indexes from it
-automatically (about 30 seconds with the offline embedder, several minutes on a laptop CPU with FastEmbed/BGE), so you
-only need to start the two servers. The build runs in the background: the API is reachable at once, the backend
-terminal logs `Indexing aaacet_text: 1152/3388 (34%)`-style progress, and the chat answers "The assistant is still
-starting up" until the index is ready:
+automatically, so you only need to start the two servers. The keyword (BM25) index is ready within seconds and the
+assistant answers with it straight away; the semantic vectors (3,388 text and 4,785 image chunks) are embedded in the
+background, which can take a long time on a laptop CPU, and the API switches to hybrid search when they are done. The
+backend terminal logs `Indexing aaacet_text: 1152/3388 (34%)`-style progress, `/api/health` reports
+`"status": "indexing"` meanwhile, and an interrupted build resumes where it stopped on the next start:
 ```bash
 make serve        # API on http://127.0.0.1:8000  (first start: "Building the search index ...")
 make dev          # UI on http://localhost:5173

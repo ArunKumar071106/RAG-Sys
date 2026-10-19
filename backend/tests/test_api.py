@@ -162,8 +162,8 @@ def test_api_builds_missing_index_on_startup(pipeline, tmp_path):
         services.close()
 
 
-def test_api_answers_starting_up_while_building_index_in_background(pipeline, tmp_path):
-    """The server must accept requests during a long first-start index build."""
+def test_api_answers_with_keyword_search_while_building_index_in_background(pipeline, tmp_path):
+    """A first start can spend a long time embedding on a CPU; questions are answered meanwhile."""
     import shutil
     import threading
     import time
@@ -185,23 +185,91 @@ def test_api_answers_starting_up_while_building_index_in_background(pipeline, tm
         shutil.copy(pipeline.settings.processed_dir / name, settings.processed_dir / name)
     embedder = GatedEmbedder(settings.hashing_dim)
     services = Services(settings, embedder=embedder, load_llm=False, background=True)
+    question = {"message": "What is the tuition fee for B.Tech Data Science?"}
+    try:
+        app = create_app(settings, services=services)
+        with TestClient(app) as c:
+            deadline = time.monotonic() + 10
+            while not services.indexing and time.monotonic() < deadline:
+                time.sleep(0.02)
+            health = c.get("/api/health").json()
+            assert health["status"] == "indexing" and health["ready"] and health["search"] == "keyword"
+            assert "60,000" in c.post("/api/chat", json=question).json()["answer"]
+            assert services.retriever.semantic_enabled is False
+            embedder.release.set()
+            deadline = time.monotonic() + 30
+            while services.indexing and time.monotonic() < deadline:
+                time.sleep(0.05)
+            health = c.get("/api/health").json()
+            assert health["status"] == "ok" and health["search"] == "hybrid", health
+            result = c.post("/api/chat", json=question).json()
+            assert "60,000" in result["answer"] and services.retriever.semantic_enabled
+    finally:
+        embedder.release.set()
+        services.close()
+
+
+def test_api_answers_starting_up_while_the_model_loads(tmp_path, monkeypatch):
+    import threading
+
+    import rag.embeddings as embeddings
+    from rag.embeddings.base import HashingEmbedder
+
+    release = threading.Event()
+
+    def slow_model(settings):
+        release.wait(10)
+        return HashingEmbedder(settings.hashing_dim)
+
+    monkeypatch.setattr(embeddings, "get_embedder", slow_model)
+    settings = make_settings(tmp_path / "data")
+    services = Services(settings, load_llm=False, background=True)
     try:
         app = create_app(settings, services=services)
         with TestClient(app) as c:
             assert c.get("/api/health").json()["status"] == "starting"
-            response = c.post("/api/chat", json={"message": "What is the tuition fee for B.Tech Data Science?"})
+            response = c.post("/api/chat", json={"message": "hello there"})
             assert response.status_code == 503 and response.headers["Retry-After"] == "30"
             assert "starting up" in response.json()["detail"]
-            embedder.release.set()
-            deadline = time.monotonic() + 30
-            while services.starting and time.monotonic() < deadline:
-                time.sleep(0.05)
-            assert services.ready, services.error
-            data = c.post("/api/chat", json={"message": "What is the tuition fee for B.Tech Data Science?"}).json()
-            assert "60,000" in data["answer"]
     finally:
-        embedder.release.set()
-        services.close()
+        release.set()
+
+
+def test_interrupted_index_build_resumes(pipeline, tmp_path):
+    import shutil
+
+    from rag.embeddings.base import HashingEmbedder
+    from rag.index.indexer import Indexer
+    from rag.index.qdrant_store import QdrantStore
+
+    settings = make_settings(tmp_path / "data")
+    settings.ensure_dirs()
+    for name in ("chunks.jsonl", "image_chunks.jsonl", "images.jsonl"):
+        shutil.copy(pipeline.settings.processed_dir / name, settings.processed_dir / name)
+    embedder = HashingEmbedder(settings.hashing_dim)
+    store = QdrantStore.from_settings(settings)
+    try:
+        class Stop(Exception):
+            pass
+
+        def stop_after_first_batch(name, done, total):
+            raise Stop
+
+        with pytest.raises(Stop):
+            Indexer(settings, embedder, store, stop_after_first_batch).run(full=True)
+        assert Indexer.build_needed(settings, embedder, store) == "an interrupted build"
+        stored = store.count(settings.qdrant_text_collection)
+        assert stored > 0
+
+        embedded: list[int] = []
+        original = embedder.embed_documents
+        embedder.embed_documents = lambda texts: (embedded.append(len(texts)), original(texts))[1]
+        report = Indexer(settings, embedder, store).run()
+        assert report["validation"]["ok"] and Indexer.build_needed(settings, embedder, store) == ""
+        total = report["text"]["upserted"] + report["images"]["upserted"]
+        assert sum(embedded) == total - stored  # only what the interrupted run had not stored
+    finally:
+        store.close()
 
 
 def test_keyword_index_from_an_older_tokenizer_is_rebuilt(pipeline, tmp_path):

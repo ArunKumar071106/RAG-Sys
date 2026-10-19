@@ -157,9 +157,10 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     @app.get("/api/health")
     def health(request: Request):
         services = svc(request)
-        if services.starting:  # the index may be under construction: don't touch the store yet
-            return {"status": "starting", "version": __version__, "ready": False, "indexed": False,
-                    "error": "", "components": {}, "counts": {}}
+        if services.starting or services.indexing:  # the vector index is being built: leave the store alone
+            return {"status": "starting" if services.starting else "indexing", "version": __version__,
+                    "ready": services.ready, "indexed": False, "error": "", "components": {}, "counts": {},
+                    "search": "keyword" if services.indexing else "", "progress": services.index_progress}
         components = {"embedder": getattr(services.embedder, "name", None), "llm": getattr(services.llm, "name", None) or "extractive"}
         try:
             components["qdrant"] = "ok" if services.store is not None else "unavailable"
@@ -172,8 +173,9 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             counts = {}
         indexed = bool(services.corpus and services.corpus.chunks)
         state = "ok" if services.ready and indexed else "degraded"
+        search = "hybrid" if services.retriever is not None and services.retriever.semantic_enabled else "keyword"
         return {"status": state, "version": __version__, "ready": services.ready, "indexed": indexed,
-                "error": services.error, "components": components, "counts": counts}
+                "error": services.error or services.index_error, "components": components, "counts": counts, "search": search}
 
     @app.get("/api/status")
     def pipeline_status(request: Request):
