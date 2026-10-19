@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from rag.config import Settings
-from rag.extraction.boilerplate import drop_duplicate_documents, remove_repeated_blocks
+from rag.extraction.boilerplate import drop_duplicate_documents, remove_repeated_blocks, strip_common_title_suffix
 from rag.extraction.html_extractor import extract_html, extract_pdf_text, extract_site_chrome
 from rag.models import PageDocument, RawPage
 from rag.utils import normalize_url, read_jsonl, update_status, write_jsonl
@@ -37,6 +37,7 @@ def run_extraction(settings: Settings) -> list[PageDocument]:
             errors += 1
             log.exception("Failed to extract %s", page.url)
 
+    docs = strip_common_title_suffix(docs)
     docs = remove_repeated_blocks(docs, settings.boilerplate_page_ratio)
     unique, duplicates = drop_duplicate_documents(docs)
     write_jsonl(settings.documents_file, unique)

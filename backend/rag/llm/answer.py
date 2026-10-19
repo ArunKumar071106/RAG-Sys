@@ -29,6 +29,9 @@ NO_ANSWER_TEXT = (
 _CITATION_RE = re.compile(r"\[(S|I)(\d+)\]")
 _MD_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 _BARE_URL_RE = re.compile(r"(?<![(\[])https?://[^\s)\]]+")
+_WANTS_IMAGES_RE = re.compile(
+    r"\b(photos?|pictures?|pics?|images?|gallery|posters?|notices?|brochures?|show me|look(s)? like|view of)\b", re.I
+)
 _FOLLOWUP_RE = re.compile(
     r"^\s*(and|also|then|so|what about|how about|same for)\b|\b(it|its|it's|they|them|their|those|these|that one|he|she|his|her)\b",
     re.I,
@@ -226,11 +229,16 @@ class AnswerService:
             sources.append(sources_all[orig - 1].model_copy(update={"id": f"S{new_idx}"}))
         cited_pages = {s.url for s in sources}
 
+        # Images the answer cites, then images from the cited pages; images from other pages
+        # only when the question asks for pictures ("show me photos of ...").
+        wants_images = bool(_WANTS_IMAGES_RE.search(question))
         chosen_images = [images_all[i - 1] for i in cited_i]
-        for image in images_all:  # add relevant images from cited pages
+        from_cited_pages = [im for im in images_all if im.source_page in cited_pages]
+        others = [im for im in images_all if im.source_page not in cited_pages] if wants_images else []
+        for image in from_cited_pages + others:
             if len(chosen_images) >= self.image_top_k:
                 break
-            if image not in chosen_images and (image.source_page in cited_pages or mode == "extractive"):
+            if image not in chosen_images:
                 chosen_images.append(image)
         chosen_images = [im.model_copy(update={"id": f"I{n}"}) for n, im in enumerate(chosen_images, start=1)]
 

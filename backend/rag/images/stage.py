@@ -11,7 +11,7 @@ from pathlib import Path
 from rag.config import Settings
 from rag.images.downloader import DownloadResult, ImageDownloader, hamming
 from rag.images.image_chunker import build_image_chunk, extract_keywords, has_searchable_evidence
-from rag.images.ocr import get_ocr_engine
+from rag.images.ocr import clean_ocr_text, get_ocr_engine
 from rag.images.vision import get_vision_describer
 from rag.models import ImageRecord, ImageRef, PageDocument
 from rag.utils import is_allowed_host, read_jsonl, short_id, update_status, write_jsonl
@@ -171,6 +171,7 @@ def run_image_stage(settings: Settings, downloader: ImageDownloader | None = Non
             downloader.close()
 
     for record in ok_records:
+        record.ocr_text = clean_ocr_text(record.ocr_text)
         record.keywords = extract_keywords(record)
     chunks = [build_image_chunk(r) for r in ok_records if has_searchable_evidence(r)]
     write_jsonl(settings.images_file, records)

@@ -16,6 +16,9 @@ export function ImageCard({ image, index, anchorId }: Props) {
   const [stage, setStage] = useState<Stage>("local");
   const src = stage === "local" ? apiUrl(image.src) : image.original_url;
   const alt = image.alt || image.caption || `Image from the page "${image.page_title}"`;
+  // Title: the most specific label available; meta: where it comes from, without repeating the title.
+  const title = image.caption || image.alt || image.heading || image.page_title;
+  const meta = [image.page_title, image.heading].filter((part, i, all) => part && part !== title && all.indexOf(part) === i).join(" - ");
   const pageHref = safeHref(image.source_page);
   const originalHref = safeHref(image.original_url);
 
@@ -41,8 +44,8 @@ export function ImageCard({ image, index, anchorId }: Props) {
         <span className="image-card__badge">Image {index}</span>
       </div>
       <figcaption className="image-card__caption">
-        <span className="image-card__title">{image.caption || image.alt || image.page_title}</span>
-        {image.heading && <span className="image-card__meta">{image.page_title} - {image.heading}</span>}
+        <span className="image-card__title">{title}</span>
+        {meta && <span className="image-card__meta">{meta}</span>}
         {image.ocr_text && (
           <details className="image-card__details">
             <summary>Text in image (OCR)</summary>

@@ -167,3 +167,13 @@ def test_interrupted_image_downloads_resume_from_journal(tmp_path):
     settings.images_file.unlink()  # simulate a run killed before records were written
     run_image_stage(settings, downloader=downloader())
     assert len(calls) == 3  # nothing downloaded twice
+
+
+def test_gps_camera_stamps_are_removed_from_ocr_text():
+    from rag.images.ocr import clean_ocr_text
+
+    stamped = "GPSMapCamera\nAmathur, Tamil Nadu, India\nHvc9+642,Amathur,TamilNadu626005,India\nLat 9.57053 Long 77.80\n26/02/2026 10:15 AM GMT +05:30"
+    assert clean_ocr_text(stamped) == ""
+    banner = "AAA COLLEGE OF ENGINEERING AND TECHNOLOGY\nDepartment of EEE\nGuest Lecture on Smart Grids"
+    assert clean_ocr_text(banner) == banner
+    assert clean_ocr_text(banner + "\nGPS Map Camera\nLat 9.5") == banner

@@ -17,6 +17,7 @@ text models, so images are retrieved through their textual evidence.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 from rag.config import Settings
@@ -57,6 +58,18 @@ class Reranker:
         return [c for c, _ in ranked]
 
 
+# Words that ask for a kind of answer ("show me photos of ...") rather than describing the topic.
+_REQUEST_WORDS_RE = re.compile(
+    r"\b(show( me)?|display|photos?|pictures?|pics?|images?|gallery|look(s)? like|view of)\b", re.I
+)
+
+
+def content_query(query: str) -> str:
+    """The topical part of a question: "Show photos of the hostel" -> "of the hostel"."""
+    stripped = re.sub(r"\s+", " ", _REQUEST_WORDS_RE.sub(" ", query)).strip()
+    return stripped if re.search(r"\w{3,}", stripped) else query
+
+
 class HybridRetriever:
     def __init__(self, settings: Settings, embedder: Embedder, store: QdrantStore, corpus: Corpus,
                  bm25_text: BM25Index, bm25_images: BM25Index, reranker: Reranker | None = None):
@@ -72,6 +85,7 @@ class HybridRetriever:
     def search_text(self, query: str, top_k: int | None = None) -> TextSearchResult:
         s = self.settings
         top_k = top_k or s.retrieval_top_k
+        query = content_query(query)
         vector = self.embedder.embed_query(query)
         semantic = self.store.search(s.qdrant_text_collection, vector, s.semantic_candidates)
         semantic = [(cid, score) for cid, score, _ in semantic if cid in self.corpus.chunks]
@@ -133,6 +147,7 @@ class HybridRetriever:
         top_k = top_k or s.image_top_k
         if not self.corpus.image_chunks:
             return []
+        query = content_query(query)
         vector = self.embedder.embed_query(query)
         semantic = [(cid, score) for cid, score, _ in self.store.search(s.qdrant_image_collection, vector, s.semantic_candidates)
                     if cid in self.corpus.image_chunks]
@@ -148,6 +163,9 @@ class HybridRetriever:
         bm_score = dict(keyword)
         fused = reciprocal_rank_fusion([[c for c, _ in semantic], [c for c, _ in keyword], page_linked], k=s.rrf_k,
                                        weights=[1.0, 1.0, 0.5])
+        # same page-type prior as text: photos on official pages before news-post photos
+        fused = sorted(((iid, score * s.kind_weights.get(self.corpus.page_kinds.get(
+            self.corpus.image_chunks[iid].source_page, "page"), 1.0)) for iid, score in fused), key=lambda x: -x[1])
         images: list[RetrievedImage] = []
         for image_id, score in fused:
             lexical = image_id in bm_score

@@ -174,3 +174,13 @@ def test_page_kind_from_wordpress_body_classes():
     assert kind("wp-singular cse-template-default single single-cse") == "section"
     assert kind("wp-singular page-template-default page") == "page"
     assert extract_pdf_text("x", "https://college.example/a.pdf", "").kind == "document"
+
+
+def test_common_site_name_is_stripped_from_titles():
+    from rag.extraction.boilerplate import strip_common_title_suffix
+
+    site = "AAA College of Engineering & Technology, Sivakasi"
+    titles = [f"AAA Hostels – {site}", f"Admission – {site}", f"Placement – 2017 – {site}", "Gallery | Other"]
+    docs = [extract_html(f"<html><head><title>{t}</title></head><body><main><p>x y z</p></main></body></html>",
+                         f"https://college.example/{i}", ALLOWED) for i, t in enumerate(titles)]
+    assert [d.title for d in strip_common_title_suffix(docs)] == ["AAA Hostels", "Admission", "Placement – 2017", "Gallery | Other"]

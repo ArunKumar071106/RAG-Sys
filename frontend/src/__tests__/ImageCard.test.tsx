@@ -37,4 +37,10 @@ describe("ImageCard", () => {
     expect(screen.queryByRole("link", { name: /View source page/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Open image/ })).not.toBeInTheDocument();
   });
+
+  it("does not repeat the page title in the caption and meta line", () => {
+    render(<ImageCard image={{ ...image, alt: "", caption: "", heading: "Hostel Gallery", page_title: "AAA Hostels" }} index={1} />);
+    expect(screen.getByText("Hostel Gallery", { selector: ".image-card__title" })).toBeInTheDocument();
+    expect(screen.getByText("AAA Hostels", { selector: ".image-card__meta" })).toBeInTheDocument();
+  });
 });

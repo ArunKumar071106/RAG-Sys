@@ -8,6 +8,7 @@ are installed. ``none`` disables OCR.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -100,6 +101,30 @@ class TesseractEngine:
             return OcrResult("", 0.0)
         text = "\n".join(" ".join(ws) for _, ws in sorted(lines.items()))
         return OcrResult(text, round(sum(confs) / len(confs) / 100, 3))
+
+
+_STAMP_LINE_RE = re.compile(
+    r"gps\s*map\s*camera|^\s*lat(itude)?\b|^\s*long(itude)?\b|\b[0-9A-Z]{4}\+[0-9A-Z]{2,3}\b|"
+    r"^\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\s*\d{1,2}:\d{2}|^\s*gmt\s*[+-]",
+    re.I,
+)
+
+
+def clean_ocr_text(text: str) -> str:
+    """Drop camera overlays (GPS Map Camera stamps: coordinates, plus-codes, timestamps)
+    that phones burn into event photos; they are not content of the image."""
+    lines = text.splitlines()
+    stamp = any(re.search(r"gps\s*map\s*camera", line, re.I) for line in lines)
+    kept = []
+    for i, line in enumerate(lines):
+        if _STAMP_LINE_RE.search(line):
+            continue
+        # the address lines that follow a GPS stamp are part of the overlay too
+        if stamp and i <= 3 and re.search(r"india|tamil\s*nadu", line, re.I):
+            continue
+        if len(line.strip()) > 1:
+            kept.append(line.strip())
+    return "\n".join(kept)
 
 
 def get_ocr_engine(name: str, min_confidence: float = 0.6) -> OcrEngine:

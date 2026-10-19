@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from urllib.parse import urlsplit
 
 from rag.models import PageDocument
@@ -77,3 +77,26 @@ def drop_duplicate_documents(docs: list[PageDocument]) -> tuple[list[PageDocumen
             duplicates.setdefault(kept.url, []).append(doc.url)
             kept.images.extend(i for i in doc.images if i.url not in {k.url for k in kept.images})
     return list(by_hash.values()), duplicates
+
+
+_TITLE_SEP_RE = re.compile(r"\s+[–—|-]\s+")
+
+
+def strip_common_title_suffix(docs: list[PageDocument], min_ratio: float = 0.5) -> list[PageDocument]:
+    """Remove the site name that most page titles end with ("Hostels – AAA College ..., Sivakasi")."""
+    suffixes = Counter()
+    for doc in docs:
+        parts = _TITLE_SEP_RE.split(doc.title)
+        if len(parts) > 1:
+            suffixes[parts[-1]] += 1
+    if not suffixes:
+        return docs
+    suffix, count = suffixes.most_common(1)[0]
+    if count < max(2, len(docs) * min_ratio):
+        return docs
+    tail = re.compile(r"\s+[–—|-]\s+" + re.escape(suffix) + r"$")
+    for doc in docs:
+        doc.title = tail.sub("", doc.title).strip() or suffix
+        for image in doc.images:
+            image.page_title = tail.sub("", image.page_title).strip() or suffix
+    return docs

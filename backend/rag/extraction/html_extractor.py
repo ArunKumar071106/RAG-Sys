@@ -479,16 +479,15 @@ def extract_site_chrome(html: str, url: str, allowed_domains: list[str], fetched
         if block.type == "heading":
             block = block.model_copy(update={"type": "text", "level": 0})
         seen.add(block.text)
-        blocks.append(block.model_copy(update={"heading_path": ["Website header and footer"]}))
+        blocks.append(block.model_copy(update={"heading_path": []}))
     if not blocks:
         return None
     blocks = [b.model_copy(update={"text": _label_contact_line(b.text)}) for b in blocks]
-    title = "Website header and footer"
-    blocks.insert(0, Block(type="heading", text=title, level=1, heading_path=[title]))
+    title = "Official website: header and footer"
     return PageDocument(
         doc_id=short_id(url, "site-chrome"),
         url=url,
-        title=f"{_page_title(soup) or url} - {title}",
+        title=title,
         blocks=blocks,
         content_hash=sha256_text("\n".join(b.text for b in blocks)),
         content_type="text/html",

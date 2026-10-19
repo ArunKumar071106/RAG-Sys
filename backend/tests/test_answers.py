@@ -176,3 +176,15 @@ async def test_anthropic_llm_errors_become_unavailable(error):
     client, _, _ = fake_client(error=error)
     with pytest.raises(LLMUnavailable):
         await AnthropicLLM("claude-opus-5-5", client=client).generate("sys", [])
+
+
+async def test_unrelated_page_images_only_when_question_asks_for_pictures(services):
+    svc = service(services, None)
+    plain = await svc.answer("What is the tuition fee for B.Tech Data Science?")
+    cited_pages = {src.url for src in plain.sources}
+    assert all(img.source_page in cited_pages for img in plain.images)
+    photos = await svc.answer("Show me photos of the hostel")
+    assert photos.images and any("hostel" in img.original_url for img in photos.images)
+    cited = {src.url for src in photos.sources}
+    on_cited = [img.source_page in cited for img in photos.images]
+    assert on_cited == sorted(on_cited, reverse=True)  # images from cited pages come first

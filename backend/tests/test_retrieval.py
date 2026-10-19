@@ -74,3 +74,11 @@ def test_news_posts_rank_below_official_pages_on_ties(services):
     finally:
         retriever.corpus.chunks[top].metadata["kind"] = original
         retriever.settings.kind_weights = weights
+
+
+def test_request_words_are_not_treated_as_topic():
+    from rag.retrieval.hybrid import content_query
+
+    assert content_query("Show me photos of the hostel") == "of the hostel"
+    assert content_query("What does the library look like?") == "What does the library ?"
+    assert content_query("Show photos") == "Show photos"  # nothing topical left: keep the original
