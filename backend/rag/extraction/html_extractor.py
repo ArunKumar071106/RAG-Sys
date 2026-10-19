@@ -151,6 +151,11 @@ class _Walker:
         self.images: list[ImageRef] = []
         self.heading_stack: list[tuple[int, str]] = []
         self._pending_images: list[ImageRef] = []  # waiting for context_after
+        # A page's first heading followed straight by another heading, before any content, is the
+        # page's banner (a department name over its menu and year headings): it stays the parent
+        # of everything below, even when later headings use the same level.
+        self._banner: tuple[int, str] | None = None
+        self._banner_open = True  # still deciding: no second heading and no content yet
 
     # ---------------------------------------------------------------- helpers
     @property
@@ -172,7 +177,12 @@ class _Walker:
         if self.blocks and self.blocks[-1].type == "text" and self.blocks[-1].text == text:
             return
         self.blocks.append(Block(type="text", text=text, heading_path=self.heading_path))
+        self._content_seen()
         self._resolve_pending(text)
+
+    def _content_seen(self) -> None:
+        if self.heading_stack:
+            self._banner_open = False  # the first heading has content of its own: not a banner
 
     def _resolve_pending(self, text: str) -> None:
         still_pending = []
@@ -300,6 +310,7 @@ class _Walker:
                 table_header=" | ".join(filter(None, [caption, header_line])),
             )
         )
+        self._content_seen()
         self._resolve_pending(rendered[0])
 
     # ---------------------------------------------------------------- walk
@@ -309,7 +320,9 @@ class _Walker:
         if not text:
             return
         level = int(tag.name[1])
-        while self.heading_stack and self.heading_stack[-1][0] >= level:
+        if self._banner_open and self.heading_stack:
+            self._banner, self._banner_open = self.heading_stack[0], False  # a heading right after the first one
+        while self.heading_stack and self.heading_stack[-1][0] >= level and self.heading_stack[-1] != self._banner:
             self.heading_stack.pop()
         self.heading_stack.append((level, text))
         self.blocks.append(Block(type="heading", text=text, level=level, heading_path=self.heading_path))
@@ -318,6 +331,8 @@ class _Walker:
         if self.blocks and self.blocks[-1].type == "heading":
             heading = self.blocks.pop()
             if self.heading_stack and self.heading_stack[-1][1] == heading.text:
+                if self.heading_stack[-1] == self._banner:
+                    self._banner = None
                 self.heading_stack.pop()
 
     def walk(self, node: Tag) -> None:

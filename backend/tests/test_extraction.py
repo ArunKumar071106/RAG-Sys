@@ -191,6 +191,22 @@ def test_link_card_menu_is_navigation_not_headings():
     assert any("/ai-dept/faculty-list/" in link.url for link in doc.links)
 
 
+def test_banner_heading_stays_the_parent_of_same_level_headings():
+    html = """<html><body><main><h2>Civil Engineering</h2><h5>NBA Accredited from 2024 to 2027</h5>
+      <h2>ACADEMIC YEAR 2025 - 2026</h2>
+      <table><tr><td>S.No</td><td>Name</td></tr><tr><td>1.</td><td>Dr.R.Kumar</td></tr></table>
+    </main></body></html>"""
+    table = next(b for b in extract_html(html, BASE, ALLOWED).blocks if b.type == "table")
+    assert table.heading_path == ["Civil Engineering", "ACADEMIC YEAR 2025 - 2026"]
+
+
+def test_first_heading_with_its_own_content_is_an_ordinary_section():
+    html = """<html><body><main><h2>Vision</h2><p>To be a centre of excellence.</p>
+      <h2>Mission</h2><p>Serve the community.</p></main></body></html>"""
+    mission = next(b for b in extract_html(html, BASE, ALLOWED).blocks if b.text == "Serve the community.")
+    assert mission.heading_path == ["Mission"]
+
+
 def test_contact_lines_get_labels():
     from rag.extraction.html_extractor import _label_contact_line
 

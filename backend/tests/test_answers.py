@@ -75,6 +75,22 @@ def test_table_keeps_useful_columns_and_drops_serials_and_empty_ones():
     assert markdown_table(["1 | Dr.X | Ph.D"], q=set()) is None  # unlabelled rows stay as quoted lines
 
 
+def test_equally_matching_tables_show_the_main_list_first():
+    from rag.llm.client import ExtractiveAnswerer
+
+    def part(cid, title, heading, rows):
+        return RetrievedChunk(chunk_id=cid, doc_id=cid, url=f"https://c.example/eee/{cid}/", page_title=title,
+                              heading_path=["Electrical Engineering", heading], text="\n".join(rows), score=1.0)
+
+    visiting = part("faculties", "Faculty", "Visiting Professors", ["S.No: 1. | Faculty Name: Dr.A.Visitor | Designation: Visiting Professor"])
+    main = part("faculty-list", "Faculty List", "Academic Year", [f"S.No: {i}. | Name of the Faculty: Dr.B.Staff{i}" for i in range(1, 6)])
+    board = part("governance", "Governance", "Board", [f"S.No: {i}. | Name of the Faculty: Dr.C.Board{i} | Category: Member" for i in range(1, 9)])
+    answer = ExtractiveAnswerer().answer("Electrical Engineering faculty", [visiting, main, board])
+    headings = [line for line in answer.splitlines() if line.startswith("**")]
+    assert headings[0].startswith("**Faculty List") and headings[1].startswith("**Faculty – ")  # main list, then visiting
+    assert "Governance" not in answer  # its title does not name the question
+
+
 def test_extractive_answer_groups_relevant_sentences_by_page():
     from rag.llm.client import ExtractiveAnswerer
 

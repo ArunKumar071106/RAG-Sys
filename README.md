@@ -25,7 +25,7 @@ images (photos, posters, notices) alongside the answer.
 | Area | Status |
 |---|---|
 | **Knowledge base** | Crawled from https://aaaenggcoll.ac.in/ on 2026-10-18/19: **2,115 pages** (all 1,979 sitemap pages: main pages, department and lab pages, news posts, plus 69 PDFs) → 2,029 documents → **3,388 text chunks**; **4,785 images** (439 duplicates removed) with OCR text in 3,516. Shipped in `data/processed/`. |
-| Retrieval quality on the real site | 35 labelled questions with the official pages that answer them (including every suggested question in the UI and a faculty-list question for each department), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.83, Recall@3 = 0.94, Recall@5 = 0.94, MRR = 0.88**, image hit rate 1.0, with the offline hashing embedder. Hybrid search with a semantic stand-in (all-MiniLM-L6-v2, the only model the build environment could download) measured the same: Recall@1 = 0.83, Recall@5 = 0.94, MRR = 0.88. Asked for a department's faculty, the extractive answer lists every name for 9 of 10 departments; the misses are Civil (its faculty page has no department heading, so the non-teaching staff page wins), "What courses does AAACET offer?" ("offer" matches a job-offer post) and "When was AAACET established?" (rank 2) |
+| Retrieval quality on the real site | 35 labelled questions with the official pages that answer them (including every suggested question in the UI and a faculty-list question for each department), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.77, Recall@3 = 0.97, Recall@5 = 0.97, MRR = 0.87**, image hit rate 1.0, with the offline hashing embedder; hybrid search with a semantic stand-in (all-MiniLM-L6-v2, the only model the build environment could download) measured the same. Asked for a department's faculty, the extractive answer lists every name for all 10 departments, the main faculty list first (for CSE, EEE and Civil the visiting professors page is the top search hit, the faculty list second). Misses: "What courses does AAACET offer?" ("offer" matches a job-offer post) |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
 | Tests | 110 backend tests, 28 frontend unit tests, 22 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
@@ -66,6 +66,8 @@ flowchart LR
    its heading path (`Page title > H1 > H2 > …`). Menus built from link cards (a list whose items are only a link
    around a heading, like each department's sub-page menu) are navigation, not headings, so a department's faculty
    table sits under "Artificial Intelligence and Data Science" rather than under the menu's last entry.
+   A page's first heading followed directly by other headings (a department banner over its menu) stays the parent
+   of everything below, even under same-level headings such as Civil's `<h2>ACADEMIC YEAR 2025 – 2026</h2>`.
    Table header rows written with `<td>` cells are recognised even with long labels, so every row reads
    `Name of the Faculty: Dr.M.Karuppasamy | Highest Degree: Ph.D. | …`.
 2. Blocks are grouped into sections by heading. Small sibling sections under the same top-level heading are merged
@@ -129,8 +131,9 @@ flowchart LR
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
   the UI shows a notice. Extractive answers are formatted too: a table answer becomes one compact Markdown table
   ("**Faculty List – Artificial Intelligence and Data Science** · 13 entries") with the useful columns (serial numbers,
-  mostly empty and long official columns dropped, columns named in the question kept), a second matching table from the
-  same page is added (B.E. and B.Tech intake), and text answers are short bullet lists grouped by page, keeping only
+  mostly empty and long official columns dropped, columns named in the question kept). Tables that match about as well
+  are shown too, the one whose page title names the question first, then the bigger (a department's faculty list
+  before its visiting professors; B.E. and B.Tech intake), and text answers are short bullet lists grouped by page, keeping only
   sentences that score at least half as well as the best one.
 
 ### Suggestions while typing (`backend/rag/retrieval/suggest.py`, `GET /api/suggest?q=`)

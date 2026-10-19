@@ -156,16 +156,27 @@ class ExtractiveAnswerer:
             best = rows[0]
         floor = -best[0] * relevance
         if " | " in best[4]:
-            # the table is the answer (with a second table from the same page that matches as
-            # well, e.g. "B.E. courses" next to "B.Tech courses"), plus the best plain sentences
-            anchor = chunks[best[1] - 1]
-            lines = self._quote_table(chunks, anchor, q, max_table_rows)
+            # The table is the answer. Tables that match about as well are shown too: first the
+            # one whose page title names more of the question ("Faculty List" before "Governance"
+            # for "AI&DS faculty"), then the bigger ("EEE faculty" lists the department's faculty
+            # before its two visiting professors; intake shows both B.E. and B.Tech tables).
+            def key_of(part: RetrievedChunk) -> tuple:
+                return part.doc_id, tuple(part.heading_path)
+
+            def size(part: RetrievedChunk) -> int:
+                return sum(len([x for x in self._sentences(c.text) if " | " in x]) for c in chunks if key_of(c) == key_of(part))
+
+            tables: list[RetrievedChunk] = []
             for c in scored:
-                other = chunks[c[1] - 1]
-                if " | " in c[4] and -c[0] >= -best[0] * 0.9 and other.url == anchor.url \
-                        and other.heading_path != anchor.heading_path:
-                    lines += [""] + self._quote_table(chunks, other, q, max_table_rows)
-                    break
+                part = chunks[c[1] - 1]
+                if " | " in c[4] and -c[0] >= -best[0] * 0.9 and key_of(part) not in {key_of(t) for t in tables}:
+                    tables.append(part)
+            named = {key_of(t): len(q & set(tokenize(t.page_title))) for t in tables}
+            tables = sorted(tables[:2], key=lambda t: (-named[key_of(t)], -size(t)))
+            tables = [t for t in tables if named[key_of(t)] == named[key_of(tables[0])]]  # not "Governance" after "Faculty List"
+            lines: list[str] = []
+            for table in tables:
+                lines += ([""] if lines else []) + self._quote_table(chunks, table, q, max_table_rows)
             notes = [c for c in scored if c[1] == best[1] and " | " not in c[4] and -c[0] >= floor]
             if notes[:per_source]:
                 lines += [""] + [f"- {sentence}" for *_, sentence in notes[:per_source]]

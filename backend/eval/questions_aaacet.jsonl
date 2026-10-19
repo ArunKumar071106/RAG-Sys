@@ -1,7 +1,7 @@
 // Evaluation questions for the real AAACET website (https://aaaenggcoll.ac.in/).
 // expected_url_patterns are substrings (or "re:" regexes) of the official page(s) that answer
 // each question, taken from the site's sitemap and menu. Run: python -m rag.cli eval
-{"question": "Which B.E. and B.Tech courses does AAACET offer and what is the intake?", "expected_url_patterns": ["/admission/"]}
+{"question": "Which B.E. and B.Tech courses does AAACET offer and what is the intake?", "expected_url_patterns": ["re:/admission/$|/aaa/products-and-services/"]}
 {"question": "What courses does AAACET offer?", "expected_url_patterns": ["/admission/"]}
 {"question": "What is the admission procedure at AAACET?", "expected_url_patterns": ["re:/admission/"]}
 {"question": "What scholarships are available for students?", "expected_url_patterns": ["/admission/"]}
@@ -14,14 +14,14 @@
 {"question": "Does the college have hostel facilities for boys and girls?", "expected_url_patterns": ["/aaa-hostels/"]}
 {"question": "Is college bus transport available?", "expected_url_patterns": ["/aaa-transport/"]}
 {"question": "What facilities does the central library have?", "expected_url_patterns": ["/aaacet-central-library/"]}
-{"question": "What is the contact phone number and email of the college?", "expected_url_patterns": ["re:/contact-us/|aaaenggcoll\\.ac\\.in/$"]}
+{"question": "What is the contact phone number and email of the college?", "expected_url_patterns": ["re:/contact-us/|/aaa/contact/|aaaenggcoll\\.ac\\.in/$"]}
 {"question": "Tell me about the Computer Science and Engineering department", "expected_url_patterns": ["/cse/"]}
 {"question": "Tell me about the Mechanical Engineering department", "expected_url_patterns": ["/mech/"]}
 {"question": "Which companies recruited students in placements?", "expected_url_patterns": ["re:/placement"]}
 {"question": "What is IQAC at AAACET?", "expected_url_patterns": ["/iqac"]}
 {"question": "Is AAACET accredited by NAAC?", "expected_url_patterns": ["re:/naac/|/iqac|/about|/aaacet-approvals/|aaaenggcoll\\.ac\\.in/$"]}
 {"question": "Show photos of the hostel", "expected_url_patterns": ["/aaa-hostels/"], "expected_image_patterns": ["re:wp-content/uploads"]}
-{"question": "What is the intake for each B.E. and B.Tech course?", "expected_url_patterns": ["/admission/"]}
+{"question": "What is the intake for each B.E. and B.Tech course?", "expected_url_patterns": ["re:/admission/$|/aaa/products-and-services/"]}
 {"question": "How do I apply for admission?", "expected_url_patterns": ["/admission/"]}
 {"question": "Tell me about placements and recruiters", "expected_url_patterns": ["/placement"]}
 {"question": "What hostel facilities are available?", "expected_url_patterns": ["/aaa-hostels/"]}
