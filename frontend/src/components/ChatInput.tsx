@@ -9,6 +9,8 @@ interface Props {
   disabled?: boolean;
   /** Type-ahead source; defaults to the API's /api/suggest. */
   suggest?: (typed: string, signal: AbortSignal) => Promise<string[]>;
+  /** The visitor is typing or moving through suggestions. */
+  onTyping?: () => void;
 }
 
 /** Bold the words of a suggestion that start with a word the user typed. */
@@ -21,7 +23,7 @@ function highlight(text: string, typed: string): ReactNode[] {
 }
 
 export const ChatInput = forwardRef<HTMLTextAreaElement, Props>(function ChatInput(
-  { onSend, disabled, suggest = fetchSuggestions },
+  { onSend, disabled, suggest = fetchSuggestions, onTyping },
   ref,
 ) {
   const [value, setValue] = useState("");
@@ -76,6 +78,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, Props>(function ChatInp
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (showList && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
       event.preventDefault();
+      onTyping?.();
       // -1 is "nothing picked" (Enter sends what was typed); the arrows cycle through it
       const last = suggestions.length - 1;
       setActive((i) => (event.key === "ArrowDown" ? (i >= last ? -1 : i + 1) : i <= -1 ? last : i - 1));
@@ -142,6 +145,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, Props>(function ChatInp
         onChange={(e) => {
           typedRef.current = true;
           setValue(e.target.value);
+          onTyping?.();
         }}
         onKeyDown={onKeyDown}
         onBlur={close}

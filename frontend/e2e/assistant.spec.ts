@@ -13,6 +13,13 @@ async function expectNoHorizontalScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+/** The demo page of the college site, with Arivazhai opened from its floating launcher. */
+async function openChat(page: Page, path = "/") {
+  await page.goto(path);
+  await page.getByRole("button", { name: "Ask Arivazhai about admissions" }).click();
+  await expect(page.getByRole("dialog", { name: "Arivazhai chat" })).toBeVisible();
+}
+
 async function ask(page: Page, question: string) {
   const box = page.getByLabel("Ask a question about AAACET");
   await box.fill(question);
@@ -22,14 +29,18 @@ async function ask(page: Page, question: string) {
 test("welcome screen", async ({ page }, info) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Virtual Assistant" })).toBeVisible();
-  await expect(page.getByText(/Welcome! I'm the AAACET Virtual Assistant/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ask Arivazhai about admissions" })).toBeVisible();
+  await expectNoHorizontalScroll(page);
+  await page.screenshot({ path: join(SHOTS, `${info.project.name}-launcher.png`) });
+  await page.getByRole("button", { name: "Ask Arivazhai about admissions" }).click();
+  await expect(page.getByText(/Welcome! I'm Arivazhai, the AAACET admission assistant/)).toBeVisible();
   await expect(page.getByRole("button", { name: "How do I apply for admission?" })).toBeVisible();
   await expectNoHorizontalScroll(page);
-  await page.screenshot({ path: join(SHOTS, `${info.project.name}-welcome.png`), fullPage: true });
+  await page.screenshot({ path: join(SHOTS, `${info.project.name}-welcome.png`) });
 });
 
 test("answer with official sources and a real retrieved image", async ({ page }, info) => {
-  await page.goto("/");
+  await openChat(page);
   // hold the real request briefly so the loading state is observable deterministically
   await page.route("**/api/chat", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 600));
@@ -51,11 +62,11 @@ test("answer with official sources and a real retrieved image", async ({ page },
   await expect(poster.getByText(/ADMISSIONS/i)).toBeVisible();
 
   await expectNoHorizontalScroll(page);
-  await page.screenshot({ path: join(SHOTS, `${info.project.name}-answer.png`), fullPage: true });
+  await page.screenshot({ path: join(SHOTS, `${info.project.name}-answer.png`) });
 });
 
 test("suggests questions while typing and asks the picked one", async ({ page }) => {
-  await page.goto("/");
+  await openChat(page);
   const box = page.getByLabel("Ask a question about AAACET");
   await box.pressSequentially("hos", { delay: 20 });
   const list = page.getByRole("listbox", { name: "Suggested questions" });
@@ -70,7 +81,7 @@ test("suggests questions while typing and asks the picked one", async ({ page })
 });
 
 test("table facts are answered with a clickable citation", async ({ page }) => {
-  await page.goto("/");
+  await openChat(page);
   await ask(page, "What is the tuition fee for B.Tech Data Science?");
   await expect(page.getByText(/60,000/).first()).toBeVisible({ timeout: 30_000 });
   const citation = page.locator("a.citation").first();
@@ -78,13 +89,13 @@ test("table facts are answered with a clickable citation", async ({ page }) => {
 });
 
 test("no-answer state", async ({ page }) => {
-  await page.goto("/");
+  await openChat(page);
   await ask(page, "zzqx wvvy plorp");
   await expect(page.getByText(/couldn't find this in the official AAACET website/)).toBeVisible({ timeout: 30_000 });
 });
 
 test("network error and retry", async ({ page }, info) => {
-  await page.goto("/");
+  await openChat(page);
   await page.route("**/api/chat", (route) => route.abort("internetdisconnected"));
   await ask(page, "What are the library timings?");
   const alert = page.getByRole("alert");
@@ -96,8 +107,11 @@ test("network error and retry", async ({ page }, info) => {
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-test("keyboard only: suggestion chip and new chat", async ({ page }) => {
+test("keyboard only: launcher, suggestion chip, new chat and Escape", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Ask Arivazhai about admissions" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Ask a question about AAACET")).toBeFocused();
   const chip = page.getByRole("button", { name: "What hostel facilities are available?" });
   await chip.focus();
   await page.keyboard.press("Enter");
@@ -106,6 +120,9 @@ test("keyboard only: suggestion chip and new chat", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.getByRole("region", { name: "Sources from the official website" })).toHaveCount(0);
   await expect(page.getByLabel("Ask a question about AAACET")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Arivazhai chat" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Ask Arivazhai about admissions" })).toBeFocused();
 });
 
 test("mobile menu", async ({ page }, info) => {

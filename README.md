@@ -143,6 +143,47 @@ flowchart LR
   "ai&ds fac" suggests "Who are the faculty of the Artificial Intelligence and Data Science department?".
 * The input is an accessible combobox: ↑/↓ to pick, Enter or click to ask, Tab to copy into the box, Esc to close.
 
+### Arivazhai, the animated assistant (`frontend/src/robot/`)
+The chat is presented by **Arivazhai**, the robot from the design project ("Animation states" and "Launcher icon").
+The robot is the design's own SVG rig and CSS, unchanged: `robot.css` is copied verbatim from `States.dc.html` and
+`Icon.dc.html`, and `Robot.tsx` / `LauncherIcon.tsx` are the same SVG markup converted to JSX, with gradient ids made
+unique per instance. The design tool's viewer runtime (`support.js`, `vendor/react*.js`) is not needed and not used.
+
+* **Floating launcher** in the bottom-right corner: the full-body robot from 640 px up, the design's head-only accent
+  disc (64 px) on phones, as its launcher rules require. It greets on a first visit (2 s after load), waves once per
+  session after 8 s without scrolling or input, and reaches toward the chat while hovered or focused.
+* **Chat panel**: the same robot moves into the panel header (only one robot is ever rendered), with a status line.
+  The panel is 400 px wide on desktop and full screen on phones; Esc closes it and focus returns to the launcher. The
+  conversation, and a search still running, survive closing the panel.
+* **One mapping from chat events to animation states** (`states.ts`, `reactionFor`), driven by the real request:
+
+| Chat event | State | Shown for |
+|---|---|---|
+| chat opened, new chat, first visit | `greet` | one cycle |
+| typing, moving through suggestions | `attend` | while typing (4 s after the last key) |
+| launcher hovered or focused | `support` | while hovered |
+| question sent: RAG retrieval and answering in flight | `think` | exactly until the API replies |
+| answer with sources | `answer` | one cycle |
+| visitor opens a cited official page, document or image | `confirm` | one cycle |
+| no answer, but related pages found (ambiguous question); message rejected as invalid | `unsure` | until the visitor types again |
+| nothing in the knowledge base; network, timeout, rate-limit or server failure | `error` | until the visitor types again |
+
+  `RobotDirector` plays them without conflicts: thinking wins while a request runs, short reactions return to the
+  resting state, and unsure/error stay until the visitor moves on. `prefers-reduced-motion` stops the motion (the
+  design's own rule) but keeps the expressions.
+* **On the college website** add one line before `</body>`; it inserts the launcher and panel as a small transparent
+  iframe (`/?widget=1`) that grows when the chat opens:
+  ```html
+  <script src="https://<assistant-domain>/arivazhai-widget.js" defer></script>
+  ```
+  `frontend/nginx.conf` already allows framing by `aaaenggcoll.ac.in`.
+
+| Launcher | Thinking during retrieval | Answer ready | Not sure (ambiguous) |
+|---|---|---|---|
+| ![Launcher](docs/screenshots/robot/01-idle-launcher.png) | ![Thinking](docs/screenshots/robot/05-think-retrieving.png) | ![Answer](docs/screenshots/robot/06-answer-ready.png) | ![Unsure](docs/screenshots/robot/08-unsure-ambiguous.png) |
+
+All eleven scenario screenshots are in `docs/screenshots/robot/`, written by `frontend/e2e/robot.spec.ts`.
+
 ---
 
 ## Project structure
@@ -165,8 +206,10 @@ backend/
   eval/             labelled question sets (demo + AAACET samples)
   tests/            pytest suite
 frontend/
-  src/components/   Header, ChatWindow, MessageBubble, ChatInput, SuggestedQuestions,
-                    SourceList, ImageCard, LoadingIndicator, ErrorMessage, Footer
+  src/components/   Header, ChatWidget (floating launcher + panel), ChatWindow, MessageBubble, ChatInput,
+                    SuggestedQuestions, SourceList, ImageCard, LoadingIndicator, ErrorMessage, Footer
+  src/robot/        Arivazhai rig from the design project + chat event -> animation state mapping
+  public/arivazhai-widget.js   one-line loader that adds Arivazhai to the college website
   src/brand/        brand.json + brand.css (measured from the official site by scripts/measure_brand.mjs)
   public/brand/     official logo, banner photo and favicon downloaded by the same script
   src/__tests__/    Vitest + Testing Library tests
@@ -214,6 +257,12 @@ make dev          # UI on http://localhost:5173
 Image cards load the photos from the official website. The downloaded copies are not committed; run the image stage
 locally if you want local copies.
 
+Open http://localhost:5173 and click Arivazhai in the bottom-right corner (or **Ask Arivazhai** on the page). To watch it
+react: type (listening), send a question (thinking until the answer arrives), read the answer (cheering), open a
+source link (checkmark), ask something the website does not cover (unsure when only related pages are found,
+error when nothing is), or stop the API and ask again (error).
+`http://localhost:5173/?widget=1` is the launcher alone, as the college website shows it, and `/?embed=1` the panel alone.
+
 ### 3. Refresh the knowledge base from the live website
 ```bash
 make all          # crawl → extract → images/OCR → chunk → index  (python -m rag.cli all)
@@ -246,8 +295,11 @@ reported. For example, the site's white-on-gold banner title (2.1:1) is rendered
 cannot find keeps its previous value. `scripts/extract_brand.py` is a browser-free fallback that parses stylesheets or
 a saved page. Confirm with the college that using the official logo on the assistant is permitted.
 
-The chat is offered two ways:
-* **as a page** that reproduces the site's header, menu, page banner/breadcrumb and footer, at `/`
+The chat is offered three ways:
+* **as a page** that reproduces the site's header, menu, page banner/breadcrumb and footer, at `/`, with Arivazhai's
+  floating launcher
+* **as a floating launcher on any page** of the college website, with `arivazhai-widget.js` (see
+  [Arivazhai](#arivazhai-the-animated-assistant-frontendsrcrobot))
 * **as an embeddable panel** at `/?embed=1`, for example
   `<iframe src="https://assistant.example/?embed=1" title="AAACET Virtual Assistant" style="width:100%;height:640px;border:0"></iframe>`.
   `frontend/nginx.conf` already allows framing by `aaaenggcoll.ac.in`.
@@ -301,10 +353,12 @@ make test-backend     # pytest: crawler (real Scrapy run against a local site), 
                       # hybrid retrieval, citations, answer generation, Claude client, API, brand extractor,
                       # Recall@K / MRR thresholds
 make test-frontend    # tsc + Vitest: chat submission, Enter/Shift+Enter, loading, sources, image cards,
-                      # broken-image fallback, no-answer, network error + retry, new chat, embed mode
+                      # broken-image fallback, no-answer, network error + retry, new chat, embed mode,
+                      # launcher/panel, event -> animation state mapping and timing
 make e2e              # Playwright against the real API (demo data): desktop 1366px, tablet 820px,
                       # mobile 390px; checks no horizontal scrolling, real image loading, keyboard use,
-                      # mobile menu; writes docs/screenshots/*
+                      # mobile menu, the robot in every conversation scenario and the website loader;
+                      # writes docs/screenshots/*
 ```
 `make e2e` uses `PLAYWRIGHT_CHROMIUM_PATH` when set (pre-installed Chromium); otherwise run `npx playwright install chromium` first.
 

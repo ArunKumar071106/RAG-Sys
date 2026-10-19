@@ -16,7 +16,7 @@ function deferred<T>() {
 describe("ChatWindow", () => {
   it("shows the welcome message and suggested questions", () => {
     render(<ChatWindow />);
-    expect(screen.getByText(/Welcome! I'm the AAACET Virtual Assistant/)).toBeInTheDocument();
+    expect(screen.getByText(/Welcome! I'm Arivazhai, the AAACET admission assistant/)).toBeInTheDocument();
     for (const q of DEFAULT_SUGGESTIONS) expect(screen.getByRole("button", { name: q })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
   });
