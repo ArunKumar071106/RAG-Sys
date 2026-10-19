@@ -16,7 +16,8 @@ from pydantic import BaseModel, Field
 
 from rag.index.bm25 import tokenize
 from rag.llm.client import AnthropicLLM, ExtractiveAnswerer, LLMUnavailable
-from rag.llm.prompts import NO_ANSWER_MARKER, SYSTEM_PROMPT, build_context, build_user_message
+from rag.llm.language import is_english
+from rag.llm.prompts import NO_ANSWER_MARKER, SYSTEM_PROMPT, TRANSLATE_PROMPT, build_context, build_user_message
 from rag.models import RetrievedChunk, RetrievedImage
 from rag.retrieval.hybrid import HybridRetriever
 
@@ -171,17 +172,35 @@ class AnswerService:
         messages.append({"role": "user", "content": build_user_message(question, context)})
         return messages
 
+    async def search_query(self, question: str, history: list[ChatTurn]) -> str:
+        """The English query to search the website with: a question in another language is
+        translated by the LLM; without one it is searched as written."""
+        query = self.retrieval_query(question, history)
+        if self.llm is None or is_english(question):
+            return query
+        try:
+            result = await self.llm.generate(TRANSLATE_PROMPT, [{"role": "user", "content": f"<question>{query}</question>"}])
+        except LLMUnavailable as exc:
+            log.warning("Could not translate the question for searching: %s", exc)
+            return query
+        translated = result.text.strip().splitlines()[0].strip() if result.text.strip() and not result.refused else ""
+        return translated or query
+
     async def answer(self, question: str, history: list[ChatTurn] | None = None) -> ChatResult:
         history = history or []
         timings: dict[str, int] = {}
         t0 = time.perf_counter()
-        query = self.retrieval_query(question, history)
+        query = await self.search_query(question, history)
         text = self.retriever.search_text(query, self.top_k)
         images = self.retriever.search_images(query, self.image_top_k, text.chunks) if text.chunks else []
         timings["retrieval"] = int((time.perf_counter() - t0) * 1000)
 
+        language_notice = "" if self.llm is not None or is_english(question) else (
+            "Questions in other languages are answered in English quotes; set up the AI answer service"
+            " (ANTHROPIC_API_KEY) to ask and get answers in any language.")
         if not text.chunks:
-            return ChatResult(answer=NO_ANSWER_TEXT, mode="no_answer", insufficient_evidence=True, timings_ms=timings)
+            return ChatResult(answer=NO_ANSWER_TEXT, mode="no_answer", insufficient_evidence=True, notice=language_notice,
+                              timings_ms=timings)
         text.chunks = self.retriever.expand_section(text.chunks)
 
         sources_all = [source_out(i, c) for i, c in enumerate(text.chunks, start=1)]
@@ -208,15 +227,16 @@ class AnswerService:
                 mode = "extractive"
         else:
             mode = "extractive"
-            notice = "Answers quote the official website directly (AI answer generation is not configured)."
+            notice = " ".join(filter(None, ["Answers quote the official website directly (AI answer generation is not configured).",
+                                            language_notice]))
         if mode == "extractive":
             raw = self.extractive.answer(self.retriever.normalize_query(query), text.chunks)
-            if raw:
-                raw = "Here is what the official website says:\n\n" + raw
         timings["generation"] = int((time.perf_counter() - t1) * 1000)
 
         if not raw.strip() or raw.lstrip().startswith(NO_ANSWER_MARKER):
-            return ChatResult(answer=NO_ANSWER_TEXT, mode="no_answer", insufficient_evidence=True,
+            # the model's own "not covered" sentence is in the question's language
+            said = raw.replace(NO_ANSWER_MARKER, "").strip() if mode == "llm" and not is_english(question) else ""
+            return ChatResult(answer=said or NO_ANSWER_TEXT, mode="no_answer", insufficient_evidence=True,
                               related_sources=[r.model_copy(update={"id": f"R{n}"}) for n, r in enumerate(sources_all[:3], start=1)],
                               model=model, notice=notice, timings_ms=timings)
 

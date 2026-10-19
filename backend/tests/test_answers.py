@@ -6,7 +6,7 @@ import pytest
 
 from rag.llm.answer import NO_ANSWER_TEXT, AnswerService, ChatTurn, renumber_citations, sanitize_links
 from rag.llm.client import AnthropicLLM, LLMAnswer, LLMUnavailable
-from rag.llm.prompts import NO_ANSWER_MARKER, SYSTEM_PROMPT, build_context
+from rag.llm.prompts import NO_ANSWER_MARKER, SYSTEM_PROMPT, TRANSLATE_PROMPT, build_context
 from rag.models import RetrievedChunk, RetrievedImage
 
 
@@ -43,7 +43,7 @@ def test_extractive_answer_keeps_abbreviations_rows_and_skips_headings_and_dupli
             "- The tuition fee is payable in two instalments.\n\nThe tuition fee is payable in two instalments.")
     chunk = RetrievedChunk(chunk_id="c", doc_id="d", url="u", page_title="P", heading_path=[], text=text, score=1)
     answer = ExtractiveAnswerer().answer("tuition fee for data science", [chunk])
-    assert answer.splitlines()[0] == "- Programme: B.Tech Data Science | Tuition fee per year: Rs. 60,000 [S1]"
+    assert answer.splitlines()[2:5] == ["| Programme | Tuition fee per year |", "|---|---|", "| B.Tech Data Science | Rs. 60,000 |"]
     assert answer.count("instalments") == 1
     assert "Fee Structure" not in answer and "- - " not in answer
 
@@ -63,6 +63,32 @@ class FakeLLM:
         return LLMAnswer(text=self.reply, model="fake-model", refused=self.refused)
 
 
+def test_table_keeps_useful_columns_and_drops_serials_and_empty_ones():
+    from rag.llm.client import markdown_table
+
+    long_label = "Date on which Designated as Professor/ Associate Professor (if any, as per the norms)"
+    rows = [f"S.No: {i}. | Name: Dr.X{i} | Qualification: Ph.D | Designation: Professor | Area of Specialization: AI | "
+            f"Date of Joining: 2020 | {long_label}: – | Nature of Association: Regular" for i in range(1, 4)]
+    table = markdown_table(rows, q={"designation"})
+    assert table[0] == "| Name | Qualification | Designation | Area of Specialization | Date of Joining |"
+    assert table[2] == "| Dr.X1 | Ph.D | Professor | AI | 2020 |"
+    assert markdown_table(["1 | Dr.X | Ph.D"], q=set()) is None  # unlabelled rows stay as quoted lines
+
+
+def test_extractive_answer_groups_relevant_sentences_by_page():
+    from rag.llm.client import ExtractiveAnswerer
+
+    def part(cid, title, text):
+        return RetrievedChunk(chunk_id=cid, doc_id=cid, url=f"https://c.example/{cid}/", page_title=title,
+                              heading_path=[], text=text, score=1.0)
+
+    chunks = [part("h", "AAA Hostels", "Separate hostels for boys and girls are available on campus. The mess serves food."),
+              part("s", "Sports", "Students play cricket in the evening near the hostel gate.")]
+    answer = ExtractiveAnswerer().answer("hostels for boys and girls", chunks)
+    assert answer.splitlines()[:2] == ["**AAA Hostels** [S1]", "- Separate hostels for boys and girls are available on campus."]
+    assert "cricket" not in answer and "mess" not in answer  # weakly related lines are left out
+
+
 def test_extractive_answer_quotes_a_table_across_its_chunks():
     from rag.llm.client import ExtractiveAnswerer
 
@@ -74,9 +100,9 @@ def test_extractive_answer_quotes_a_table_across_its_chunks():
               part("b", ["S.No: 3. | Name of the Faculty: Dr.R.Prabhu"]),
               part("c", ["Research centre approved by Anna University for faculty."], heading="Research")]
     answer = ExtractiveAnswerer().answer("AI&DS faculty name", chunks)
-    assert answer.splitlines() == ["- S.No: 1. | Name of the Faculty: Dr.M.Karuppasamy [S1]",
-                                   "- S.No: 2. | Name of the Faculty: Dr.Sugumar [S1]",
-                                   "- S.No: 3. | Name of the Faculty: Dr.R.Prabhu [S2]"]  # the table is the answer
+    assert answer.splitlines() == ["**Faculty List – AI&DS** · 3 entries [S1][S2]", "",  # the table is the answer
+                                   "| Name of the Faculty |", "|---|",  # serial numbers dropped
+                                   "| Dr.M.Karuppasamy |", "| Dr.Sugumar |", "| Dr.R.Prabhu |"]
 
 
 def test_extractive_answer_prefers_the_table_whose_page_title_names_the_question():
@@ -91,7 +117,8 @@ def test_extractive_answer_prefers_the_table_whose_page_title_names_the_question
               part("f1", "https://c.example/eee/faculty-list/", "Faculty List", "S.N.: 1. | Name: Dr.C.Senthil Kumar"),
               part("f2", "https://c.example/eee/faculty-list/", "Faculty List", "S.N.: 2. | Name: Dr.R.Pon Vengatesh")]
     answer = ExtractiveAnswerer().answer("Electrical Engineering faculty", chunks)
-    assert answer.splitlines() == ["- S.N.: 1. | Name: Dr.C.Senthil Kumar [S2]", "- S.N.: 2. | Name: Dr.R.Pon Vengatesh [S3]"]
+    assert answer.splitlines()[0].startswith("**Faculty List") and answer.splitlines()[0].endswith("[S2][S3]")
+    assert "| Dr.C.Senthil Kumar |" in answer and "| Dr.R.Pon Vengatesh |" in answer and "eminent" not in answer
 
 
 def service(services, llm):
@@ -117,9 +144,9 @@ async def test_no_answer_marker_yields_no_answer_with_related_sources(services):
 
 
 async def test_no_retrieval_evidence_skips_llm(services):
-    llm = FakeLLM("should not be called")
+    llm = ScriptedLLM("zzqx wvvy plorp")  # unrecognised words may be "translated" for searching, never answered
     result = await service(services, llm).answer("zzqx wvvy plorp")
-    assert result.mode == "no_answer" and llm.calls == []
+    assert result.mode == "no_answer" and [system for system, _ in llm.calls] == [TRANSLATE_PROMPT]
 
 
 async def test_refusal_is_reported_without_answer(services):
@@ -219,3 +246,46 @@ async def test_unrelated_page_images_only_when_question_asks_for_pictures(servic
     cited = {src.url for src in photos.sources}
     on_cited = [img.source_page in cited for img in photos.images]
     assert on_cited == sorted(on_cited, reverse=True)  # images from cited pages come first
+
+
+class ScriptedLLM:
+    """Replies in turn; records (system, messages) of every call."""
+    name = "scripted"
+
+    def __init__(self, *replies: str):
+        self.replies, self.calls = list(replies), []
+
+    async def generate(self, system, messages):
+        self.calls.append((system, messages))
+        return LLMAnswer(text=self.replies.pop(0), model="fake-model")
+
+
+async def test_question_in_another_language_is_searched_in_english_and_answered_in_its_language(services):
+    from rag.llm.prompts import TRANSLATE_PROMPT
+
+    tamil = "பி.டெக் டேட்டா சயின்ஸ் கட்டணம் எவ்வளவு?"
+    llm = ScriptedLLM("What is the tuition fee for B.Tech Data Science?", "பி.டெக் டேட்டா சயின்ஸ் கட்டணம் ஆண்டுக்கு Rs. 60,000 [S1].")
+    result = await service(services, llm).answer(tamil)
+    assert llm.calls[0][0] == TRANSLATE_PROMPT and tamil in llm.calls[0][1][0]["content"]
+    assert result.mode == "llm" and "60,000" in result.answer
+    assert result.sources[0].url.endswith("/admissions.html")  # found through the English query
+    answer_call = llm.calls[1]
+    assert answer_call[0] == SYSTEM_PROMPT and f"<question>{tamil}</question>" in answer_call[1][-1]["content"]
+
+
+async def test_english_question_is_not_translated(services):
+    llm = ScriptedLLM("The B.Tech Data Science fee is Rs. 60,000 per year [S1].")
+    await service(services, llm).answer("What is the fee for B.Tech Data Science?")
+    assert len(llm.calls) == 1
+
+
+async def test_no_answer_in_another_language_keeps_the_models_sentence(services):
+    llm = ScriptedLLM("What is the tuition fee for B.Tech Data Science?", f"{NO_ANSWER_MARKER}\nஇந்தத் தகவல் இணையதளத்தில் இல்லை.")
+    result = await service(services, llm).answer("பி.டெக் டேட்டா சயின்ஸ் விடுதி கட்டணம் எவ்வளவு?")
+    assert result.mode == "no_answer" and result.answer == "இந்தத் தகவல் இணையதளத்தில் இல்லை."
+
+
+async def test_extractive_mode_says_other_languages_need_the_ai_service(services):
+    result = await service(services, None).answer("¿Cuáles son las tarifas del colegio para B.Tech Data Science?")
+    assert "other languages" in result.notice
+

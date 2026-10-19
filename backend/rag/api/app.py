@@ -114,6 +114,16 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(status_code=503, detail="The knowledge base is empty. Run the crawl/index pipeline first.")
         return await services.answers.answer(body.message, body.history)
 
+    # Type-ahead: cheap and called as people type, so it has its own, more generous limit.
+    suggest_limited = Depends(make_rate_limit_dependency(RateLimiter(max(120, settings.rate_limit_per_minute * 6))))
+
+    @app.get("/api/suggest", dependencies=[suggest_limited])
+    def suggest(request: Request, q: str = "", limit: int = 6):
+        services = svc(request)
+        if services.suggester is None or len(q) > 200:
+            return {"suggestions": []}
+        return {"suggestions": services.suggester.suggest(q, max(1, min(limit, 10)))}
+
     @app.post("/api/search/text", response_model=list[RetrievedChunk], dependencies=[rate_limited])
     def search_text(body: SearchRequest, services: Services = Depends(ready)):
         check_length(body.query)

@@ -109,8 +109,13 @@ class ExtractiveAnswerer:
         # term_weight(token) -> importance (e.g. BM25 IDF); rare terms decide which sentence is quoted
         self.term_weight = term_weight or (lambda token: 1.0)
 
-    def answer(self, question: str, chunks: list[RetrievedChunk], max_sources: int = 3, per_source: int = 2,
-               max_lines: int = 6, max_table_rows: int = 40) -> str:
+    def answer(self, question: str, chunks: list[RetrievedChunk], max_sources: int = 3, per_source: int = 3,
+               max_lines: int = 6, max_table_rows: int = 40, relevance: float = 0.5) -> str:
+        """Markdown that quotes the website: one table, or short bullet lists grouped by page.
+
+        Only sentences scoring at least ``relevance`` x the best one are quoted, so a question
+        gets the lines that answer it rather than everything that shares a word with it.
+        """
         from rag.retrieval.hybrid import chunk_title_text
 
         q = set(tokenize(question))
@@ -125,8 +130,9 @@ class ExtractiveAnswerer:
                 if len(sentence) < 15 or key in local:
                     continue
                 local.add(key)
+                own = q & set(tokenize(sentence))
                 score = sum(self.term_weight(t) for t in q & (set(tokenize(sentence)) | title_terms))
-                if score > 0 and q & set(tokenize(sentence)) or " | " in sentence and score > 0:
+                if score > 0 and (own or " | " in sentence):
                     scored.append((-score, i, position, key, sentence))
         if not scored:
             return ""
@@ -148,45 +154,128 @@ class ExtractiveAnswerer:
                 and sections[(chunks[c[1] - 1].doc_id, tuple(chunks[c[1] - 1].heading_path))] >= 2]
         if rows:
             best = rows[0]
+        floor = -best[0] * relevance
         if " | " in best[4]:
-            # the table is the answer, with the best plain sentences from the same source as context
-            lines = self._quote_table(chunks, chunks[best[1] - 1], max_table_rows)
-            notes = [c for c in scored if c[1] == best[1] and " | " not in c[4]][:per_source]
-            seen_notes: set[str] = set()
-            for _, i, _, key, sentence in notes:
-                if key not in seen_notes:
-                    seen_notes.add(key)
-                    lines.append(f"- {sentence} [S{i}]")
+            # the table is the answer (with a second table from the same page that matches as
+            # well, e.g. "B.E. courses" next to "B.Tech courses"), plus the best plain sentences
+            anchor = chunks[best[1] - 1]
+            lines = self._quote_table(chunks, anchor, q, max_table_rows)
+            for c in scored:
+                other = chunks[c[1] - 1]
+                if " | " in c[4] and -c[0] >= -best[0] * 0.9 and other.url == anchor.url \
+                        and other.heading_path != anchor.heading_path:
+                    lines += [""] + self._quote_table(chunks, other, q, max_table_rows)
+                    break
+            notes = [c for c in scored if c[1] == best[1] and " | " not in c[4] and -c[0] >= floor]
+            if notes[:per_source]:
+                lines += [""] + [f"- {sentence}" for *_, sentence in notes[:per_source]]
             return "\n".join(lines)
 
-        lines: list[str] = []
+        # Short bullet lists grouped by page; table rows are left to the table answer above.
+        groups: dict[str, tuple[list[int], list[str]]] = {}
         seen: set[str] = set()
-        for i in range(1, min(max_sources, len(chunks)) + 1):
-            for _, _, _, key, sentence in [c for c in scored if c[1] == i][:per_source]:
-                if key not in seen:
-                    seen.add(key)
-                    lines.append(f"- {sentence} [S{i}]")
-            if len(lines) >= max_lines:
+        count = 0
+        for neg, i, _, key, sentence in scored:
+            if -neg < floor or count >= max_lines:
                 break
-        return "\n".join(lines)
+            label = source_label(chunks[i - 1])
+            sources, lines = groups.setdefault(label, ([], []))
+            if " | " in sentence or key in seen or len(lines) >= per_source:
+                continue
+            seen.add(key)
+            lines.append(sentence)
+            if i not in sources:
+                sources.append(i)
+            count += 1
+        blocks = [
+            "\n".join([f"**{label}** " + "".join(f"[S{i}]" for i in sources), *(f"- {s}" for s in lines)])
+            for label, (sources, lines) in groups.items() if lines
+        ]
+        return "\n\n".join(blocks)
 
-    def _quote_table(self, chunks: list[RetrievedChunk], anchor: RetrievedChunk, max_rows: int) -> list[str]:
-        """Every row of the anchor's table, across the sources that hold parts of it, in order."""
+    def _quote_table(self, chunks: list[RetrievedChunk], anchor: RetrievedChunk, q: set[str], max_rows: int) -> list[str]:
+        """The anchor's whole table, across the sources holding its parts, as a compact Markdown table."""
         section = (anchor.doc_id, anchor.heading_path)
-        lines: list[str] = []
+        rows: list[str] = []
+        cited: list[int] = []
         seen: set[str] = set()
         for j, part in enumerate(chunks, start=1):
             if (part.doc_id, part.heading_path) != section:
                 continue
-            rows = [x for x in self._sentences(part.text) if " | " in x]
-            if any(": " in r for r in rows):  # labelled rows repeat the header: drop the bare header line
-                rows = [r for r in rows if ": " in r]
-            for row in rows:
+            part_rows = [x for x in self._sentences(part.text) if " | " in x]
+            if any(": " in r for r in part_rows):  # labelled rows repeat the header: drop the bare header line
+                part_rows = [r for r in part_rows if ": " in r]
+            for row in part_rows:
                 key = re.sub(r"\W+", " ", row.lower()).strip()
-                if key not in seen and len(lines) < max_rows:
+                if key not in seen:
                     seen.add(key)
-                    lines.append(f"- {row} [S{j}]")
+                    rows.append(row)
+                    if j not in cited:
+                        cited.append(j)
+        citations = "".join(f"[S{j}]" for j in cited)
+        entries = f"{len(rows)} entr{'y' if len(rows) == 1 else 'ies'}"
+        heading = f"**{source_label(anchor)}** · {entries} {citations}"
+        table = markdown_table(rows[:max_rows], q)
+        if table is None:  # rows without column labels: quote them as they are
+            return [heading, "", *(f"- {row}" for row in rows[:max_rows])]
+        lines = [heading, "", *table]
+        if len(rows) > max_rows:
+            lines += ["", f"Showing the first {max_rows} of {len(rows)} entries; the source page has the rest."]
         return lines
+
+
+def source_label(chunk: RetrievedChunk) -> str:
+    """ "Faculty List – Artificial Intelligence and Data Science": the page and its main section."""
+    title = chunk.page_title.strip()
+    section = chunk.heading_path[0].strip() if chunk.heading_path else ""
+    if section and section.lower() not in title.lower() and title.lower() not in section.lower():
+        return f"{title} – {section}"
+    return title or section
+
+
+_SERIAL_RE = re.compile(r"^(s|sl|sr|emp)\.?\s*n(o|r)?\.?$|^(s\.?\s*)?no\.?$", re.I)
+_BLANK_VALUES = {"", "-", "–", "—", "na", "n/a", "nil.", "--"}
+
+
+def markdown_table(rows: list[str], q: set[str], max_columns: int = 5) -> list[str] | None:
+    """Rows of "Header: value | Header: value" as a Markdown table of the most useful columns:
+    serial numbers and mostly empty columns are dropped, columns named in the question come
+    first, then the remaining ones in page order (short, plain labels before long official ones)."""
+    parsed: list[dict[str, str]] = []
+    columns: list[str] = []
+    for row in rows:
+        cells: dict[str, str] = {}
+        for cell in row.split(" | "):
+            if ": " not in cell:
+                return None
+            header, value = (x.strip() for x in cell.split(": ", 1))
+            cells[header] = value
+            if header not in columns:
+                columns.append(header)
+        parsed.append(cells)
+    if not parsed:
+        return None
+
+    def filled(column: str) -> float:
+        return sum(1 for r in parsed if r.get(column, "").lower() not in _BLANK_VALUES) / len(parsed)
+
+    useful = [c for c in columns if not _SERIAL_RE.match(c.strip()) and filled(c) >= 0.5]
+    named = [c for c in useful if q & set(tokenize(c))]
+    short = [c for c in useful if c not in named and len(c) <= 40]
+    rest = [c for c in useful if c not in named and c not in short]
+    chosen = set((named + short + rest)[:max_columns])
+    keep = [c for c in columns if c in chosen]
+    if not keep:
+        return None
+
+    def cell(value: str) -> str:
+        return "" if value.lower() in _BLANK_VALUES else value.replace("|", "/")
+
+    return [
+        "| " + " | ".join(keep) + " |",
+        "|" + "|".join("---" for _ in keep) + "|",
+        *("| " + " | ".join(cell(r.get(c, "")) for c in keep) + " |" for r in parsed),
+    ]
 
 
 def anthropic_credentials_present() -> bool:

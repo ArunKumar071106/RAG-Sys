@@ -98,7 +98,8 @@ flowchart LR
   S&H, HOD). They are replaced, not appended: event posts repeat "III AI&DS" in class names, department pages don't.
 * **Text:** Qdrant cosine top-30, BM25 top-30 and a BM25 ranking over page titles, URL path words and section headings
   (so "Faculty List" under "/ai-dept/" or "Principal Message" pages are found by their title; weight
-  `TITLE_RANK_WEIGHT=6`, chosen on the eval set in both keyword-only and hybrid mode) are fused with RRF (`k=60`)
+  `TITLE_RANK_WEIGHT=6`, scaled by the square of the share of the question the title covers, so a title sharing one
+  word with the question barely counts; chosen on the eval set in both keyword-only and hybrid mode) are fused with RRF (`k=60`)
   together with a query-coverage ranking. The best match's section, and any section with two or more matches, is
   completed in page order (`SECTION_EXPAND_MAX=10` chunks), so a faculty table split over several chunks reaches the
   answer whole. Exact-duplicate chunks are dropped and an
@@ -119,8 +120,25 @@ flowchart LR
   is not one of the retrieved official URLs is stripped.** Only cited sources are returned.
 * Defaults: `claude-opus-5-5`, effort `low` (fast chat answers), and refusal fallbacks enabled (`fallbacks: "default"`).
   All are configurable in `.env`.
-* If no key is configured, or the LLM API fails, the answer falls back to quoting the most relevant sentences from the
-  sources (extractive mode). The UI shows a notice when this happens.
+* Answers are written to be easy to read: a direct answer first, plain words, only what answers the question, and a
+  small table (3-5 columns) for lists.
+* **Any language:** a question that is not in English (Tamil, Hindi, Arabic, French..., also Tamil typed in Latin
+  letters) is translated by Claude into an English search query (the website is in English) and answered in the
+  question's language, with names, numbers and citations unchanged (`backend/rag/llm/language.py`, `TRANSLATE_PROMPT`).
+  This needs `ANTHROPIC_API_KEY`; without it, answers stay English quotes and the UI says so.
+* If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
+  the UI shows a notice. Extractive answers are formatted too: a table answer becomes one compact Markdown table
+  ("**Faculty List – Artificial Intelligence and Data Science** · 13 entries") with the useful columns (serial numbers,
+  mostly empty and long official columns dropped, columns named in the question kept), a second matching table from the
+  same page is added (B.E. and B.Tech intake), and text answers are short bullet lists grouped by page, keeping only
+  sentences that score at least half as well as the best one.
+
+### Suggestions while typing (`backend/rag/retrieval/suggest.py`, `GET /api/suggest?q=`)
+* Candidates: common questions, four questions for each department in `DEPARTMENTS` (faculty, about, labs, vision and
+  mission), and "Tell me about …" for each section page of the website (titles used by one page only).
+* Every word typed must start a word of the suggestion, and department short forms are spelled out first, so
+  "ai&ds fac" suggests "Who are the faculty of the Artificial Intelligence and Data Science department?".
+* The input is an accessible combobox: ↑/↓ to pick, Enter or click to ask, Tab to copy into the box, Esc to close.
 
 ---
 
@@ -238,6 +256,7 @@ The chat is offered two ways:
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/chat` | grounded answer + cited sources + images |
+| GET | `/api/suggest?q=` | type-ahead question suggestions |
 | POST | `/api/search/text` | hybrid text retrieval (with semantic/BM25 ranks) |
 | POST | `/api/search/images` | image retrieval |
 | GET | `/api/sources/{chunk_id}` | full chunk text and metadata |

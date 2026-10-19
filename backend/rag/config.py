@@ -105,6 +105,13 @@ class Settings(BaseSettings):
         r"S\s*&\s*H": "Science and Humanities",
         r"HOD|H\.O\.D": "Head of the Department",
     }
+    # Department names as the website writes them; type-ahead suggests questions about each.
+    departments: CsvList = [
+        "Artificial Intelligence and Data Science", "Computer Science and Engineering",
+        "Computer Science and Engineering (Cyber Security)", "Electronics and Communication Engineering",
+        "Electrical and Electronics Engineering", "Mechanical Engineering", "Civil Engineering",
+        "Information Technology", "Science and Humanities", "Electronics Engineering (VLSI Design and Technology)",
+    ]
     section_expand_max: int = 10  # the best match's whole section (e.g. all rows of a faculty table), up to this many chunks
     title_rank_weight: float = 6.0  # RRF weight of the title/headings field ranking (0 disables it)
     rerank_enabled: bool = False
@@ -129,7 +136,7 @@ class Settings(BaseSettings):
     auto_index_on_startup: bool = True  # build the index at API start when only processed chunks exist
 
     @field_validator(
-        "crawl_start_urls", "crawl_allowed_domains", "image_allowed_domains", "cors_origins", mode="before"
+        "crawl_start_urls", "crawl_allowed_domains", "image_allowed_domains", "cors_origins", "departments", mode="before"
     )
     @classmethod
     def _split_csv(cls, value: object) -> object:

@@ -78,3 +78,15 @@ export async function sendChat(message: string, history: ChatTurn[], signal?: Ab
   }
   return (await response.json()) as ChatResult;
 }
+
+/** Type-ahead questions for what has been typed so far; [] on any problem (suggestions are optional). */
+export async function fetchSuggestions(typed: string, signal?: AbortSignal): Promise<string[]> {
+  try {
+    const response = await fetch(apiUrl(`/api/suggest?q=${encodeURIComponent(typed)}&limit=6`), { signal });
+    if (!response.ok) return [];
+    const body = await response.json();
+    return Array.isArray(body?.suggestions) ? body.suggestions.filter((s: unknown) => typeof s === "string") : [];
+  } catch {
+    return [];
+  }
+}

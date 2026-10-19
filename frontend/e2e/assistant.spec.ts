@@ -54,6 +54,21 @@ test("answer with official sources and a real retrieved image", async ({ page },
   await page.screenshot({ path: join(SHOTS, `${info.project.name}-answer.png`), fullPage: true });
 });
 
+test("suggests questions while typing and asks the picked one", async ({ page }) => {
+  await page.goto("/");
+  const box = page.getByLabel("Ask a question about AAACET");
+  await box.pressSequentially("hos", { delay: 20 });
+  const list = page.getByRole("listbox", { name: "Suggested questions" });
+  await expect(list).toBeVisible();
+  await expect(list.getByRole("option").first()).toContainText(/hostel/i);
+  await expectNoHorizontalScroll(page);
+  await box.press("ArrowDown");
+  const picked = (await list.getByRole("option").first().textContent()) ?? "";
+  await box.press("Enter");
+  await expect(page.locator(".message--user").last()).toHaveText(new RegExp(picked.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  await expect(list).toBeHidden();
+});
+
 test("table facts are answered with a clickable citation", async ({ page }) => {
   await page.goto("/");
   await ask(page, "What is the tuition fee for B.Tech Data Science?");

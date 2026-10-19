@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiUrl, sendChat } from "../api/client";
+import { ApiError, apiUrl, fetchSuggestions, sendChat } from "../api/client";
 import { answerResult, jsonResponse } from "../test/fixtures";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -52,3 +52,20 @@ describe("apiUrl", () => {
     expect(apiUrl("/api/images/a/file")).toMatch(/\/api\/images\/a\/file$/);
   });
 });
+
+describe("fetchSuggestions", () => {
+  it("asks /api/suggest and returns the suggestions", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ suggestions: ["Is college bus transport available?"] }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await fetchSuggestions("bus & fees")).toEqual(["Is college bus transport available?"]);
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/suggest\?q=bus%20%26%20fees&limit=6$/);
+  });
+
+  it("returns nothing when the API fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    expect(await fetchSuggestions("bus")).toEqual([]);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ detail: "slow down" }, 429)));
+    expect(await fetchSuggestions("bus")).toEqual([]);
+  });
+});
+

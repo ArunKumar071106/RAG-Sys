@@ -57,7 +57,7 @@ export function MessageBubble({ message, onRetry, busy }: Props) {
       <div className="message message--user">
         <div className="bubble bubble--user">
           <span className="visually-hidden">You said: </span>
-          {message.content}
+          <span dir="auto">{message.content}</span>
         </div>
       </div>
     );
@@ -83,7 +83,7 @@ export function MessageBubble({ message, onRetry, busy }: Props) {
       <div className="avatar" aria-hidden="true">AI</div>
       <div className={`bubble bubble--assistant${noAnswer ? " bubble--no-answer" : ""}`}>
         <span className="visually-hidden">Assistant: </span>
-        <div className="markdown">
+        <div className="markdown" dir="auto">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} skipHtml>
             {markdown}
           </ReactMarkdown>

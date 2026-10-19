@@ -149,7 +149,7 @@ class HybridRetriever:
                 title_match[cid] = self.bm25_text.weighted_overlap(query, chunk_title_text(self.corpus.chunks[cid]))
         fused = reciprocal_rank_fusion([[c for c, _ in semantic], [c for c, _ in keyword], by_coverage], k=s.rrf_k)
         # The title ranking counts in proportion to how much of the question the title covers.
-        title_rrf = {cid: s.title_rank_weight * title_match[cid] / (s.rrf_k + rank) for rank, cid in enumerate(titled, start=1)}
+        title_rrf = {cid: s.title_rank_weight * title_match[cid] ** 2 / (s.rrf_k + rank) for rank, cid in enumerate(titled, start=1)}
         fused = [(cid, score + title_rrf.pop(cid, 0.0)) for cid, score in fused] + list(title_rrf.items())
         # Tie-breakers, not ranking lists: a mild prior by page type (official pages over news
         # posts) and a small boost when the question's terms appear in the page title/headings.

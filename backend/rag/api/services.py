@@ -43,6 +43,7 @@ class Services:
         self.corpus = None
         self.retriever = None
         self.answers = None
+        self.suggester = None
         self.error = ""
         self.index_error = ""
         self.indexing = False
@@ -133,7 +134,10 @@ class Services:
         retriever.semantic_enabled = semantic
         answers = AnswerService(retriever, self.llm, self.settings.llm_history_turns,
                                 self.settings.retrieval_top_k, self.settings.image_top_k)
+        from rag.retrieval.suggest import Suggester
+
         self.corpus, self.retriever, self.answers = corpus, retriever, answers
+        self.suggester = Suggester.build(self.settings, corpus)
 
     def _ensure_keyword_index(self, force: bool = False) -> None:
         """BM25 indexes take seconds to build from data/processed; rebuild if missing or from an older tokenizer."""
