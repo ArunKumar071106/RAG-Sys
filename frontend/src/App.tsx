@@ -2,6 +2,7 @@ import { brand, safeHref } from "./brand";
 import { ChatWindow } from "./components/ChatWindow";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
+import { RobotMoments } from "./robot/RobotMoments";
 
 /** `?embed=1` renders only the chat panel, for embedding in an iframe on the official site. */
 export function isEmbedMode(search: string = window.location.search): boolean {
@@ -13,6 +14,7 @@ export default function App() {
     return (
       <main className="embed">
         <ChatWindow />
+        <RobotMoments />
       </main>
     );
   }
@@ -46,6 +48,7 @@ export default function App() {
         <ChatWindow />
       </main>
       <Footer />
+      <RobotMoments />
     </>
   );
 }

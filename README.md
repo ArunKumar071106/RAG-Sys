@@ -143,6 +143,26 @@ flowchart LR
   "ai&ds fac" suggests "Who are the faculty of the Artificial Intelligence and Data Science department?".
 * The input is an accessible combobox: ↑/↓ to pick, Enter or click to ask, Tab to copy into the box, Esc to close.
 
+### Arivazhai's moments (`frontend/src/robot/`)
+The chat is the **Admission Help Desk** from the design project (navy header with a gold rule, "Arivazhai" message
+labels, quick topics above the question box) in the official website's colours and fonts. Its robot, **Arivazhai**,
+never sits in the chat: it pops up centred over a blurred screen for about 3 seconds (0.35 s in, 2.2 s hold, 0.4 s
+out, from the design) and then floats away. The overlay never blocks the page: typing and clicks go through, and Esc
+dismisses it early. The rig and its CSS are copied unchanged from the design's `Moments.dc.html`.
+
+| Moment | When |
+|---|---|
+| Loading ("Getting ready…") | page opened, while the assistant is contacted (`/api/health`) |
+| Welcome ("Vanakkam! I'm Arivazhai") | the assistant answered the first contact |
+| Thinking ("Finding your answer…") | a question is sent |
+| No data ("I couldn't find that") | the answer is not on the official website |
+| Error ("Something went wrong", "Can't reach the assistant", …) | server, timeout, rate-limit or connection failure |
+| No network ("You're offline") | the device is offline |
+
+| Loading | Thinking | No data | No network |
+|---|---|---|---|
+| ![Loading](docs/screenshots/robot/01-loading.png) | ![Thinking](docs/screenshots/robot/03-thinking.png) | ![No data](docs/screenshots/robot/04-no-data.png) | ![Offline](docs/screenshots/robot/06-no-network.png) |
+
 ---
 
 ## Project structure
@@ -167,6 +187,7 @@ backend/
 frontend/
   src/components/   Header, ChatWindow, MessageBubble, ChatInput, SuggestedQuestions,
                     SourceList, ImageCard, LoadingIndicator, ErrorMessage, Footer
+  src/robot/        Arivazhai's moments: the design's robot rig, moment timing and the overlay
   src/brand/        brand.json + brand.css (measured from the official site by scripts/measure_brand.mjs)
   public/brand/     official logo, banner photo and favicon downloaded by the same script
   src/__tests__/    Vitest + Testing Library tests

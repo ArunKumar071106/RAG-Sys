@@ -13,6 +13,11 @@ async function expectNoHorizontalScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+/** Arivazhai's moment (robot over a blurred screen) has floated away. */
+async function momentGone(page: Page) {
+  await expect(page.locator(".moment")).not.toHaveClass(/is-shown/, { timeout: 8000 });
+}
+
 async function ask(page: Page, question: string) {
   const box = page.getByLabel("Ask a question about AAACET");
   await box.fill(question);
@@ -22,9 +27,10 @@ async function ask(page: Page, question: string) {
 test("welcome screen", async ({ page }, info) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Virtual Assistant" })).toBeVisible();
-  await expect(page.getByText(/Welcome! I'm the AAACET Virtual Assistant/)).toBeVisible();
+  await expect(page.getByText(/Vanakkam! I'm Arivazhai, the AAACET admission assistant/)).toBeVisible();
   await expect(page.getByRole("button", { name: "How do I apply for admission?" })).toBeVisible();
   await expectNoHorizontalScroll(page);
+  await momentGone(page);
   await page.screenshot({ path: join(SHOTS, `${info.project.name}-welcome.png`), fullPage: true });
 });
 
@@ -51,6 +57,7 @@ test("answer with official sources and a real retrieved image", async ({ page },
   await expect(poster.getByText(/ADMISSIONS/i)).toBeVisible();
 
   await expectNoHorizontalScroll(page);
+  await momentGone(page);
   await page.screenshot({ path: join(SHOTS, `${info.project.name}-answer.png`), fullPage: true });
 });
 
@@ -89,6 +96,7 @@ test("network error and retry", async ({ page }, info) => {
   await ask(page, "What are the library timings?");
   const alert = page.getByRole("alert");
   await expect(alert).toContainText("Can't reach the assistant");
+  await momentGone(page);
   await page.screenshot({ path: join(SHOTS, `${info.project.name}-error.png`), fullPage: false });
   await page.unroute("**/api/chat");
   await alert.getByRole("button", { name: "Try again" }).click();
@@ -115,6 +123,7 @@ test("mobile menu", async ({ page }, info) => {
   await expect(nav).toBeHidden();
   await page.getByRole("button", { name: "Open menu" }).click();
   await expect(nav.getByRole("link", { name: "Virtual Assistant" })).toBeVisible();
+  await momentGone(page);
   await page.screenshot({ path: join(SHOTS, "mobile-menu.png") });
 });
 

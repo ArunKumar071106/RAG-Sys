@@ -14,7 +14,7 @@ describe("App layout", () => {
     expect(within(nav).getByRole("link", { name: "Virtual Assistant" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { level: 1, name: "Virtual Assistant" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: `${brand.short_name} Virtual Assistant` })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Admission Help Desk" })).toBeInTheDocument();
     expect(screen.getByRole("contentinfo")).toHaveTextContent(brand.college_name);
     expect(screen.getByRole("link", { name: "Skip to the question box" })).toHaveAttribute("href", "#chat-message");
   });

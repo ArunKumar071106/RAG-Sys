@@ -90,3 +90,21 @@ export async function fetchSuggestions(typed: string, signal?: AbortSignal): Pro
     return [];
   }
 }
+
+/** Can the assistant be reached? "ok" also while it is still building its index (it answers meanwhile). */
+export async function checkHealth(signal?: AbortSignal): Promise<"ok" | ApiErrorKind> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort("timeout"), 10_000);
+  const onAbort = () => controller.abort("cancelled");
+  signal?.addEventListener("abort", onAbort);
+  try {
+    const response = await fetch(apiUrl("/api/health"), { signal: controller.signal });
+    if (response.ok) return "ok";
+    return response.status === 503 ? "starting" : "unavailable";
+  } catch {
+    return controller.signal.reason === "timeout" ? "timeout" : "network";
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
