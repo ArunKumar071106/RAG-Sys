@@ -325,4 +325,4 @@ Embedded Qdrant (`QDRANT_URL` empty) is for single-process development. Use the 
 | Answers say "AI answer generation is not configured" | Set `ANTHROPIC_API_KEY` (or log in with `ant auth login`) and restart |
 | OCR text empty | `OCR_ENGINE=rapidocr` needs `libgl1`/`libglib2.0-0` on slim Linux images; check `/api/status` → `images.ocr_engine` |
 | Images missing in the UI | They fall back to the original URL, then to a placeholder; check `data/processed/images.jsonl` statuses (`http_error`, `too_large`, …) |
-| Frontend can't reach the API | `VITE_API_BASE_URL` in `frontend/.env` and `CORS_ORIGINS` in `.env` must match your hosts |
+| Frontend can't reach the API | `npm run dev` forwards `/api` to `http://127.0.0.1:8000` when `VITE_API_BASE_URL` is empty (set `VITE_DEV_API_PROXY` for another port). If you set `VITE_API_BASE_URL` in `frontend/.env`, `CORS_ORIGINS` in `.env` must include the frontend's address |
