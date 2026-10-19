@@ -128,7 +128,7 @@ export function Header() {
           ))}
           <li>
             <a href="#assistant" aria-current="page">
-              Virtual Assistant
+              Arivazhai
             </a>
           </li>
           {buttons.map((b) => (

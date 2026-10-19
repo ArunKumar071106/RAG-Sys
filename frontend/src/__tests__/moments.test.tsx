@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatWindow, QUICK_TOPICS } from "../components/ChatWindow";
-import { ENTER_MS, EXIT_MS, HOLD_MS, MIN_LOAD_MS, MomentStore, momentForFailure, momentForResult, moments } from "../robot/moments";
+import { ENTER_MS, EXIT_MS, HOLD_MS, MIN_LOAD_MS, MomentStore, ROBOT_FACE, momentForFailure, momentForResult, moments } from "../robot/moments";
 import { RobotMoments } from "../robot/RobotMoments";
 import { answerResult, jsonResponse, noAnswerResult } from "../test/fixtures";
 
@@ -71,6 +71,8 @@ describe("RobotMoments on the page", () => {
     render(<RobotMoments />);
     expect(shown()).toBe("load");
     expect(screen.getByText("Getting ready…")).toBeInTheDocument();
+    expect(ROBOT_FACE.load).toBe("greet");
+    expect(document.querySelector(".mov svg.rb")).toHaveClass("greet"); // waving while loading
     expect(await screen.findByText("Vanakkam! I'm Arivazhai", {}, { timeout: MIN_LOAD_MS + 1000 })).toBeInTheDocument();
     expect(shown()).toBe("greet");
   });
@@ -128,5 +130,19 @@ describe("chat events bring the robot in", () => {
     await user.type(screen.getByLabelText("Ask a question about AAACET"), "fees{Enter}");
     await screen.findByRole("alert");
     expect(shown()).toBe("error");
+  });
+});
+
+describe("loading", () => {
+  beforeEach(() => void vi.useFakeTimers());
+
+  it("waves while loading and turns into the welcome without popping in again", () => {
+    const store = new MomentStore();
+    store.show({ kind: "load" }, { sticky: true });
+    const id = store.getSnapshot().moment?.id;
+    store.show({ kind: "greet" });
+    expect(store.getSnapshot().moment).toMatchObject({ id, kind: "greet", title: "Vanakkam! I'm Arivazhai" });
+    store.show({ kind: "think" });
+    expect(store.getSnapshot().moment?.id).not.toBe(id);
   });
 });

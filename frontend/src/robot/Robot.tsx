@@ -6,8 +6,11 @@ import "./robot.css";
 export const ROBOT_ACCENT = "#F5B800";
 
 interface Props {
-  moment: MomentKind;
+  /** Omitted for the profile picture: the robot's resting face. */
+  moment?: MomentKind;
   accent?: string;
+  /** "head" crops to the face, for the profile picture. */
+  crop?: "full" | "head";
 }
 
 /**
@@ -15,10 +18,10 @@ interface Props {
  * switches its face and motion through robot.css. Gradient ids are unique per instance.
  * Decorative: the moment's title and text are shown next to it.
  */
-export const Robot = memo(function Robot({ moment, accent = ROBOT_ACCENT }: Props) {
+export const Robot = memo(function Robot({ moment, accent = ROBOT_ACCENT, crop = "full" }: Props) {
   const uid = `rb${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
-    <svg className={`rb ${moment}`} viewBox="0 0 240 260" width="100%" height="100%" aria-hidden="true" focusable="false" data-moment={moment}>
+    <svg className={moment ? `rb ${moment}` : "rb"} viewBox={crop === "head" ? "18 0 204 160" : "0 0 240 260"} width="100%" height="100%" aria-hidden="true" focusable="false" data-face={moment}>
       <defs>
       <radialGradient id={`${uid}Body`} cx="0.36" cy="0.26" r="0.9"><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.5" stopColor="#EEF2F8" /><stop offset="0.85" stopColor="#C5CFDD" /><stop offset="1" stopColor="#9AA9BF" /></radialGradient>
       <radialGradient id={`${uid}Silver`} cx="0.35" cy="0.3" r="0.8"><stop offset="0" stopColor="#FFFFFF" /><stop offset="1" stopColor="#A3B1C6" /></radialGradient>

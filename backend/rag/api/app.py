@@ -72,7 +72,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         if owned:  # injected services belong to the caller
             app.state.services.close()
 
-    app = FastAPI(title="AAACET Virtual Assistant API", version=__version__, lifespan=lifespan)
+    app = FastAPI(title="Arivazhai - AAACET admission assistant API", version=__version__, lifespan=lifespan)
     app.state.services = services
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
     app.add_middleware(

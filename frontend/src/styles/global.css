@@ -483,19 +483,47 @@ img {
   min-width: 0;
 }
 
-.chat__badge {
+/* Arivazhai's profile picture: the robot's face in a gold-ringed navy disc (the chat badge of Mobile.dc.html) */
+.profile {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
   border-radius: 50%;
-  background: var(--desk-navy-dark);
-  border: 2px solid var(--desk-gold);
-  color: var(--desk-gold);
-  font-family: var(--brand-font-heading);
-  font-size: 0.75rem;
-  font-weight: 700;
+  background: var(--desk-navy-dark, #1f2160);
+  border: 2px solid var(--desk-gold, #e0ac2a);
+  overflow: hidden;
+}
+
+.profile--large {
+  width: 48px;
+  height: 48px;
+}
+
+.profile--small {
+  width: 26px;
+  height: 26px;
+  border-width: 1.5px;
+}
+
+.profile svg {
+  width: 88%;
+  height: 88%;
+}
+
+/* a still portrait: only the blink stays */
+.profile .rb,
+.profile .rb * {
+  animation: none !important;
+}
+
+.profile .rb .eyes {
+  animation: rbBlink 5.7s infinite !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile .rb .eyes {
+    animation: none !important;
+  }
 }
 
 .chat__title {
@@ -563,6 +591,9 @@ img {
 }
 
 .message__sender {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.04em;

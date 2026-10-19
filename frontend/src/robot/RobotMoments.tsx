@@ -1,12 +1,12 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { checkHealth } from "../api/client";
-import { MIN_LOAD_MS, moments, momentForFailure } from "./moments";
+import { MIN_LOAD_MS, ROBOT_FACE, moments, momentForFailure } from "./moments";
 import { Robot } from "./Robot";
 
 /**
  * Arivazhai's moments: the robot pops up centred over a blurred screen for about 2.5 s, then
- * floats away. It never stays in the chat. On page load it shows "loading" while the assistant
- * is contacted, then "welcome" (or "offline"/"error" if it cannot be reached).
+ * floats away. It never stays in the chat. On page load it waves with "Getting ready…" while the
+ * assistant is contacted, then says "Vanakkam!" (or "offline"/"error" if it cannot be reached).
  */
 export function RobotMoments() {
   const { moment, leaving } = useSyncExternalStore(moments.subscribe, moments.getSnapshot, moments.getSnapshot);
@@ -37,7 +37,7 @@ export function RobotMoments() {
       {moment && (
         <div className="mov" key={moment.id} data-moment={moment.kind}>
           <div className="moment__robot">
-            <Robot moment={moment.kind} />
+            <Robot moment={ROBOT_FACE[moment.kind]} />
           </div>
           <p className="moment__title">{moment.title}</p>
           <p className="moment__text">{moment.text}</p>

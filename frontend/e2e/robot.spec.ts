@@ -22,7 +22,7 @@ const NO_DATA = {
 };
 
 const overlay = (page: Page) => page.locator(".moment");
-const robot = (page: Page) => page.locator(".moment svg.rb");
+const robot = (page: Page) => page.locator(".moment .mov");
 
 async function shot(page: Page, name: string, desktop: boolean) {
   if (!desktop) return;
@@ -49,6 +49,7 @@ test("page load: loading, then welcome, then the robot leaves the chat", async (
   await page.goto("/");
   await expect(robot(page)).toHaveAttribute("data-moment", "load");
   await expect(overlay(page).getByText("Getting ready…")).toBeVisible();
+  await expect(overlay(page).locator("svg.rb")).toHaveAttribute("data-face", "greet"); // waves while loading
   await shot(page, "01-loading", desktop);
 
   await expect(robot(page)).toHaveAttribute("data-moment", "greet", { timeout: 5000 });
@@ -59,7 +60,7 @@ test("page load: loading, then welcome, then the robot leaves the chat", async (
   await settled(page);
   const visibleFor = Date.now() - shownAt;
   expect(visibleFor).toBeLessThan(4000);
-  await expect(page.locator(".chat svg.rb")).toHaveCount(0); // never inside the chat
+  await expect(page.locator(".chat :not(.profile) > svg.rb")).toHaveCount(0); // only its profile picture is in the chat
 });
 
 test("question sent: thinking over the blurred chat, then the answer", async ({ page }, info) => {

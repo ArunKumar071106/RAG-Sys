@@ -26,7 +26,7 @@ async function ask(page: Page, question: string) {
 
 test("welcome screen", async ({ page }, info) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Virtual Assistant" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Arivazhai" })).toBeVisible();
   await expect(page.getByText(/Vanakkam! I'm Arivazhai, the AAACET admission assistant/)).toBeVisible();
   await expect(page.getByRole("button", { name: "How do I apply for admission?" })).toBeVisible();
   await expectNoHorizontalScroll(page);
@@ -122,7 +122,7 @@ test("mobile menu", async ({ page }, info) => {
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect(nav).toBeHidden();
   await page.getByRole("button", { name: "Open menu" }).click();
-  await expect(nav.getByRole("link", { name: "Virtual Assistant" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Arivazhai" })).toBeVisible();
   await momentGone(page);
   await page.screenshot({ path: join(SHOTS, "mobile-menu.png") });
 });

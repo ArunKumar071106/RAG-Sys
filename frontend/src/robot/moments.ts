@@ -11,6 +11,19 @@ export interface Moment {
   text: string;
 }
 
+/**
+ * The robot's face and motion for each moment. Loading uses the welcome hop and wave, so the
+ * robot is already greeting while the assistant is contacted.
+ */
+export const ROBOT_FACE: Record<MomentKind, MomentKind> = {
+  greet: "greet",
+  load: "greet",
+  think: "think",
+  error: "error",
+  net: "net",
+  unsure: "unsure",
+};
+
 /** From the design: 0.35 s fade and blur in, about 2.2 s hold, 0.4 s exit. */
 export const ENTER_MS = 350;
 export const HOLD_MS = 2200;
@@ -79,7 +92,10 @@ export class MomentStore {
   show(cue: Cue, options: { sticky?: boolean } = {}): void {
     this.clearTimers();
     const base = MOMENT_TEXT[cue.kind];
-    this.current = { id: ++this.counter, kind: cue.kind, title: cue.title ?? base.title, text: cue.text ?? base.text };
+    // loading turns into the welcome without the robot popping in again: it is already waving
+    const continues = this.current?.kind === "load" && cue.kind === "greet" && !this.leaving;
+    const id = continues && this.current ? this.current.id : ++this.counter;
+    this.current = { id, kind: cue.kind, title: cue.title ?? base.title, text: cue.text ?? base.text };
     this.leaving = false;
     this.shownAt = Date.now();
     this.emit();

@@ -33,10 +33,10 @@ export function Footer() {
       <div className="container site-footer__grid">
         <section aria-labelledby="footer-about">
           <h2 id="footer-about" className="site-footer__heading">
-            About this assistant
+            About Arivazhai
           </h2>
           <p>
-            The {brand.short_name} Virtual Assistant answers from content published on the official {brand.college_name} website.
+            Arivazhai, the {brand.short_name} admission assistant, answers from content published on the official {brand.college_name} website.
             Please confirm important details such as fees and deadlines with the college office.
           </p>
         </section>

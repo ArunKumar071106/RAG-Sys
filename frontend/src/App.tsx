@@ -31,14 +31,14 @@ export default function App() {
       >
         <div className="container">
           <div className="page-banner__box">
-            <h1 className="page-banner__title">Virtual Assistant</h1>
+            <h1 className="page-banner__title">Arivazhai</h1>
             <p className="page-banner__lead">Ask about admissions, departments, placements and campus life - answered from the official website.</p>
             <nav aria-label="Breadcrumb">
               <ol className="breadcrumb">
                 <li>
                   <a href={safeHref(brand.official_url)}>Home</a>
                 </li>
-                <li aria-current="page">Virtual Assistant</li>
+                <li aria-current="page">Arivazhai</li>
               </ol>
             </nav>
           </div>

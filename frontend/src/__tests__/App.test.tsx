@@ -11,10 +11,10 @@ describe("App layout", () => {
     render(<App />);
     expect(screen.getByRole("banner")).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getByRole("link", { name: "Virtual Assistant" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("heading", { level: 1, name: "Virtual Assistant" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Arivazhai" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { level: 1, name: "Arivazhai" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Admission Help Desk" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Arivazhai" })).toBeInTheDocument();
     expect(screen.getByRole("contentinfo")).toHaveTextContent(brand.college_name);
     expect(screen.getByRole("link", { name: "Skip to the question box" })).toHaveAttribute("href", "#chat-message");
   });

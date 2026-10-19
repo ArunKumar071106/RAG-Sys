@@ -5,6 +5,7 @@ import { moments, momentForFailure, momentForResult } from "../robot/moments";
 import { ChatInput } from "./ChatInput";
 import { LoadingIndicator } from "./LoadingIndicator";
 import { MessageBubble } from "./MessageBubble";
+import { RobotProfile } from "../robot/RobotProfile";
 import { AssistantLabel } from "./AssistantLabel";
 import { SuggestedQuestions } from "./SuggestedQuestions";
 
@@ -49,14 +50,12 @@ export function ChatWindow() {
     <section className="chat" id="assistant" aria-labelledby="chat-title">
       <div className="chat__header">
         <div className="chat__brand">
-          <span className="chat__badge" aria-hidden="true">
-            AAA
-          </span>
+          <RobotProfile />
           <div className="chat__heading">
             <h2 id="chat-title" className="chat__title">
-              Admission Help Desk
+              Arivazhai
             </h2>
-            <p className="chat__subtitle">Answers from the official {brand.short_name} website</p>
+            <p className="chat__subtitle">{brand.short_name} admission help desk · answers from the official website</p>
           </div>
         </div>
         <button type="button" className="chat__new" onClick={startNewChat} disabled={messages.length === 0 && !loading}>

@@ -1,4 +1,4 @@
-# AAACET Virtual Assistant: multimodal RAG chatbot
+# Arivazhai: the AAACET admission assistant (multimodal RAG chatbot)
 
 A retrieval-augmented chatbot for **AAA College of Engineering and Technology (AAACET)** that answers questions from the
 official website [aaaenggcoll.ac.in](https://aaaenggcoll.ac.in/), cites every source page, and shows relevant college
@@ -152,8 +152,8 @@ dismisses it early. The rig and its CSS are copied unchanged from the design's `
 
 | Moment | When |
 |---|---|
-| Loading ("Getting ready…") | page opened, while the assistant is contacted (`/api/health`) |
-| Welcome ("Vanakkam! I'm Arivazhai") | the assistant answered the first contact |
+| Loading ("Getting ready…", the robot already hops and waves) | page opened, while the assistant is contacted (`/api/health`) |
+| Welcome ("Vanakkam! I'm Arivazhai") | the assistant answered the first contact; the same wave continues |
 | Thinking ("Finding your answer…") | a question is sent |
 | No data ("I couldn't find that") | the answer is not on the official website |
 | Error ("Something went wrong", "Can't reach the assistant", …) | server, timeout, rate-limit or connection failure |
@@ -270,7 +270,7 @@ a saved page. Confirm with the college that using the official logo on the assis
 The chat is offered two ways:
 * **as a page** that reproduces the site's header, menu, page banner/breadcrumb and footer, at `/`
 * **as an embeddable panel** at `/?embed=1`, for example
-  `<iframe src="https://assistant.example/?embed=1" title="AAACET Virtual Assistant" style="width:100%;height:640px;border:0"></iframe>`.
+  `<iframe src="https://assistant.example/?embed=1" title="Arivazhai" style="width:100%;height:640px;border:0"></iframe>`.
   `frontend/nginx.conf` already allows framing by `aaaenggcoll.ac.in`.
 
 ---
