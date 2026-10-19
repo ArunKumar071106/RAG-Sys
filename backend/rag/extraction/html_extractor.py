@@ -483,7 +483,8 @@ def extract_site_chrome(html: str, url: str, allowed_domains: list[str], fetched
     if not blocks:
         return None
     blocks = [b.model_copy(update={"text": _label_contact_line(b.text)}) for b in blocks]
-    title = "Official website: header and footer"
+    # Named for what people ask it: the footer carries the college's address, email and phones.
+    title = "College contact details (official website header and footer)"
     return PageDocument(
         doc_id=short_id(url, "site-chrome"),
         url=url,

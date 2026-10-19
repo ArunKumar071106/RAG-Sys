@@ -160,3 +160,72 @@ def test_api_builds_missing_index_on_startup(pipeline, tmp_path):
         assert data["mode"] == "extractive" and "60,000" in data["answer"]
     finally:
         services.close()
+
+
+def test_api_answers_starting_up_while_building_index_in_background(pipeline, tmp_path):
+    """The server must accept requests during a long first-start index build."""
+    import shutil
+    import threading
+    import time
+
+    from rag.embeddings.base import HashingEmbedder
+
+    class GatedEmbedder(HashingEmbedder):
+        def __init__(self, dim):
+            super().__init__(dim)
+            self.release = threading.Event()
+
+        def embed_documents(self, texts):
+            self.release.wait(10)
+            return super().embed_documents(texts)
+
+    settings = make_settings(tmp_path / "data")
+    settings.ensure_dirs()
+    for name in ("chunks.jsonl", "image_chunks.jsonl", "images.jsonl"):
+        shutil.copy(pipeline.settings.processed_dir / name, settings.processed_dir / name)
+    embedder = GatedEmbedder(settings.hashing_dim)
+    services = Services(settings, embedder=embedder, load_llm=False, background=True)
+    try:
+        app = create_app(settings, services=services)
+        with TestClient(app) as c:
+            assert c.get("/api/health").json()["status"] == "starting"
+            response = c.post("/api/chat", json={"message": "What is the tuition fee for B.Tech Data Science?"})
+            assert response.status_code == 503 and response.headers["Retry-After"] == "30"
+            assert "starting up" in response.json()["detail"]
+            embedder.release.set()
+            deadline = time.monotonic() + 30
+            while services.starting and time.monotonic() < deadline:
+                time.sleep(0.05)
+            assert services.ready, services.error
+            data = c.post("/api/chat", json={"message": "What is the tuition fee for B.Tech Data Science?"}).json()
+            assert "60,000" in data["answer"]
+    finally:
+        embedder.release.set()
+        services.close()
+
+
+def test_keyword_index_from_an_older_tokenizer_is_rebuilt(pipeline, tmp_path):
+    import json
+    import shutil
+
+    from rag.embeddings.base import HashingEmbedder
+    from rag.index.bm25 import BM25Index
+    from rag.index.indexer import bm25_text_path
+
+    settings = make_settings(tmp_path / "data")
+    settings.ensure_dirs()
+    for name in ("chunks.jsonl", "image_chunks.jsonl", "images.jsonl"):
+        shutil.copy(pipeline.settings.processed_dir / name, settings.processed_dir / name)
+    embedder = HashingEmbedder(settings.hashing_dim)
+    Services(settings, embedder=embedder, load_llm=False).close()
+    path = bm25_text_path(settings)
+    old = json.loads(path.read_text(encoding="utf-8"))
+    del old["tokenizer"]  # as written before tokenizer versions existed
+    path.write_text(json.dumps(old), encoding="utf-8")
+    assert not BM25Index.is_current(path)
+    services = Services(settings, embedder=embedder, load_llm=False)
+    try:
+        assert services.ready, services.error
+        assert BM25Index.is_current(path)
+    finally:
+        services.close()

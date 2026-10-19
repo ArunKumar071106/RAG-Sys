@@ -36,13 +36,50 @@ def _stem(token: str) -> str:
     return token
 
 
+# Bump when tokenize() changes: stored BM25 indexes hold tokens and are rebuilt on mismatch.
+TOKENIZER_VERSION = 2
+
+
+def _word(raw: str, tokens: list[str]) -> None:
+    if raw not in STOPWORDS:
+        tokens.append(_stem(raw))
+
+
+_HONORIFICS = {"dr", "mr", "mrs", "ms", "miss", "prof", "er", "thiru", "tmt", "selvi", "smt", "shri", "sri"}
+
+
+def _dotted(raw: str, tokens: list[str]) -> None:
+    """Abbreviations are content words, never stopwords: "b.e" -> "be", "ph.d" -> "phd", "b.tech" -> "btech".
+
+    Only initials plus one short final part form the abbreviation, so "b.e.courses"
+    (a heading written without a space) is "be" + "course", and "aaacet.ac.in"
+    is the words "aaacet", "ac", "in" rather than one opaque token.
+    """
+    parts = raw.split(".")
+    if parts[0] in _HONORIFICS:  # "dr.m.sekar" is a name: "dr", "m", "sekar"
+        for part in parts:
+            _word(part, tokens)
+        return
+    n = 0
+    while n < len(parts) - 1 and len(parts[n]) <= 2:
+        n += 1
+    if n < len(parts) and len(parts[n]) <= 5 and (n > 0 or len(parts) > 1 and len(parts[1]) <= 2):
+        n += 1
+    if n >= 2:
+        tokens.append("".join(parts[:n]))
+    else:
+        n = 0
+    for part in parts[n:]:
+        _word(part, tokens)
+
+
 def tokenize(text: str) -> list[str]:
-    tokens = []
+    tokens: list[str] = []
     for raw in _TOKEN_RE.findall(text.lower()):
-        if "." in raw:  # abbreviations like "B.E." / "Ph.D" are content words, never stopwords
-            tokens.append(raw.replace(".", ""))
-        elif raw not in STOPWORDS:
-            tokens.append(_stem(raw))
+        if "." in raw:
+            _dotted(raw, tokens)
+        else:
+            _word(raw, tokens)
     return tokens
 
 
@@ -108,7 +145,8 @@ class BM25Index:
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"version": 1, "ids": self.ids, "tokens": self.tokens}), encoding="utf-8")
+        tmp.write_text(json.dumps({"version": 1, "tokenizer": TOKENIZER_VERSION, "ids": self.ids, "tokens": self.tokens}),
+                       encoding="utf-8")
         tmp.replace(path)
 
     @classmethod
@@ -117,3 +155,13 @@ class BM25Index:
             return cls([], [])
         data = json.loads(path.read_text(encoding="utf-8"))
         return cls(list(data["ids"]), [list(t) for t in data["tokens"]])
+
+    @staticmethod
+    def is_current(path: Path) -> bool:
+        """True when the stored index exists and was tokenized by this version of tokenize()."""
+        if not path.exists():
+            return False
+        try:
+            return json.loads(path.read_text(encoding="utf-8")).get("tokenizer") == TOKENIZER_VERSION
+        except (OSError, ValueError):
+            return False

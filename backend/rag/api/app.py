@@ -67,7 +67,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     async def lifespan(app: FastAPI):
         owned = getattr(app.state, "services", None) is None
         if owned:
-            app.state.services = Services(settings)
+            app.state.services = Services(settings, background=True)
         yield
         if owned:  # injected services belong to the caller
             app.state.services.close()
@@ -90,6 +90,9 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     def ready(request: Request) -> Services:
         services = svc(request)
+        if services.starting:
+            raise HTTPException(status_code=503, headers={"Retry-After": "30"},
+                                detail="The assistant is starting up (the first start builds the search index). Try again shortly.")
         if not services.ready:
             raise HTTPException(status_code=503, detail="The assistant is not ready: " + (services.error or "index not loaded"))
         return services
@@ -154,6 +157,9 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     @app.get("/api/health")
     def health(request: Request):
         services = svc(request)
+        if services.starting:  # the index may be under construction: don't touch the store yet
+            return {"status": "starting", "version": __version__, "ready": False, "indexed": False,
+                    "error": "", "components": {}, "counts": {}}
         components = {"embedder": getattr(services.embedder, "name", None), "llm": getattr(services.llm, "name", None) or "extractive"}
         try:
             components["qdrant"] = "ok" if services.store is not None else "unavailable"

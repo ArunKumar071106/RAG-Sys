@@ -25,7 +25,7 @@ images (photos, posters, notices) alongside the answer.
 | Area | Status |
 |---|---|
 | **Knowledge base** | Crawled from https://aaaenggcoll.ac.in/ on 2026-10-18/19: **2,115 pages** (all 1,979 sitemap pages: main pages, department and lab pages, news posts, plus 69 PDFs) → 2,029 documents → **3,388 text chunks**; **4,785 images** (439 duplicates removed) with OCR text in 3,516. Shipped in `data/processed/`. |
-| Retrieval quality on the real site | 19 labelled questions with the official pages that answer them, plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.84, Recall@3 = 0.95, Recall@5 = 0.95, MRR = 0.89**, image hit rate 1.0, all with the offline hashing embedder. The miss is "Who is the principal of AAACET?": news posts that mention the principal outrank the Principal Message page without a semantic model |
+| Retrieval quality on the real site | 25 labelled questions with the official pages that answer them (including every suggested question in the UI), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.88, Recall@3 = 0.92, Recall@5 = 0.92, MRR = 0.89**, image hit rate 1.0, all with the offline hashing embedder. The misses are "What courses does AAACET offer?" (keyword search matches "offer" to a job-offer news post) and "Who is the principal of AAACET?" (news posts that mention the principal outrank the Principal Message page); both need a semantic model |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
 | Tests | 110 backend tests, 28 frontend unit tests, 22 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-base** (ONNX, installed by default, downloads ~200 MB on first start) → falls back to an offline hashing embedder. The build environment could not download any model weights, so the numbers above use the hashing embedder; semantic models should do better on paraphrased questions, but that hasn't been measured here. |
@@ -171,8 +171,10 @@ make dev                                    # UI on http://localhost:5173
 ### 2. Use the real AAACET knowledge base (shipped in the repo)
 The repository includes the processed content of the official website in `data/processed/` (text chunks and image
 metadata, crawled from https://aaaenggcoll.ac.in/). On the first start the API builds the Qdrant and BM25 indexes from it
-automatically (about 30 seconds with the offline embedder, a few minutes with FastEmbed/BGE), so you only need to
-start the two servers:
+automatically (about 30 seconds with the offline embedder, several minutes on a laptop CPU with FastEmbed/BGE), so you
+only need to start the two servers. The build runs in the background: the API is reachable at once, the backend
+terminal logs `Indexing aaacet_text: 1152/3388 (34%)`-style progress, and the chat answers "The assistant is still
+starting up" until the index is ready:
 ```bash
 make serve        # API on http://127.0.0.1:8000  (first start: "Building the search index ...")
 make dev          # UI on http://localhost:5173

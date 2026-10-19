@@ -33,7 +33,8 @@ class Services:
     surfaced by /api/health, while chat endpoints answer 503.
     """
 
-    def __init__(self, settings: Settings, embedder=None, store=None, llm=None, load_llm: bool = True):
+    def __init__(self, settings: Settings, embedder=None, store=None, llm=None, load_llm: bool = True,
+                 background: bool = False):
         self.settings = settings
         self.embedder = embedder
         self.store = store
@@ -46,7 +47,19 @@ class Services:
         self.jobs: dict[str, Job] = {}
         self._lock = threading.RLock()
         self._job_lock = threading.Lock()
-        self.load()
+        # In the API the first load (which may build the whole index) runs in the background,
+        # so the server starts at once and answers "starting up" instead of refusing connections.
+        self.starting = background
+        if background:
+            threading.Thread(target=self._initial_load, daemon=True, name="rag-startup").start()
+        else:
+            self.load()
+
+    def _initial_load(self) -> None:
+        try:
+            self.load()
+        finally:
+            self.starting = False
 
     # ------------------------------------------------------------ lifecycle
     def load(self) -> None:
@@ -91,7 +104,8 @@ class Services:
     def _ensure_index(self) -> None:
         """Build the vector/BM25 index when processed chunks exist but the index does not
         (e.g. a fresh checkout that ships data/processed) or was built with another embedder."""
-        from rag.index.indexer import Indexer, manifest_path
+        from rag.index.bm25 import BM25Index
+        from rag.index.indexer import Indexer, bm25_image_path, bm25_text_path, build_bm25_indexes, manifest_path
         from rag.utils import read_json
 
         s = self.settings
@@ -101,13 +115,16 @@ class Services:
         stale = manifest.get("embedder") != self.embedder.name or manifest.get("dim") != self.embedder.dim
         empty = self.store.count(s.qdrant_text_collection) == 0
         if not (stale or empty):
+            if not (BM25Index.is_current(bm25_text_path(s)) and BM25Index.is_current(bm25_image_path(s))):
+                log.info("Rebuilding the keyword (BM25) index: the tokenizer changed")
+                build_bm25_indexes(s)
             return
         log.info("Building the search index from %s (first start or embedder change) - this can take a few minutes", s.chunks_file)
         Indexer(s, self.embedder, self.store).run(full=True)
 
     @property
     def ready(self) -> bool:
-        return self.answers is not None and not self.error
+        return not self.starting and self.answers is not None and not self.error
 
     def close(self) -> None:
         if self.store is not None:
@@ -115,6 +132,8 @@ class Services:
 
     # ------------------------------------------------------------ reindex jobs
     def start_reindex(self, full: bool, recrawl: bool) -> Job:
+        if self.starting:
+            raise RuntimeError("The service is still starting up")
         if not self._job_lock.acquire(blocking=False):
             raise RuntimeError("A reindex job is already running")
         stages = ["crawl", "extract", "images", "chunk", "index"] if recrawl else ["extract", "images", "chunk", "index"]

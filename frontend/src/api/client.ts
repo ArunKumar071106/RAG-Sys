@@ -3,7 +3,7 @@ import type { ChatResult, ChatTurn } from "./types";
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 const TIMEOUT_MS = Number(import.meta.env.VITE_CHAT_TIMEOUT_MS ?? 90000);
 
-export type ApiErrorKind = "network" | "timeout" | "rate_limited" | "unavailable" | "invalid" | "server";
+export type ApiErrorKind = "network" | "timeout" | "rate_limited" | "starting" | "unavailable" | "invalid" | "server";
 
 export class ApiError extends Error {
   constructor(public kind: ApiErrorKind, message: string, public status?: number) {
@@ -25,6 +25,8 @@ function messageFor(kind: ApiErrorKind, detail?: string): string {
       return "The assistant took too long to respond. Please try again.";
     case "rate_limited":
       return "You're sending messages too quickly. Please wait a moment and try again.";
+    case "starting":
+      return "The assistant is still starting up. Please try again in a minute.";
     case "unavailable":
       return "The assistant is temporarily unavailable. Please try again later.";
     case "invalid":
@@ -66,8 +68,12 @@ export async function sendChat(message: string, history: ChatTurn[], signal?: Ab
     } catch {
       /* non-JSON error body */
     }
+    // A 503 with Retry-After means "starting up" (first-start index build, or the dev proxy
+    // could not reach a backend that is still loading).
     const kind: ApiErrorKind =
-      response.status === 429 ? "rate_limited" : response.status === 503 ? "unavailable" : response.status === 422 || response.status === 413 ? "invalid" : "server";
+      response.status === 429 ? "rate_limited"
+      : response.status === 503 ? (response.headers.get("Retry-After") ? "starting" : "unavailable")
+      : response.status === 422 || response.status === 413 ? "invalid" : "server";
     throw new ApiError(kind, messageFor(kind, kind === "invalid" ? detail : undefined), response.status);
   }
   return (await response.json()) as ChatResult;

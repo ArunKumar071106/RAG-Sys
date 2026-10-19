@@ -2,6 +2,7 @@
 // expected_url_patterns are substrings (or "re:" regexes) of the official page(s) that answer
 // each question, taken from the site's sitemap and menu. Run: python -m rag.cli eval
 {"question": "Which B.E. and B.Tech courses does AAACET offer and what is the intake?", "expected_url_patterns": ["/admission/"]}
+{"question": "What courses does AAACET offer?", "expected_url_patterns": ["/admission/"]}
 {"question": "What is the admission procedure at AAACET?", "expected_url_patterns": ["re:/admission/"]}
 {"question": "What scholarships are available for students?", "expected_url_patterns": ["/admission/"]}
 {"question": "What is the TNEA counselling code of AAACET?", "expected_url_patterns": ["re:aaaenggcoll\\.ac\\.in/$|/admission/"]}
@@ -20,4 +21,9 @@
 {"question": "What is IQAC at AAACET?", "expected_url_patterns": ["/iqac"]}
 {"question": "Is AAACET accredited by NAAC?", "expected_url_patterns": ["re:/naac/|/iqac|/about|/aaacet-approvals/|aaaenggcoll\\.ac\\.in/$"]}
 {"question": "Show photos of the hostel", "expected_url_patterns": ["/aaa-hostels/"], "expected_image_patterns": ["re:wp-content/uploads"]}
+{"question": "What is the intake for each B.E. and B.Tech course?", "expected_url_patterns": ["/admission/"]}
+{"question": "How do I apply for admission?", "expected_url_patterns": ["/admission/"]}
+{"question": "Tell me about placements and recruiters", "expected_url_patterns": ["/placement"]}
+{"question": "What hostel facilities are available?", "expected_url_patterns": ["/aaa-hostels/"]}
+{"question": "Show me photos of the campus library", "expected_url_patterns": ["/aaacet-central-library/"], "expected_image_patterns": ["re:wp-content/uploads"]}
 {"question": "What is the weather on the moon today?", "answerable": false}

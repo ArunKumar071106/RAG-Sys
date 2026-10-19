@@ -88,6 +88,13 @@ def test_tokenize_handles_degrees_stopwords_and_plurals():
     assert tokenize("buses classes campus") == ["bus", "class", "campus"]
 
 
+def test_tokenize_splits_words_glued_to_abbreviations():
+    assert tokenize("B.E.COURSES") == ["be", "course"]  # heading written without a space
+    assert tokenize("B.Tech M.Phil U.S.A") == ["btech", "mphil", "usa"]
+    assert tokenize("enquiry@aaacet.ac.in") == ["enquiry", "aaacet", "ac"]
+    assert tokenize("Dr.M.Sekar") == tokenize("Dr. M. Sekar") == ["dr", "m", "sekar"]
+
+
 def test_bm25_ranks_and_persists_as_json(tmp_path):
     index = BM25Index.build([("a", "Hostel for boys and girls"), ("b", "Library opens at 8 AM"), ("c", "Bus transport routes")])
     assert index.search("library timings", 3)[0][0] == "b"

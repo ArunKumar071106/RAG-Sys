@@ -1,10 +1,12 @@
+// Worded the way the website words things; each is in backend/eval/questions_aaacet.jsonl,
+// so `make eval` checks it against the real knowledge base.
 export const DEFAULT_SUGGESTIONS = [
-  "What courses does AAACET offer?",
+  "What is the intake for each B.E. and B.Tech course?",
   "How do I apply for admission?",
   "Tell me about placements and recruiters",
   "What hostel facilities are available?",
   "Show me photos of the campus library",
-  "How can I contact the college office?",
+  "What is the contact phone number and email of the college?",
 ];
 
 interface Props {

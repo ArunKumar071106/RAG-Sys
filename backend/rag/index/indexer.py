@@ -60,6 +60,17 @@ def _image_payload(chunk: ImageChunk) -> dict:
     }
 
 
+def build_bm25_indexes(settings: Settings, text_chunks: list[TextChunk] | None = None,
+                       image_chunks: list[ImageChunk] | None = None) -> None:
+    """(Re)build both keyword indexes from the processed chunks; takes seconds, no embedding."""
+    if text_chunks is None:
+        text_chunks = list(read_jsonl(settings.chunks_file, TextChunk))
+    if image_chunks is None:
+        image_chunks = list(read_jsonl(settings.image_chunks_file, ImageChunk))
+    BM25Index.build([(c.chunk_id, c.embedding_text()) for c in text_chunks]).save(bm25_text_path(settings))
+    BM25Index.build([(c.chunk_id, c.text) for c in image_chunks]).save(bm25_image_path(settings))
+
+
 class Indexer:
     def __init__(self, settings: Settings, embedder: Embedder, store: QdrantStore):
         self.settings = settings
@@ -86,8 +97,7 @@ class Indexer:
         text_report, text_docs = self._index_text(text_chunks, manifest.get("text_docs", {}))
         image_report, image_items = self._index_images(image_chunks, manifest.get("image_items", {}))
 
-        BM25Index.build([(c.chunk_id, c.embedding_text()) for c in text_chunks]).save(bm25_text_path(s))
-        BM25Index.build([(c.chunk_id, c.text) for c in image_chunks]).save(bm25_image_path(s))
+        build_bm25_indexes(s, text_chunks, image_chunks)
 
         validation = self.validate(text_chunks, image_chunks)
         new_manifest = {
@@ -120,7 +130,9 @@ class Indexer:
         unchanged = 0
         stale_ids: list[str] = []
         for doc_id, doc_chunks in by_doc.items():
-            fingerprint = sha256_text("|".join(f"{c.chunk_id}:{','.join(c.duplicate_urls)}" for c in doc_chunks))
+            # the embedded text includes the page title and headings, so a retitled page is re-embedded
+            fingerprint = sha256_text("|".join(f"{c.chunk_id}:{sha256_text(c.embedding_text())}:{','.join(c.duplicate_urls)}"
+                                               for c in doc_chunks))
             current[doc_id] = {"fingerprint": fingerprint, "chunk_ids": [c.chunk_id for c in doc_chunks]}
             old = previous.get(doc_id)
             if old and old.get("fingerprint") == fingerprint:
@@ -152,11 +164,16 @@ class Indexer:
 
     def _embed_and_upsert(self, name: str, ids: list[str], texts: list[str], payloads: list[dict]) -> None:
         batch = max(1, self.settings.embedding_batch_size * 4)
+        next_report = 0.1
         for start in range(0, len(ids), batch):
             vectors = self.embedder.embed_documents(texts[start:start + batch])
             if vectors.shape[1] != self.embedder.dim:
                 raise RuntimeError(f"Embedder returned {vectors.shape[1]}-d vectors, expected {self.embedder.dim}")
             self.store.upsert(name, ids[start:start + batch], vectors, payloads[start:start + batch])
+            done = min(start + batch, len(ids))
+            if done == len(ids) or done / len(ids) >= next_report:
+                log.info("Indexing %s: %d/%d (%d%%)", name, done, len(ids), 100 * done // len(ids))
+                next_report = done / len(ids) + 0.1
 
     # ------------------------------------------------------------- validation
     def validate(self, text_chunks: list[TextChunk], image_chunks: list[ImageChunk], samples: int = 5) -> dict:

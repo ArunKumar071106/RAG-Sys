@@ -67,6 +67,17 @@ def test_incremental_indexing_only_touches_changed_documents(settings, store):
     assert read_json(manifest_path(settings))["embedder"] == "hashing:64"
 
 
+def test_retitled_page_is_reembedded(settings, store):
+    settings.ensure_dirs()
+    write_jsonl(settings.image_chunks_file, [])
+    original = chunk("a", 0, "address and phone")
+    write_jsonl(settings.chunks_file, [original])
+    indexer = Indexer(settings, HashingEmbedder(64), store)
+    indexer.run(full=True)
+    write_jsonl(settings.chunks_file, [original.model_copy(update={"page_title": "Contact details"})])
+    assert indexer.run()["text"]["changed_documents"] == 1  # same text, new title: the embedding changes
+
+
 def test_embedder_change_forces_full_rebuild(settings, store):
     settings.ensure_dirs()
     write_jsonl(settings.chunks_file, [chunk("a", 0, "hostel text")])

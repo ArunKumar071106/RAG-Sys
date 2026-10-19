@@ -26,6 +26,13 @@ describe("sendChat", () => {
     await expect(sendChat("x", [])).rejects.toMatchObject({ kind, status });
   });
 
+  it("reports a 503 with Retry-After as starting up", async () => {
+    const response = jsonResponse({ detail: "starting" }, 503);
+    response.headers.set("Retry-After", "30");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+    await expect(sendChat("x", [])).rejects.toMatchObject({ kind: "starting", message: expect.stringMatching(/starting up/) });
+  });
+
   it("shows the server's validation detail", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ detail: "Message too long (max 1000 characters)" }, 422)));
     await expect(sendChat("x", [])).rejects.toThrow("Message too long (max 1000 characters)");
