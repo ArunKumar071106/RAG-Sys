@@ -1,5 +1,0 @@
-# Public HTTPS site for the assistant. Caddy obtains and renews the certificate for $DOMAIN.
-{$DOMAIN} {
-	encode zstd gzip
-	reverse_proxy frontend:80
-}
