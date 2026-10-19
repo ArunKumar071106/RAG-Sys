@@ -340,15 +340,23 @@ All configuration lives in environment variables (see `.env.example`). The exter
 * CORS is limited to `CORS_ORIGINS`.
 
 ## Deployment
+Step-by-step guide (server, domain, HTTPS, API key, vector database, updates, backups, security):
+**[docs/AAACET_Assistant_Deployment_Guide.pdf](docs/AAACET_Assistant_Deployment_Guide.pdf)**. In short, on a Linux server
+with Docker:
 ```bash
-cp .env.example .env    # set ANTHROPIC_API_KEY, ADMIN_TOKEN
+cp .env.example .env    # set ANTHROPIC_API_KEY, ADMIN_TOKEN, DOMAIN, FRONTEND_PUBLISH=127.0.0.1:8080
 docker compose up -d --build
-docker compose run --rm backend python -m rag.cli all      # first crawl + index
-# UI: http://localhost:8080   (nginx proxies /api to the backend; Qdrant runs as a server)
+docker compose run --rm --no-deps --user root -v "$PWD/data/processed:/seed:ro" backend \
+  sh -c "mkdir -p /data/processed && cp -r /seed/. /data/processed/ && chown -R app:app /data/processed"
+docker compose restart backend            # indexes the shipped knowledge base into Qdrant, answering meanwhile
+docker compose --profile https up -d      # Caddy: HTTPS on $DOMAIN with a free, auto-renewed certificate
 ```
-Schedule refreshes with cron (`docker compose run --rm backend python -m rag.cli all`, incremental) or call
-`POST /api/admin/reindex`. Put the frontend behind HTTPS on the college's domain and point `CORS_ORIGINS` at it.
-Embedded Qdrant (`QDRANT_URL` empty) is for single-process development. Use the Qdrant server in production.
+nginx (frontend container) proxies `/api` to the backend and passes each visitor's address on, so rate limits are
+per visitor. Qdrant runs as a server; the backend is not published. Refresh the content with
+`docker compose run --rm backend python -m rag.cli all` (incremental) or `POST /api/admin/reindex`.
+Tested here with the same compose file: build, data loading, indexing into Qdrant, chat, suggestions, per-visitor
+rate limiting, admin auth and HTTPS via Caddy (with a local certificate; the `apt` step of the backend image could not
+be fetched in this environment).
 
 ## Troubleshooting
 | Symptom | Fix |

@@ -21,4 +21,6 @@ USER app
 
 ENV DATA_DIR=/data PYTHONUNBUFFERED=1
 EXPOSE 8000
-CMD ["uvicorn", "rag.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+# Only nginx (frontend container) can reach this port, so its X-Forwarded-For (the visitor's
+# address) is trusted: rate limits then apply per visitor, not to nginx as a whole.
+CMD ["uvicorn", "rag.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

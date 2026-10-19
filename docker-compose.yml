@@ -1,8 +1,12 @@
-# Production-style stack: Qdrant server + FastAPI backend + nginx-served frontend.
-#   cp .env.example .env   # fill in ANTHROPIC_API_KEY, ADMIN_TOKEN
+# Production stack: Qdrant server + FastAPI backend + nginx-served frontend (+ optional Caddy for HTTPS).
+#   cp .env.example .env                       # set ANTHROPIC_API_KEY, ADMIN_TOKEN (and DOMAIN for HTTPS)
 #   docker compose up -d --build
-#   docker compose run --rm backend python -m rag.cli all     # crawl + index (first time)
-# Then open http://localhost:8080
+#   docker compose run --rm --no-deps --user root -v "$PWD/data/processed:/seed:ro" backend \
+#     sh -c "mkdir -p /data/processed && cp -r /seed/. /data/processed/ && chown -R app:app /data/processed"
+#   docker compose restart backend             # loads the shipped knowledge base (no crawl needed)
+# Then open http://<server>:8080, or with HTTPS on your domain:
+#   docker compose --profile https up -d       # Caddy gets a free Let's Encrypt certificate for $DOMAIN
+# Full guide: docs/AAACET_Assistant_Deployment_Guide.pdf
 services:
   qdrant:
     image: qdrant/qdrant:v1.12.4
@@ -15,13 +19,15 @@ services:
     build:
       context: ./backend
       args:
-        WITH_ML: "true"   # BGE-M3 embeddings; set "false" with EMBEDDING_PROVIDER=hashing for a light image
+        WITH_ML: "false"  # "true" adds PyTorch + BGE-M3 (~2 GB more; multilingual search); then EMBEDDING_PROVIDER=bge-m3
     restart: unless-stopped
     env_file: .env
     environment:
       DATA_DIR: /data
       QDRANT_URL: http://qdrant:6333
       CORS_ORIGINS: http://localhost:8080
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-fastembed}
+      FASTEMBED_CACHE_DIR: /data/fastembed-cache   # keep the downloaded model across restarts
       HF_HOME: /data/hf-cache
     volumes:
       - rag_data:/data
@@ -35,10 +41,31 @@ services:
         VITE_API_BASE_URL: ""
     restart: unless-stopped
     ports:
-      - "8080:80"
+      # FRONTEND_PUBLISH=127.0.0.1:8080 keeps it private when Caddy (below) serves the public site
+      - "${FRONTEND_PUBLISH:-8080}:80"
     depends_on:
       - backend
+
+  caddy:
+    # HTTPS on your domain with an automatic, free Let's Encrypt certificate:
+    #   DOMAIN=assistant.yourcollege.ac.in in .env, DNS A record -> this server, ports 80 + 443 open
+    image: caddy:2.8.4-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
 
 volumes:
   qdrant_data:
   rag_data:
+  caddy_data:
+  caddy_config:
