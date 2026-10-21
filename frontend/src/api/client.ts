@@ -79,6 +79,27 @@ export async function sendChat(message: string, history: ChatTurn[], signal?: Ab
   return (await response.json()) as ChatResult;
 }
 
+/** English version of an answer given in another language (needs the AI answer service). */
+export async function translateAnswer(text: string, signal?: AbortSignal): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetch(apiUrl("/api/translate"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, target: "English" }),
+      signal,
+    });
+  } catch {
+    throw new ApiError("network", messageFor("network"));
+  }
+  if (!response.ok) {
+    const kind: ApiErrorKind = response.status === 429 ? "rate_limited" : response.status === 503 ? "unavailable" : "server";
+    throw new ApiError(kind, kind === "unavailable" ? "The English version is not available right now." : messageFor(kind), response.status);
+  }
+  const body = await response.json();
+  return typeof body?.text === "string" ? body.text : "";
+}
+
 /** Type-ahead questions for what has been typed so far; [] on any problem (suggestions are optional). */
 export async function fetchSuggestions(typed: string, signal?: AbortSignal): Promise<string[]> {
   try {

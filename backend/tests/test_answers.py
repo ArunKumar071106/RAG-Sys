@@ -305,3 +305,68 @@ async def test_extractive_mode_says_other_languages_need_the_ai_service(services
     result = await service(services, None).answer("¿Cuáles son las tarifas del colegio para B.Tech Data Science?")
     assert "other languages" in result.notice
 
+
+
+async def test_followups_carry_or_swap_the_department(services):
+    svc = service(services, None)
+    cse = [ChatTurn(role="user", content="Who are the faculty of the CSE department?"),
+           ChatTurn(role="assistant", content="The faculty are ...")]
+    # "its labs" -> the CSE labs
+    labs = svc.retrieval_query("what about its labs?", cse)
+    assert "Computer Science and Engineering" in labs and "labs" in labs and "faculty" not in labs.lower()
+    # "and the HOD?" is a department word: carried over
+    assert "Computer Science and Engineering" in svc.retrieval_query("HOD?", cse)
+    # same request, another department: ECE faculty, not CSE
+    ece = svc.retrieval_query("what about ECE?", cse)
+    assert "faculty" in ece and "computer" not in ece.lower()
+    # a new topic stays as asked
+    assert svc.retrieval_query("What hostel facilities are available?", cse) == "What hostel facilities are available?"
+    assert svc.retrieval_query("hostel facilities?", cse) == "hostel facilities?"
+
+
+async def test_with_an_llm_followups_are_rewritten_with_the_earlier_questions(services):
+    from rag.llm.prompts import CONTEXT_PROMPT
+
+    history = [ChatTurn(role="user", content="What is the fee for B.Tech Data Science?"),
+               ChatTurn(role="assistant", content="Rs. 60,000 per year [S1].")]
+    llm = ScriptedLLM("What scholarships are there for B.Tech Data Science students?", "Scholarships ... [S1].")
+    await service(services, llm).answer("are there scholarships for it?", history)
+    system, messages = llm.calls[0]
+    assert system == CONTEXT_PROMPT
+    assert "What is the fee for B.Tech Data Science?" in messages[0]["content"]
+    assert "<question>are there scholarships for it?</question>" in messages[0]["content"]
+
+
+async def test_answer_in_another_language_can_be_translated_to_english(services):
+    from rag.llm.prompts import ANSWER_TRANSLATE_PROMPT
+
+    tamil_answer = "கட்டணம் ஆண்டுக்கு Rs. 60,000 [S1]. [தளம்](https://c.example/fees)"
+    llm = ScriptedLLM("What is the tuition fee?", tamil_answer,
+                      "The fee is Rs. 60,000 a year [S1]. [details](https://evil.example/x) [site](https://c.example/fees)")
+    svc = service(services, llm)
+    result = await svc.answer("பி.டெக் டேட்டா சயின்ஸ் கட்டணம் எவ்வளவு?")
+    assert result.translatable
+    english = await svc.translate(tamil_answer)
+    assert llm.calls[-1][0] == ANSWER_TRANSLATE_PROMPT.format(language="English")
+    assert "Rs. 60,000 a year [S1]" in english
+    assert "evil.example" not in english and "(https://c.example/fees)" in english  # only links the answer had
+
+
+async def test_english_answers_and_extractive_answers_are_not_translatable(services):
+    english = await service(services, ScriptedLLM("The fee is Rs. 60,000 [S1].")).answer("What is the fee for B.Tech Data Science?")
+    assert not english.translatable
+    extractive = await service(services, None).answer("What is the fee for B.Tech Data Science?")
+    assert not extractive.translatable
+    with pytest.raises(LLMUnavailable):
+        await service(services, None).translate("text")
+
+
+async def test_one_word_department_follow_up(services):
+    svc = service(services, None)
+    settings = services.retriever.settings
+    from rag.retrieval.suggest import department_in
+    assert department_in("and civil?", settings) == "Civil Engineering"
+    assert department_in("mechanical labs", settings) == "Mechanical Engineering"
+    assert department_in("What is data science?", settings) == ""
+    cse = [ChatTurn(role="user", content="Who are the faculty of the CSE department?"), ChatTurn(role="assistant", content="...")]
+    assert svc.retrieval_query("and civil?", cse) == "Who are the faculty of the Civil Engineering department?"

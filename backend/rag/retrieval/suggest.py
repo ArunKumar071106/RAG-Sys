@@ -19,6 +19,8 @@ from rag.retrieval.hybrid import expand_query
 COMMON_QUESTIONS = [
     "What is the intake for each B.E. and B.Tech course?",
     "How do I apply for admission?",
+    "What is the eligibility for B.E. and B.Tech admission?",
+    "What are the tuition fees?",
     "What is the TNEA counselling code of AAACET?",
     "What scholarships are available for students?",
     "Which university is AAACET affiliated to?",
@@ -42,9 +44,36 @@ DEPARTMENT_QUESTIONS = [
     "What labs does the {} department have?",
     "What is the vision and mission of the {} department?",
 ]
+# Questions to offer after an answer, by what the answer was about (word starts), most related first.
+RELATED_QUESTIONS: list[tuple[tuple[str, ...], list[str]]] = [
+    (("fee", "tuition", "cost"), ["What scholarships are available for students?", "How do I apply for admission?",
+                                  "What is the intake for each B.E. and B.Tech course?"]),
+    (("scholarship",), ["What are the tuition fees?", "How do I apply for admission?",
+                        "What is the eligibility for B.E. and B.Tech admission?"]),
+    (("admission", "apply", "eligib", "counsel", "tnea", "intake", "seat", "course"),
+     ["What is the eligibility for B.E. and B.Tech admission?", "What is the TNEA counselling code of AAACET?",
+      "What are the tuition fees?", "What is the intake for each B.E. and B.Tech course?",
+      "What scholarships are available for students?"]),
+    (("hostel", "room", "mess"), ["Show photos of the hostel", "Is college bus transport available?", "What are the tuition fees?"]),
+    (("bus", "transport"), ["Does the college have hostel facilities for boys and girls?", "What is the contact phone number and email of the college?"]),
+    (("placement", "recruit", "compan", "job", "salary"), ["Which companies recruited students in placements?",
+                                                           "Tell me about placements and recruiters"]),
+    (("library", "book"), ["Show me photos of the campus library", "What sports facilities are available?"]),
+    (("contact", "phone", "email", "address", "location"), ["How do I apply for admission?", "Is college bus transport available?"]),
+]
+GENERAL_FOLLOW_UPS = [
+    "How do I apply for admission?",
+    "What are the tuition fees?",
+    "What scholarships are available for students?",
+    "What hostel facilities are available?",
+    "Tell me about placements and recruiters",
+    "What is the contact phone number and email of the college?",
+]
 _WORD_RE = re.compile(r"[a-z0-9]+")
 _SKIP = {"a", "an", "the", "of", "and", "is", "are", "in", "for", "to", "at", "me", "about", "what", "who", "which",
          "how", "does", "do", "tell", "there", "any"}
+# also ignored when telling whether a follow-up question was already asked
+_SAME_QUESTION_SKIP = _SKIP | {"it", "its", "they", "their", "department", "have", "has", "can", "i", "you", "please", "s"}
 
 
 @dataclass(frozen=True)
@@ -74,6 +103,22 @@ def _words(text: str) -> tuple[str, ...]:
     return tuple(_WORD_RE.findall(text.lower()))
 
 
+# first words of department names too common in other questions to name the department alone
+_GENERIC_FIRST_WORDS = {"science", "computer", "information"}
+
+
+def department_in(text: str, settings: Settings) -> str:
+    """The department a question is about, as the website names it ("CSE faculty" -> "Computer
+    Science and Engineering"); the most specific one when several match, "" when none."""
+    words = set(_words(expand_query(text, settings.query_expansions)))
+    found = [d for d in settings.departments if set(_words(d)) <= words]
+    if found:
+        return max(found, key=lambda d: len(_words(d)))
+    # one distinctive word is enough ("and civil?", "mechanical labs"): the plainest department it starts
+    named = [d for d in settings.departments if _words(d)[0] in words and _words(d)[0] not in _GENERIC_FIRST_WORDS]
+    return min(named, key=lambda d: len(_words(d)), default="")
+
+
 class Suggester:
     def __init__(self, settings: Settings, candidates: list[_Candidate]):
         self.settings = settings
@@ -94,6 +139,26 @@ class Suggester:
                     and "header and footer" not in title:
                 texts.setdefault(_about(_tidy(title)), 1)
         return cls(settings, [_Candidate(t, _words(t), p) for t, p in texts.items()])
+
+    def follow_ups(self, question: str, asked: list[str] | None = None, limit: int = 3) -> list[str]:
+        """Full questions to offer after an answer: about the same department, then related topics,
+        then general admission questions; never one already asked."""
+        def gist(text: str) -> frozenset[str]:
+            return frozenset(w for w in _words(expand_query(text, self.settings.query_expansions)) if w not in _SAME_QUESTION_SKIP)
+
+        seen = {gist(q) for q in [*(asked or []), question]}
+        department = department_in(question, self.settings)
+        pool = [t.format(department) for t in DEPARTMENT_QUESTIONS] if department else []
+        words = _words(expand_query(question, self.settings.query_expansions))
+        for starts, related in RELATED_QUESTIONS:
+            if any(w.startswith(s) for w in words for s in starts):
+                pool += related
+        pool += GENERAL_FOLLOW_UPS
+        out: list[str] = []
+        for q in pool:
+            if gist(q) not in seen and q not in out:
+                out.append(q)
+        return out[:limit]
 
     def suggest(self, typed: str, limit: int = 6) -> list[str]:
         typed_words = _words(expand_query(typed, self.settings.query_expansions))

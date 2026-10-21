@@ -1,7 +1,8 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChatWindow, QUICK_TOPICS } from "../components/ChatWindow";
+import { ChatWindow } from "../components/ChatWindow";
+import { DEFAULT_SUGGESTIONS } from "../components/SuggestedQuestions";
 import { ENTER_MS, EXIT_MS, HOLD_MS, MIN_LOAD_MS, MomentStore, ROBOT_FACE, momentForFailure, momentForResult, moments } from "../robot/moments";
 import { RobotMoments } from "../robot/RobotMoments";
 import { answerResult, jsonResponse, noAnswerResult } from "../test/fixtures";
@@ -107,12 +108,12 @@ describe("chat events bring the robot in", () => {
       </>,
     );
     act(() => moments.dismiss());
-    await user.click(screen.getByRole("button", { name: QUICK_TOPICS[1].label }));
-    expect(screen.getByText(QUICK_TOPICS[1].question)).toBeInTheDocument(); // the topic asked its question
+    await user.click(screen.getByRole("button", { name: DEFAULT_SUGGESTIONS[1] }));
     expect(shown()).toBe("think");
     await act(async () => reply(jsonResponse(noAnswerResult)));
     expect(shown()).toBe("unsure");
     expect(screen.getByText("I couldn't find that")).toBeInTheDocument();
+    expect(screen.getByText("Call the admission office: 04562-251111")).toBeInTheDocument();
   });
 
   it("shows the error moment when the request fails", async () => {

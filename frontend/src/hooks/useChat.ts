@@ -8,7 +8,7 @@ export interface Message {
   content: string;
   result?: ChatResult;
   error?: { message: string; kind: string };
-  /** For failed assistant turns: the question to resend on retry. */
+  /** The question this assistant turn answers (also resent on retry after a failure). */
   question?: string;
 }
 
@@ -48,7 +48,7 @@ export function useChat(onEvent?: (event: ChatStatusEvent) => void) {
     try {
       const result = await sendChat(question, history, ctrl.signal);
       if (ctrl.signal.aborted) return;
-      setMessages((prev) => [...prev, { id: nextId(), role: "assistant", content: result.answer, result }]);
+      setMessages((prev) => [...prev, { id: nextId(), role: "assistant", content: result.answer, result, question }]);
       onEventRef.current?.({ type: "answered", result });
     } catch (err) {
       if (ctrl.signal.aborted) return;

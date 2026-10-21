@@ -1,13 +1,16 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "../hooks/useChat";
 import { safeHref } from "../brand";
 import { CITATION_TEXT, linkCitations } from "./citations";
 import { AssistantLabel } from "./AssistantLabel";
+import { CONTACT_QUESTION, ContactCard } from "./ContactCard";
 import { ErrorMessage } from "./ErrorMessage";
 import { ImageCard } from "./ImageCard";
 import { SourceList } from "./SourceList";
+import { SuggestedQuestions } from "./SuggestedQuestions";
+import { TranslateToggle } from "./TranslateToggle";
 
 function textOf(children: ReactNode): string {
   if (typeof children === "string" || typeof children === "number") return String(children);
@@ -50,9 +53,13 @@ interface Props {
   message: Message;
   onRetry?: (id: string) => void;
   busy?: boolean;
+  /** Set on the latest answer: its suggested next questions are asked with this. */
+  onAsk?: (question: string) => void;
 }
 
-export function MessageBubble({ message, onRetry, busy }: Props) {
+export function MessageBubble({ message, onRetry, busy, onAsk }: Props) {
+  const [english, setEnglish] = useState<string | null>(null);
+
   if (message.role === "user") {
     return (
       <div className="message message--user">
@@ -77,18 +84,24 @@ export function MessageBubble({ message, onRetry, busy }: Props) {
 
   const result = message.result;
   const noAnswer = result?.mode === "no_answer";
-  const markdown = result ? linkCitations(message.content, result.sources, result.images, message.id) : message.content;
+  const text = english ?? message.content;
+  const markdown = result ? linkCitations(text, result.sources, result.images, message.id) : text;
+  // "not on the website" and contact questions end with how to reach the college
+  const showContact = noAnswer || CONTACT_QUESTION.test(message.question ?? "");
+  const followUps = onAsk ? result?.follow_ups ?? [] : [];
 
   return (
     <div className="message message--assistant">
       <AssistantLabel />
       <div className={`bubble bubble--assistant${noAnswer ? " bubble--no-answer" : ""}`}>
         <span className="visually-hidden">Assistant: </span>
-        <div className="markdown" dir="auto">
+        <div className="markdown" dir="auto" lang={english ? "en" : undefined}>
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} skipHtml>
             {markdown}
           </ReactMarkdown>
         </div>
+
+        {result?.translatable && <TranslateToggle text={message.content} onShow={setEnglish} />}
 
         {result?.notice && <p className="notice">{result.notice}</p>}
 
@@ -107,7 +120,9 @@ export function MessageBubble({ message, onRetry, busy }: Props) {
         {result && noAnswer && result.related_sources.length > 0 && (
           <SourceList sources={result.related_sources} variant="related" title="These official pages may be related" />
         )}
+        {showContact && <ContactCard title={noAnswer ? "The admission office can help you directly" : "Contact the college"} />}
       </div>
+      {followUps.length > 0 && onAsk && <SuggestedQuestions questions={followUps} onSelect={onAsk} disabled={busy} title="You can also ask" />}
     </div>
   );
 }

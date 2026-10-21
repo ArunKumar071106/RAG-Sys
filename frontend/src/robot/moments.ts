@@ -1,5 +1,9 @@
 import type { ApiErrorKind } from "../api/client";
 import type { ChatResult } from "../api/types";
+import { brand } from "../brand";
+import { formatPhone } from "../components/ContactCard";
+
+const officePhone = brand.contact.phones[0];
 
 /** The six moments of the design (Moments.dc.html); each is a class on <svg class="rb">. */
 export type MomentKind = "greet" | "load" | "think" | "error" | "net" | "unsure";
@@ -38,7 +42,10 @@ export const MOMENT_TEXT: Record<MomentKind, { title: string; text: string }> = 
   think: { title: "Finding your answer…", text: "Searching the official AAACET website." },
   error: { title: "Something went wrong", text: "Please try again in a moment." },
   net: { title: "You're offline", text: "Check your connection and try again." },
-  unsure: { title: "I couldn't find that", text: "The admissions office can help you directly." },
+  unsure: {
+    title: "I couldn't find that",
+    text: officePhone ? `Call the admission office: ${formatPhone(officePhone)}` : "The admission office can help you directly.",
+  },
 };
 
 type Cue = { kind: MomentKind; title?: string; text?: string };

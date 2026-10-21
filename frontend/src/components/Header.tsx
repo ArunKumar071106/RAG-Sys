@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { startChat } from "./ChatWindow";
 import { brand, safeHref, type BrandLink } from "../brand";
 
 function Logo() {
@@ -127,7 +128,15 @@ export function Header() {
             <MenuItem key={item.label} item={item} />
           ))}
           <li>
-            <a href="#assistant" aria-current="page">
+            <a
+              href="#assistant"
+              aria-current="page"
+              onClick={(event) => {
+                event.preventDefault();
+                setMenuOpen(false);
+                startChat();
+              }}
+            >
               Arivazhai
             </a>
           </li>

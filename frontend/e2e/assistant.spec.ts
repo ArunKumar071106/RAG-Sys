@@ -133,3 +133,22 @@ test("embed mode renders only the chat panel", async ({ page }) => {
   await expect(page.getByRole("banner")).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
+
+test("start chat button at the top, and the page does not grow with the conversation", async ({ page }) => {
+  await page.goto("/");
+  await momentGone(page);
+  await page.getByRole("button", { name: /Start chat with Arivazhai/ }).click();
+  await expect(page.getByLabel("Ask a question about AAACET")).toBeFocused();
+  const questions = ["What is the tuition fee for B.Tech Data Science?", "What are the library timings?", "Is there a hostel?"];
+  for (const [i, q] of questions.entries()) {
+    await ask(page, q);
+    await expect(page.locator(".message--user")).toHaveCount(i + 1);
+    await expect(page.getByRole("status")).toHaveCount(0, { timeout: 30_000 });
+    // the page ends with the footer: no empty space below it that grows with the conversation
+    const emptyBelow = await page.evaluate(
+      () => document.documentElement.scrollHeight - (document.querySelector(".site-footer")!.getBoundingClientRect().bottom + window.scrollY),
+    );
+    expect(emptyBelow).toBeLessThanOrEqual(1);
+  }
+  await expect(page.getByRole("heading", { name: "You can also ask" })).toHaveCount(1); // under the latest answer only
+});

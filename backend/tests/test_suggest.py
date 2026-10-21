@@ -44,3 +44,23 @@ def test_suggest_endpoint(services):
         body = client.get("/api/suggest", params={"q": "bus"}).json()
         assert body == {"suggestions": ["Is college bus transport available?"]}
         assert client.get("/api/suggest", params={"q": "x" * 300}).json() == {"suggestions": []}
+
+
+def test_follow_ups_are_full_questions_about_the_same_department_or_topic(tmp_path):
+    suggester = make_suggester(tmp_path, departments=("Computer Science and Engineering", "Mechanical Engineering"))
+    cse = suggester.follow_ups("Who are the faculty of the CSE department?")
+    assert cse[0] == "Tell me about the Computer Science and Engineering department"
+    assert all(q.endswith(("?", "department")) and len(q.split()) >= 4 for q in cse)
+    assert "Who are the faculty of the Computer Science and Engineering department?" not in cse
+    fees = suggester.follow_ups("What are the tuition fees?", asked=["What scholarships are available for students?"])
+    assert fees[0] == "How do I apply for admission?" and "What scholarships are available for students?" not in fees
+    assert len(suggester.follow_ups("Hello")) == 3
+
+
+def test_chat_offers_follow_ups_and_translate_needs_the_ai_service(services):
+    app = create_app(services.settings, services=services)
+    with TestClient(app) as client:
+        body = client.post("/api/chat", json={"message": "What is the fee for B.Tech Data Science?"}).json()
+        assert len(body["follow_ups"]) == 3 and body["translatable"] is False
+        reply = client.post("/api/translate", json={"text": "கட்டணம்"})
+        assert reply.status_code == 503 and "ANTHROPIC_API_KEY" in reply.json()["detail"]

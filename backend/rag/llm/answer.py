@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from html import escape
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -17,9 +18,11 @@ from pydantic import BaseModel, Field
 from rag.index.bm25 import tokenize
 from rag.llm.client import AnthropicLLM, ExtractiveAnswerer, LLMUnavailable
 from rag.llm.language import is_english
-from rag.llm.prompts import NO_ANSWER_MARKER, SYSTEM_PROMPT, TRANSLATE_PROMPT, build_context, build_user_message
+from rag.llm.prompts import (ANSWER_TRANSLATE_PROMPT, CONTEXT_PROMPT, NO_ANSWER_MARKER, SYSTEM_PROMPT, TRANSLATE_PROMPT,
+                             build_context, build_user_message)
 from rag.models import RetrievedChunk, RetrievedImage
-from rag.retrieval.hybrid import HybridRetriever
+from rag.retrieval.hybrid import HybridRetriever, expand_query
+from rag.retrieval.suggest import department_in
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +36,9 @@ _BARE_URL_RE = re.compile(r"(?<![(\[])https?://[^\s)\]]+")
 _WANTS_IMAGES_RE = re.compile(
     r"\b(photos?|pictures?|pics?|images?|gallery|posters?|notices?|brochures?|show me|look(s)? like|view of)\b", re.I
 )
+_DEPARTMENT_WORDS = {"lab", "labs", "laboratory", "laboratories", "faculty", "faculties", "staff", "hod", "head", "syllabus",
+                     "curriculum", "vision", "mission", "achievements", "intake", "seats", "professor", "professors",
+                     "teachers", "events", "association", "courses", "course", "toppers", "results"}
 _FOLLOWUP_RE = re.compile(
     r"^\s*(and|also|then|so|what about|how about|same for)\b|\b(it|its|it's|they|them|their|those|these|that one|he|she|his|her)\b",
     re.I,
@@ -81,6 +87,10 @@ class ChatResult(BaseModel):
     notice: str = ""
     model: str = ""
     timings_ms: dict[str, int] = Field(default_factory=dict)
+    # Not in English and an AI service is set up, so POST /api/translate can give an English version.
+    translatable: bool = False
+    # Full questions to offer next, about the same department or related topics.
+    follow_ups: list[str] = Field(default_factory=list)
 
 
 def _snippet(text: str, limit: int = 240) -> str:
@@ -148,14 +158,31 @@ class AnswerService:
         self.top_k = top_k
         self.image_top_k = image_top_k
 
-    @staticmethod
-    def retrieval_query(question: str, history: list[ChatTurn]) -> str:
-        """Follow-ups ("and its labs?", "what about fees?") borrow the previous user question for retrieval."""
+    def retrieval_query(self, question: str, history: list[ChatTurn]) -> str:
+        """What to search for a question that may lean on the previous one (without an LLM):
+        "what about its labs?" after a CSE question searches CSE labs, "and ECE?" after "faculty of
+        CSE" searches ECE faculty, and other follow-ups ("what about fees?") borrow the previous question."""
         previous = next((t.content for t in reversed(history) if t.role == "user"), "")
         if not previous:
             return question
-        is_followup = bool(_FOLLOWUP_RE.search(question)) and len(tokenize(question)) <= 6
-        return f"{previous} {question}" if is_followup or not tokenize(question) else question
+        settings = self.retriever.settings
+        asked = self.retriever.normalize_query(question)
+        followup = bool(_FOLLOWUP_RE.search(question)) and len(tokenize(question)) <= 10 or not tokenize(asked)
+        # "labs?", "and the HOD?" right after a department question are about that department
+        short = len(tokenize(asked)) <= 3 and bool(set(tokenize(asked)) & _DEPARTMENT_WORDS)
+        now, before = department_in(question, settings), department_in(previous, settings)
+        if now and before and now != before and followup:
+            # same request about another department: the earlier question, with the department swapped
+            earlier = expand_query(previous, settings.query_expansions)
+            swapped = re.sub(re.escape(before), now, earlier, count=1, flags=re.I)
+            if swapped != earlier:
+                return swapped
+            dept_words = set(tokenize(before))
+            intent = " ".join(w for w in tokenize(self.retriever.normalize_query(previous)) if w not in dept_words)
+            return f"{question} {intent}".strip()
+        if before and not now and (followup or short):
+            return f"{question} {before}"
+        return f"{previous} {question}" if followup else question
 
     def _messages(self, question: str, context: str, history: list[ChatTurn]) -> list[dict]:
         turns = [t for t in history if t.content.strip()][-self.history_turns * 2:]
@@ -173,21 +200,44 @@ class AnswerService:
         return messages
 
     async def search_query(self, question: str, history: list[ChatTurn]) -> str:
-        """The English query to search the website with: a question in another language is
-        translated by the LLM; without one it is searched as written."""
+        """The English query to search the website with. With an LLM, a follow-up is rewritten into
+        a standalone question using the earlier ones, and other languages are translated; without
+        one, follow-ups borrow from the previous question and the rest is searched as written."""
         query = self.retrieval_query(question, history)
-        if self.llm is None or is_english(question):
+        earlier = [t.content[:300] for t in history if t.role == "user" and t.content.strip()][-3:]
+        if self.llm is None or (is_english(question) and not earlier):
             return query
+        if earlier:
+            listed = "\n".join(f"- {escape(q)}" for q in earlier)
+            prompt, content = CONTEXT_PROMPT, f"<conversation>\n{listed}\n</conversation>\n<question>{escape(question)}</question>"
+        else:
+            prompt, content = TRANSLATE_PROMPT, f"<question>{escape(query)}</question>"
         try:
-            result = await self.llm.generate(TRANSLATE_PROMPT, [{"role": "user", "content": f"<question>{query}</question>"}])
+            result = await self.llm.generate(prompt, [{"role": "user", "content": content}])
         except LLMUnavailable as exc:
-            log.warning("Could not translate the question for searching: %s", exc)
+            log.warning("Could not rewrite the question for searching: %s", exc)
             return query
-        translated = result.text.strip().splitlines()[0].strip() if result.text.strip() and not result.refused else ""
-        return translated or query
+        rewritten = result.text.strip().splitlines()[0].strip() if result.text.strip() and not result.refused else ""
+        return rewritten or query
+
+    async def translate(self, text: str, language: str = "English") -> str:
+        """An answer in another language (for the "Show in English" button); links stay official."""
+        if self.llm is None:
+            raise LLMUnavailable("No AI answer service is configured")
+        result = await self.llm.generate(ANSWER_TRANSLATE_PROMPT.format(language=language),
+                                         [{"role": "user", "content": f"<answer>\n{text}\n</answer>"}])
+        if result.refused or not result.text.strip():
+            raise LLMUnavailable("The translation was not returned")
+        allowed = set(re.findall(r"https?://[^\s)\]>]+", text))
+        return sanitize_links(result.text.strip(), allowed)
 
     async def answer(self, question: str, history: list[ChatTurn] | None = None) -> ChatResult:
-        history = history or []
+        result = await self._answer(question, history or [])
+        # an AI answer in the question's language can be shown in English on request
+        result.translatable = self.llm is not None and result.mode != "extractive" and not is_english(result.answer)
+        return result
+
+    async def _answer(self, question: str, history: list[ChatTurn]) -> ChatResult:
         timings: dict[str, int] = {}
         t0 = time.perf_counter()
         query = await self.search_query(question, history)

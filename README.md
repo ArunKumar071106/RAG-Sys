@@ -127,7 +127,19 @@ flowchart LR
 * **Any language:** a question that is not in English (Tamil, Hindi, Arabic, French..., also Tamil typed in Latin
   letters) is translated by Claude into an English search query (the website is in English) and answered in the
   question's language, with names, numbers and citations unchanged (`backend/rag/llm/language.py`, `TRANSLATE_PROMPT`).
-  This needs `ANTHROPIC_API_KEY`; without it, answers stay English quotes and the UI says so.
+  This needs `ANTHROPIC_API_KEY`; without it, answers stay English quotes and the UI says so. An answer in another
+  language has a **Show in English** button (`POST /api/translate`, `ANSWER_TRANSLATE_PROMPT`) that switches between
+  the English version and the original; links stay limited to the ones the answer already had.
+* **Follow-up questions:** the earlier turns go to Claude with the new question, and with a key a follow-up is first
+  rewritten into a standalone search ("its fees" names the course; `CONTEXT_PROMPT`). Without a key, follow-ups are
+  resolved by rule: "what about its labs?" after a CSE question searches the CSE labs, "and civil?" or "what about
+  ECE?" repeats the earlier question for that department, and department words alone ("HOD?", "labs?") stay on the
+  department being discussed.
+* **Next questions:** every answer comes with three full questions to ask next (`follow_ups`): about the same
+  department, then related topics (fees → scholarships, hostel → transport…), never one already asked. They are shown
+  under the latest answer.
+* **Contact details:** when the website does not cover a question, and for questions about contacting the college,
+  the answer ends with the office's phone numbers (tap to call) and email, from `brand.json`.
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
   the UI shows a notice. Extractive answers are formatted too: a table answer becomes one compact Markdown table
   ("**Faculty List – Artificial Intelligence and Data Science** · 13 entries") with the useful columns (serial numbers,
@@ -280,6 +292,7 @@ The chat is offered two ways:
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/chat` | grounded answer + cited sources + images |
+| POST | `/api/translate` | English version of an answer in another language (needs `ANTHROPIC_API_KEY`) |
 | GET | `/api/suggest?q=` | type-ahead question suggestions |
 | POST | `/api/search/text` | hybrid text retrieval (with semantic/BM25 ranks) |
 | POST | `/api/search/images` | image retrieval |

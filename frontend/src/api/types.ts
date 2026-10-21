@@ -42,4 +42,8 @@ export interface ChatResult {
   notice: string;
   model: string;
   timings_ms: Record<string, number>;
+  /** Not in English and an AI service is set up: an English version can be asked for. */
+  translatable?: boolean;
+  /** Full questions to offer next, about the same department or related topics. */
+  follow_ups?: string[];
 }

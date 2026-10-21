@@ -566,6 +566,9 @@ img {
 }
 
 .chat__log {
+  /* contains the hidden "You said:" labels (position: absolute); without it they sit far down the
+     page and stretch it, leaving empty space below the chat that grows with the conversation */
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1035,7 +1038,7 @@ img {
   font-size: 0.85rem;
 }
 
-/* input, with the quick topics above it */
+/* input */
 .chat__footer {
   display: flex;
   flex-direction: column;
@@ -1045,39 +1048,6 @@ img {
   background: #ffffff;
 }
 
-.topics {
-  display: flex;
-  gap: 8px;
-  margin: 0;
-  padding: 0 0 2px;
-  list-style: none;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-
-.topic {
-  flex-shrink: 0;
-  padding: 8px 14px;
-  border: 1px solid var(--desk-field);
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--desk-navy);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.topic:hover:not(:disabled) {
-  border-color: var(--desk-navy);
-  background: var(--desk-navy);
-  color: #ffffff;
-}
-
-.topic:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
 
 .chat-input {
   position: relative;
@@ -1260,6 +1230,99 @@ img {
 
 .embed .chat__log {
   max-height: none;
+}
+
+/* ------------------------------------------------------------------ start chat, follow-ups, contact, translate */
+.btn--start {
+  margin: 4px 0 14px;
+  min-height: 48px;
+  padding: 10px 24px;
+  border-radius: 999px;
+  background: var(--brand-secondary, #323496);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.btn--start:hover {
+  background: color-mix(in srgb, var(--brand-secondary, #323496) 80%, #000);
+}
+
+.btn--start:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+/* suggested next questions under the latest answer */
+.message--assistant > .suggestions {
+  margin-top: 4px;
+  width: min(880px, 100%);
+}
+
+.contact-card {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--desk-line, #e1e7f0);
+  border-left: 4px solid var(--desk-gold, #e0ac2a);
+  border-radius: 10px;
+  background: #fffaf0;
+}
+
+.contact-card__title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: var(--desk-navy, #323496);
+}
+
+.contact-card__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contact-card__list a {
+  color: var(--desk-navy, #323496);
+  font-weight: 700;
+}
+
+.contact-card__note {
+  color: var(--brand-muted);
+  font-size: 0.85rem;
+}
+
+.translate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.translate__button {
+  padding: 6px 14px;
+  border: 1px solid var(--desk-field, #c9d4e4);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--desk-navy, #323496);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.translate__button:hover:not(:disabled),
+.translate__button[aria-pressed="true"] {
+  border-color: var(--desk-navy, #323496);
+  background: var(--desk-navy, #323496);
+  color: #ffffff;
+}
+
+.translate__error {
+  color: #b3261e;
+  font-size: 0.85rem;
 }
 
 /* ------------------------------------------------------------------ robot moments */

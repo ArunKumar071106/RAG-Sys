@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,10 +31,20 @@ from rag.config import Settings, get_settings
 from rag.images.stage import image_file_path
 from rag.index.indexer import manifest_path
 from rag.llm.answer import ChatResult, ChatTurn
+from rag.llm.client import LLMUnavailable
 from rag.models import RetrievedChunk, RetrievedImage
 from rag.utils import read_json
 
 log = logging.getLogger("rag.api")
+
+
+class TranslateRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=20_000)
+    target: Literal["English"] = "English"
+
+
+class TranslateResponse(BaseModel):
+    text: str
 
 
 class ChatRequest(BaseModel):
@@ -112,7 +123,21 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         check_length(body.message)
         if not services.corpus.chunks:
             raise HTTPException(status_code=503, detail="The knowledge base is empty. Run the crawl/index pipeline first.")
-        return await services.answers.answer(body.message, body.history)
+        result = await services.answers.answer(body.message, body.history)
+        if services.suggester is not None:
+            asked = [t.content for t in body.history if t.role == "user"]
+            # "what about its labs?" after a CSE question is a CSE question: offer CSE follow-ups
+            topic = services.answers.retrieval_query(body.message, body.history)
+            result.follow_ups = services.suggester.follow_ups(topic, [*asked, body.message])
+        return result
+
+    @app.post("/api/translate", response_model=TranslateResponse, dependencies=[rate_limited])
+    async def translate(body: TranslateRequest, services: Services = Depends(ready)) -> TranslateResponse:
+        """English version of an answer given in another language (needs the AI answer service)."""
+        try:
+            return TranslateResponse(text=await services.answers.translate(body.text, body.target))
+        except LLMUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Translation needs the AI answer service (ANTHROPIC_API_KEY).") from exc
 
     # Type-ahead: cheap and called as people type, so it has its own, more generous limit.
     suggest_limited = Depends(make_rate_limit_dependency(RateLimiter(max(120, settings.rate_limit_per_minute * 6))))

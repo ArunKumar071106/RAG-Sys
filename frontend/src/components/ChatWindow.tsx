@@ -9,13 +9,12 @@ import { RobotProfile } from "../robot/RobotProfile";
 import { AssistantLabel } from "./AssistantLabel";
 import { SuggestedQuestions } from "./SuggestedQuestions";
 
-/** Quick topics above the question box (Mobile.dc.html), each asking a question the website answers. */
-export const QUICK_TOPICS = [
-  { label: "Eligibility", question: "What is the eligibility for B.E. and B.Tech admission?" },
-  { label: "Fees", question: "What are the tuition fees?" },
-  { label: "Scholarships", question: "What scholarships are available?" },
-  { label: "Hostel", question: "What hostel facilities are available?" },
-];
+/** Event the page's "Start chat" buttons send; the chat scrolls into view, greets and takes focus. */
+export const START_CHAT_EVENT = "arivazhai:start-chat";
+
+export function startChat() {
+  window.dispatchEvent(new Event(START_CHAT_EVENT));
+}
 
 /** The robot pops up for the request's real progress: searching, not on the website, or failed. */
 function showMoment(event: ChatStatusEvent) {
@@ -35,6 +34,18 @@ export function ChatWindow() {
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: "end", behavior: "smooth" });
   }, [messages.length, loading]);
+
+  useEffect(() => {
+    const start = () => {
+      document.getElementById("assistant")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      inputRef.current?.focus({ preventScroll: true });
+      moments.show({ kind: "greet" });
+    };
+    window.addEventListener(START_CHAT_EVENT, start);
+    return () => window.removeEventListener(START_CHAT_EVENT, start);
+  }, []);
+
+  const latestAnswer = [...messages].reverse().find((m) => m.role === "assistant");
 
   const startNewChat = () => {
     reset();
@@ -76,22 +87,19 @@ export function ChatWindow() {
         </div>
 
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} onRetry={retry} busy={loading} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            onRetry={retry}
+            busy={loading}
+            onAsk={message === latestAnswer && !loading ? ask : undefined}
+          />
         ))}
         {loading && <LoadingIndicator />}
         <div ref={endRef} />
       </div>
 
       <div className="chat__footer">
-        <ul className="topics" aria-label="Quick topics">
-          {QUICK_TOPICS.map((topic) => (
-            <li key={topic.label}>
-              <button type="button" className="topic" onClick={() => ask(topic.question)} disabled={loading} title={topic.question}>
-                {topic.label}
-              </button>
-            </li>
-          ))}
-        </ul>
         <ChatInput ref={inputRef} onSend={ask} disabled={loading} />
       </div>
     </section>
