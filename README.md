@@ -24,8 +24,9 @@ images (photos, posters, notices) alongside the answer.
 
 | Area | Status |
 |---|---|
-| **Knowledge base** | Crawled from https://aaaenggcoll.ac.in/ on 2026-10-18/19: **2,115 pages** (all 1,979 sitemap pages: main pages, department and lab pages, news posts, plus 69 PDFs) → 2,029 documents → **3,388 text chunks**; **4,785 images** (439 duplicates removed) with OCR text in 3,516. Shipped in `data/processed/`. |
-| Retrieval quality on the real site | 35 labelled questions with the official pages that answer them (including every suggested question in the UI and a faculty-list question for each department), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.77, Recall@3 = 0.97, Recall@5 = 0.97, MRR = 0.87**, image hit rate 1.0, with the offline hashing embedder; hybrid search with a semantic stand-in (all-MiniLM-L6-v2, the only model the build environment could download) measured the same. Asked for a department's faculty, the extractive answer lists every name for all 10 departments, the main faculty list first (for CSE, EEE and Civil the visiting professors page is the top search hit, the faculty list second). Misses: "What courses does AAACET offer?" ("offer" matches a job-offer post) |
+| **Knowledge base** | Crawled from https://aaaenggcoll.ac.in/ on 2026-10-18/19: **2,115 pages** (all 1,979 sitemap pages: main pages, department and lab pages, news posts, plus 69 PDFs) → 2,029 documents → **3,577 text chunks**; **4,785 images** (439 duplicates removed) with OCR text in 3,516. Shipped in `data/processed/`. |
+| Retrieval quality on the real site | 35 labelled questions with the official pages that answer them (including every suggested question in the UI and a faculty-list question for each department), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.71, Recall@3 = 0.97, Recall@5 = 0.97, MRR = 0.84**, image hit rate 1.0, with hybrid search and a semantic stand-in (all-MiniLM-L6-v2, the only model the build environment could download). Before the section-level chunking it was 0.77 / 0.97 / 0.97 / 0.87: two questions now get a matching section of another page first (the home page's "Hostel Facilities" box, a department's "Journal Editorial Board Member" list), while the answers themselves got much better (see the next row). Asked for a department's faculty, the extractive answer lists every name for all 10 departments, the main faculty list first (for CSE, EEE and Civil the visiting professors page is the top search hit, the faculty list second). Misses: "What courses does AAACET offer?" ("offer" matches a job-offer post) |
+| Answer quality (no API key) | 40 everyday questions, each with the fact a correct answer must contain (`backend/eval/answers_aaacet.jsonl`, `python -m rag.cli eval-answers`): **40/40** (was 18/40 before the tab, chunking and answer fixes below). 20 held-out questions written after tuning and never tuned on (`answers_aaacet_holdout.jsonl`): **19/20** (was 16/20). Measured with hybrid search (all-MiniLM-L6-v2 stand-in) in extractive mode. Page retrieval after these changes: Recall@1 0.71, Recall@3 0.97, MRR 0.84. |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
 | Tests | 110 backend tests, 28 frontend unit tests, 22 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
@@ -70,8 +71,13 @@ flowchart LR
    of everything below, even under same-level headings such as Civil's `<h2>ACADEMIC YEAR 2025 – 2026</h2>`.
    Table header rows written with `<td>` cells are recognised even with long labels, so every row reads
    `Name of the Faculty: Dr.M.Karuppasamy | Highest Degree: Ph.D. | …`.
-2. Blocks are grouped into sections by heading. Small sibling sections under the same top-level heading are merged
-   while they fit, so short facts stay with their context.
+   **Tab panels and accordions** (89 of the site's pages, e.g. the admission page's "Courses offered", "Management
+   Quota", "TNEA B.E./B.Tech. Eligibility" tabs) are sections of their own, titled with their tab's name: one tab's
+   headings never become the parents of the next tab's content.
+2. Blocks are grouped into sections by heading. **Every real section is its own chunk**, so a chunk is about one topic:
+   only a short subsection joins its section, and one-line sections share a chunk with each other. (Merging every
+   sibling section up to the chunk size mixed the admission page's tabs into one chunk, and answers quoted the wrong
+   one.)
 3. Oversized sections are split recursively: paragraphs/tables, then sentences, then words. The sentence splitter
    knows Indian academic abbreviations (B.E., Ph.D., Rs., Dr., …).
 4. Tables are split only on row boundaries, and every piece repeats the header, so a row such as
@@ -102,9 +108,16 @@ flowchart LR
   (so "Faculty List" under "/ai-dept/" or "Principal Message" pages are found by their title; weight
   `TITLE_RANK_WEIGHT=6`, scaled by the square of the share of the question the title covers, so a title sharing one
   word with the question barely counts; chosen on the eval set in both keyword-only and hybrid mode) are fused with RRF (`k=60`)
-  together with a query-coverage ranking. The best match's section, and any section with two or more matches, is
-  completed in page order (`SECTION_EXPAND_MAX=10` chunks), so a faculty table split over several chunks reaches the
-  answer whole. Exact-duplicate chunks are dropped and an
+  together with a query-coverage ranking, a ranking by the question's exact two-word phrases ("counselling code",
+  "required documents"; only phrases found in few candidates count), and `Label: value` facts whose label the
+  question names ("COUNSELLING CODE : 4680", "Address: …", the `INTAKE: 120` cells of the courses table;
+  `LABEL_RANK_WEIGHT=3`). Chunks with the question's two rarest words are added as candidates, so "intake for AI&DS"
+  finds the one table with "intake" among a hundred AI&DS pages. The query drops filler ("available"), drops
+  "department" when a department is named and the question asks about something in it ("faculty of the Civil
+  department"), and adds the website's word for an intent (`QUERY_SYNONYMS`: "where / located" → "address",
+  "seats" → "intake"). A table section that matches is completed in page order (`SECTION_EXPAND_MAX=10` chunks),
+  so a faculty table split over several chunks reaches the answer whole; prose sections are not, so a long page
+  never pushes the answering chunk out of the top sources. Exact-duplicate chunks are dropped and an
   optional cross-encoder reranker can reorder the results. A semantic-only hit below `TEXT_MIN_SEMANTIC_SCORE` cannot
   enter the results on its own, so off-topic questions return "no answer" instead of noise.
 * **Images:** three ranked lists (semantic over image chunks, BM25 over image chunks, and images located on the
@@ -144,7 +157,10 @@ flowchart LR
 * **Contact details:** when the website does not cover a question, and for questions about contacting the college,
   the answer ends with the office's phone numbers (tap to call) and email, from `brand.json`.
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
-  the UI shows a notice. Extractive answers are formatted too: a table answer becomes one compact Markdown table
+  the UI shows a notice. A short section whose title names the question ("TNEA B.E./B.Tech. Eligibility", "Fees",
+  "Required Documents") is quoted whole, with its sub-headings as labels ("**Tuition Fee:** …"), so the line with the
+  answer is never dropped; equally named sections of one page are all quoted ("Eligibility" gives B.E., M.E. and
+  Ph.D.). Extractive answers are formatted too: a table answer becomes one compact Markdown table
   ("**Faculty List – Artificial Intelligence and Data Science** · 13 entries") with the useful columns (serial numbers,
   mostly empty and long official columns dropped, columns named in the question kept). Tables that match about as well
   are shown too, the one whose page title names the question first, then the bigger (a department's faculty list
@@ -339,6 +355,7 @@ make test-backend     # pytest: crawler (real Scrapy run against a local site), 
                       # Recall@K / MRR thresholds
 make test-frontend    # tsc + Vitest: chat submission, Enter/Shift+Enter, loading, sources, image cards,
                       # broken-image fallback, no-answer, network error + retry, new chat, embed mode
+python -m rag.cli eval-answers   # answer quality: does each answer contain the fact a student needs?
 make e2e              # Playwright against the real API (demo data): desktop 1366px, tablet 820px,
                       # mobile 390px; checks no horizontal scrolling, real image loading, keyboard use,
                       # mobile menu; writes docs/screenshots/*

@@ -124,3 +124,47 @@ def test_best_match_brings_the_rest_of_its_section(tmp_path):
     assert [c.chunk_id for c in expanded] == ["t0", "t1", "t2", "other"]  # page order, other results after
     assert [c.chunk_id for c in retriever.expand_section([hit("t1"), hit("other")], max_chunks=2)] == ["t1", "t2", "other"]
     assert [c.chunk_id for c in retriever.expand_section([hit("other"), hit("t1")])] == ["other", "t1"]  # single-chunk section
+
+
+def test_labelled_facts_phrases_and_rare_terms():
+    from rag.index.bm25 import BM25Index, tokenize
+    from rag.retrieval.hybrid import labelled_fact_hits, query_phrases
+
+    q = set(tokenize("What is the TNEA counselling code?"))
+    assert labelled_fact_hits("COUNSELLING CODE : 4680\nAddress: Amathur", q) == 1
+    assert labelled_fact_hits("DEPARTMENT: IT | INTAKE: 60\nDEPARTMENT: AI | INTAKE: 120", set(tokenize("intake for IT"))) == 1
+    assert labelled_fact_hits("Note: the code of conduct", q) == 0  # "note" is not asked about
+    assert query_phrases("What is the TNEA counselling code of AAACET?") == ["tnea counselling", "counselling code"]
+    index = BM25Index.build([("a", "intake table"), ("b", "data science lab"), ("c", "data science news"), ("d", "data")])
+    assert index.rare_terms("intake for data science", 1) == ["intake"]
+    assert index.rare_terms("intake", 1) == []  # a one-word question is its own rare term
+
+
+def test_query_normalising_department_and_intent_words(services):
+    norm = services.retriever.normalize_query
+    assert "department" not in norm("Who are the faculty of the Civil Engineering department?").lower()
+    assert "department" in norm("Tell me about the Civil Engineering department").lower()  # the topic itself
+    assert norm("Where is the college located?").endswith("address")
+    assert "intake" in norm("How many seats are there in ECE?")
+    assert "available" not in norm("What hostel facilities are available?")
+
+
+def test_only_tables_are_completed_with_the_rest_of_their_section(tmp_path):
+    from rag.index.bm25 import BM25Index
+    from rag.models import RetrievedChunk, TextChunk
+    from rag.retrieval.corpus import Corpus
+    from rag.retrieval.hybrid import HybridRetriever
+    from tests.conftest import make_settings
+
+    def chunk(cid, i):
+        return TextChunk(chunk_id=cid, doc_id="naac", url="https://c.example/naac/", page_title="NAAC", heading_path=["Criteria"],
+                         text=f"Criterion {i} is described in the self study report.", token_count=10, chunk_index=i, content_hash=cid)
+
+    corpus = Corpus(chunks={c.chunk_id: c for c in [chunk("p0", 0), chunk("p1", 1), chunk("p2", 2)]})
+    corpus.sections = {("naac", ("Criteria",)): ["p0", "p1", "p2"]}
+    retriever = HybridRetriever(make_settings(tmp_path / "data"), None, None, corpus, BM25Index([], []), BM25Index([], []))
+    c = corpus.chunks["p1"]
+    hit = RetrievedChunk(chunk_id="p1", doc_id=c.doc_id, url=c.url, page_title=c.page_title, heading_path=c.heading_path,
+                         text=c.text, score=1.0)
+    # a long prose section is not pulled in: it would push the result that answers out of the top sources
+    assert [r.chunk_id for r in retriever.expand_section([hit])] == ["p1"]

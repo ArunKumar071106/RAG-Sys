@@ -105,6 +105,12 @@ class Settings(BaseSettings):
         r"S\s*&\s*H": "Science and Humanities",
         r"HOD|H\.O\.D": "Head of the Department",
     }
+    # Words the website uses for a question's intent, added to the search (pattern -> words).
+    query_synonyms: dict[str, str] = {
+        r"\b(where|located|location|situated|how to reach)\b": "address",
+        r"\b(phone|mobile|call|contact number)\b": "phone",
+        r"\bseats?\b": "intake",
+    }
     # Department names as the website writes them; type-ahead suggests questions about each.
     departments: CsvList = [
         "Artificial Intelligence and Data Science", "Computer Science and Engineering",
@@ -113,6 +119,7 @@ class Settings(BaseSettings):
         "Information Technology", "Science and Humanities", "Electronics Engineering (VLSI Design and Technology)",
     ]
     section_expand_max: int = 10  # the best match's whole section (e.g. all rows of a faculty table), up to this many chunks
+    label_rank_weight: float = 3.0  # RRF weight of "Label: value" facts whose label the question names
     title_rank_weight: float = 6.0  # RRF weight of the title/headings field ranking (0 disables it)
     rerank_enabled: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"

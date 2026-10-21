@@ -142,7 +142,8 @@ def _looks_like_header(first: list[str], rest: list[list[str]]) -> bool:
 
 
 class _Walker:
-    def __init__(self, page_url: str, page_title: str, allowed_domains: list[str]):
+    def __init__(self, page_url: str, page_title: str, allowed_domains: list[str], tab_titles: dict[str, str] | None = None):
+        self.tab_titles = tab_titles or {}  # tab id -> its text, read before the tab buttons are stripped
         self.page_url = page_url
         self.page_title = page_title
         self.allowed_domains = allowed_domains
@@ -320,12 +321,39 @@ class _Walker:
         if not text:
             return
         level = int(tag.name[1])
+        if self.heading_stack and self.heading_stack[-1][1].casefold() == text.casefold():
+            return  # repeats the tab or accordion title it sits under
         if self._banner_open and self.heading_stack:
             self._banner, self._banner_open = self.heading_stack[0], False  # a heading right after the first one
         while self.heading_stack and self.heading_stack[-1][0] >= level and self.heading_stack[-1] != self._banner:
             self.heading_stack.pop()
         self.heading_stack.append((level, text))
         self.blocks.append(Block(type="heading", text=text, level=level, heading_path=self.heading_path))
+
+    def _panel_title(self, tag: Tag) -> str:
+        """The title of a tab panel (its tab's text) or of an accordion item (<details>' summary)."""
+        if tag.name == "details":
+            summary = tag.find("summary")
+            return clean_text(summary.get_text(" ", strip=True)) if summary else ""
+        label_id = (tag.get("aria-labelledby") or "").split()
+        return self.tab_titles.get(label_id[0], "") if label_id else ""
+
+    def _panel(self, tag: Tag) -> None:
+        """A tab panel or accordion item is a section of its own, titled with its tab: the headings
+        of one tab never become the parents of the next tab's content."""
+        saved, banner, banner_open = list(self.heading_stack), self._banner, self._banner_open
+        title = self._panel_title(tag)
+        if title:
+            # level 0 on the stack: headings inside the panel nest under its title, never replace it
+            self.heading_stack.append((0, title))
+            self.blocks.append(Block(type="heading", text=title, level=min(6, len(saved) + 2), heading_path=self.heading_path))
+        self._banner_open = False
+        if tag.name == "details":
+            for child in list(tag.children):
+                if isinstance(child, Tag) and child.name == "summary":
+                    child.extract()
+        self.walk(tag)
+        self.heading_stack, self._banner, self._banner_open = saved, banner, banner_open
 
     def _drop_trailing_heading(self) -> None:
         if self.blocks and self.blocks[-1].type == "heading":
@@ -355,6 +383,14 @@ class _Walker:
                 continue
             name = child.name
             self._background_image(child)
+            role = child.get("role")
+            if role == "tablist":
+                flush()  # the tab buttons: their names become the panels' headings
+                continue
+            if role == "tabpanel" or name == "details":
+                flush()
+                self._panel(child)
+                continue
             if name == "br":
                 buffer.append("\n")
             elif name == "img":
@@ -449,7 +485,8 @@ def extract_html(html: str, url: str, allowed_domains: list[str], fetched_at: st
 
     # Links from the whole page (including nav) are useful for crawl metadata,
     # but content blocks only come from the de-chromed main area.
-    walker = _Walker(url, title, allowed_domains)
+    tab_titles = {tab["id"]: clean_text(tab.get_text(" ", strip=True)) for tab in soup.select('[role="tab"][id]')}
+    walker = _Walker(url, title, allowed_domains, tab_titles)
     body = soup.body or soup
     for a in body.find_all("a", href=True):
         walker._add_link(a)

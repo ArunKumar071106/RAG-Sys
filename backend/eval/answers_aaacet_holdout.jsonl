@@ -1,0 +1,22 @@
+// Held-out answer-quality questions: written after tuning on answers_aaacet.jsonl and never tuned on.
+// Run: python -m rag.cli eval-answers --questions eval/answers_aaacet_holdout.jsonl
+{"question": "What is the minimum percentage for SC/ST students to join B.E.?", "expect": ["40%"]}
+{"question": "PhD eligibility for SC/ST candidates", "expect": ["50%"]}
+{"question": "What is the full form of TNEA?", "expect": ["Tamil Nadu Engineering Admission"]}
+{"question": "What certificates should I bring for admission?", "expect": ["Community Certificate", "Transfer Certificate"]}
+{"question": "Is a nativity certificate needed?", "expect": ["Nativity Certificate"]}
+{"question": "Is there a scholarship for JEE Mains students?", "expect": ["JEE Mains"]}
+{"question": "Which scholarship is only for girl students?", "expect": ["Pragati"]}
+{"question": "What award is given to university rank holders?", "expect": ["Refund of tuition fees", "Rank Holders"]}
+{"question": "Who is the admission officer?", "expect": ["Chandhran"]}
+{"question": "What is the intake for Mechanical Engineering?", "expect": ["60"]}
+{"question": "How many seats are there in ECE?", "expect": ["120"]}
+{"question": "Is there a Cyber Security course?", "expect": ["CYBER SECURITY", "Cyber Security"]}
+{"question": "What is the email address of the college?", "expect": ["enquiry@aaacet.ac.in"]}
+{"question": "What is the toll free number?", "expect": ["18004258807", "1800"]}
+{"question": "How many computers are in the library?", "expect": ["15 Computer"]}
+{"question": "How many e-books does the library have?", "expect": ["45000"]}
+{"question": "At what time does the bus leave Sivakasi bus stand?", "expect": ["8:10"]}
+{"question": "Is there a nurse on campus?", "expect": ["NURSE", "Nurse"]}
+{"question": "Are bus fees charged?", "expect": ["Bus Fees", "distance"]}
+{"question": "When was the Civil Engineering department established?", "expect": ["2013"]}

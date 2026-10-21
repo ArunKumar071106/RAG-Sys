@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Protocol
 
+from rag.chunking.tokens import count_tokens
 from rag.index.bm25 import tokenize
 from rag.llm.prompts import SYSTEM_PROMPT
 from rag.models import RetrievedChunk
@@ -119,6 +120,9 @@ class ExtractiveAnswerer:
         from rag.retrieval.hybrid import chunk_title_text
 
         q = set(tokenize(question))
+        section = self._section_answer(q, chunks[:max_sources])
+        if section:
+            return section
         # A sentence or table row is scored on its own words plus its page title and headings:
         # a row of the "Faculty List" table answers "IT faculty" though no cell says "faculty".
         scored: list[tuple[float, int, int, str, str]] = []  # (-score, source, position, key, sentence)
@@ -189,7 +193,7 @@ class ExtractiveAnswerer:
         for neg, i, _, key, sentence in scored:
             if -neg < floor or count >= max_lines:
                 break
-            label = source_label(chunks[i - 1])
+            label = source_label(chunks[i - 1], q)
             sources, lines = groups.setdefault(label, ([], []))
             if " | " in sentence or key in seen or len(lines) >= per_source:
                 continue
@@ -204,6 +208,57 @@ class ExtractiveAnswerer:
         ]
         return "\n\n".join(blocks)
 
+    def _section_answer(self, q: set[str], chunks: list[RetrievedChunk], coverage: float = 0.7,
+                        max_tokens: int = 320, max_lines: int = 12) -> str:
+        """A short prose section whose title names the question ("TNEA B.E./B.Tech. Eligibility",
+        "Fees", "Required Documents") is quoted whole, its sub-headings kept as labels: picking
+        sentences by shared words would drop the line that answers it ("... 45% ...")."""
+        if not q:
+            return ""
+        total = sum(self.term_weight(t) for t in q)
+        shares: list[float] = []
+        for chunk in chunks:
+            headings = [*chunk.heading_path, *re.findall(r"^#{1,6}\s+(.+)$", chunk.text, re.M)]
+            named = q & set(tokenize(" ".join([*headings, chunk.page_title.split(" – ")[0]])))
+            # the section must be named by the question, not just sit on a page that is
+            shares.append(sum(self.term_weight(t) for t in named) / total if q & set(tokenize(" ".join(headings))) else 0.0)
+        top = max(shares, default=0.0)
+        if top < coverage:
+            return ""
+        # the best-named result, in search order: when that is a table or a long page, the table
+        # and sentence answers handle it
+        first = next(i for i, share in enumerate(shares) if share >= top - 0.05)
+        if count_tokens(chunks[first].text) > max_tokens or " | " in chunks[first].text:
+            return ""
+        # equally named sections of the same page are all quoted ("Eligibility": B.E., M.E., Ph.D.)
+        picked = [i for i, share in enumerate(shares) if share >= shares[first] - 0.05 and chunks[i].url == chunks[first].url
+                  and " | " not in chunks[i].text and count_tokens(chunks[i].text) <= max_tokens][:3]
+        blocks = []
+        for i in picked:
+            lines = self._section_lines(chunks[i], max_lines if len(picked) == 1 else max_lines // 2)
+            if lines:
+                blocks.append("\n".join([f"**{source_label(chunks[i], q)}** [S{i + 1}]", *lines]))
+        return "\n\n".join(blocks)
+
+    @staticmethod
+    def _section_lines(chunk: RetrievedChunk, max_lines: int) -> list[str]:
+        lines: list[str] = []
+        label = ""
+        for raw in chunk.text.splitlines():
+            line = raw.strip()
+            heading = re.match(r"^#{1,6}\s+(.+)$", line)
+            if heading:
+                label = heading.group(1).strip() if heading.group(1).strip() not in chunk.heading_path else ""
+                continue
+            line = re.sub(r"^[-*•]\s+", "", line)
+            if len(line) < 3:
+                continue
+            lines.append(f"- **{label}:** {line}" if label else f"- {line}")
+            label = ""
+            if len(lines) >= max_lines:
+                break
+        return lines
+
     def _quote_table(self, chunks: list[RetrievedChunk], anchor: RetrievedChunk, q: set[str], max_rows: int) -> list[str]:
         """The anchor's whole table, across the sources holding its parts, as a compact Markdown table."""
         section = (anchor.doc_id, anchor.heading_path)
@@ -214,8 +269,11 @@ class ExtractiveAnswerer:
             if (part.doc_id, part.heading_path) != section:
                 continue
             part_rows = [x for x in self._sentences(part.text) if " | " in x]
-            if any(": " in r for r in part_rows):  # labelled rows repeat the header: drop the bare header line
-                part_rows = [r for r in part_rows if ": " in r]
+            # labelled rows ("Name: X | Designation: Y") repeat the header: drop the bare header line,
+            # but only when the table is labelled - one cell mentioning "Note: ..." does not make it so
+            labelled = [r for r in part_rows if all(_CELL_LABEL_RE.match(cell) for cell in r.split(" | "))]
+            if len(labelled) * 2 >= len(part_rows):
+                part_rows = labelled
             for row in part_rows:
                 key = re.sub(r"\W+", " ", row.lower()).strip()
                 if key not in seen:
@@ -235,15 +293,23 @@ class ExtractiveAnswerer:
         return lines
 
 
-def source_label(chunk: RetrievedChunk) -> str:
-    """ "Faculty List – Artificial Intelligence and Data Science": the page and its main section."""
+def source_label(chunk: RetrievedChunk, q: set[str] | None = None) -> str:
+    """ "Faculty List – Artificial Intelligence and Data Science": the page and its main section, and
+    the sub-heading that names the question when there is one ("About Department – Civil
+    Engineering – NBA Accredited from 2024 to 2027" for "Which departments are NBA accredited?")."""
     title = chunk.page_title.strip()
     section = chunk.heading_path[0].strip() if chunk.heading_path else ""
+    label = title or section
     if section and section.lower() not in title.lower() and title.lower() not in section.lower():
-        return f"{title} – {section}"
-    return title or section
+        label = f"{title} – {section}"
+    if q:
+        named = [h for h in chunk.heading_path[1:] if q & set(tokenize(h)) and h.lower() not in label.lower()]
+        if named:
+            label = f"{label} – {named[-1].strip()}"
+    return label
 
 
+_CELL_LABEL_RE = re.compile(r"^\s*[^:|]{1,60}:\s")
 _SERIAL_RE = re.compile(r"^(s|sl|sr|emp)\.?\s*n(o|r)?\.?$|^(s\.?\s*)?no\.?$", re.I)
 _BLANK_VALUES = {"", "-", "–", "—", "na", "n/a", "nil.", "--"}
 

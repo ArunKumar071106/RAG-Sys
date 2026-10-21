@@ -370,3 +370,40 @@ async def test_one_word_department_follow_up(services):
     assert department_in("What is data science?", settings) == ""
     cse = [ChatTurn(role="user", content="Who are the faculty of the CSE department?"), ChatTurn(role="assistant", content="...")]
     assert svc.retrieval_query("and civil?", cse) == "Who are the faculty of the Civil Engineering department?"
+
+
+def test_a_section_named_by_the_question_is_quoted_whole():
+    from rag.llm.client import ExtractiveAnswerer
+
+    def part(cid, heading, text, title="Admission"):
+        return RetrievedChunk(chunk_id=cid, doc_id="adm", url="https://c.example/admission/", page_title=title,
+                              heading_path=[heading], text=f"#### {heading}\n\n{text}", score=1.0)
+
+    be = part("be", "TNEA B.E./B.Tech. Eligibility", "Native of Tamil Nadu may apply. Pass 12th with 45% in Physics, Mathematics "
+              "and Chemistry. Outside candidates who studied in Tamil Nadu may also apply.")
+    me = part("me", "TNEA M.E./M.Tech Eligibility", "A bachelor's degree in engineering is required.")
+    phd = part("phd", "TNEA PhD Eligibility", "A Master's degree with 55% marks is required.")
+    fees = RetrievedChunk(chunk_id="f", doc_id="fees", url="https://c.example/fees/", page_title="Fees", heading_path=["Fees"],
+                          text="### Fees\n\n###### Tuition Fee\n\n- Charged per semester.\n\n###### Bus Fees\n\n- By distance.", score=1.0)
+    ex = ExtractiveAnswerer()
+    # the whole section, so the line with the answer ("45%") is not dropped for sharing fewer words
+    answer = ex.answer("What is the eligibility for B.E. and B.Tech admission?", [be, me, phd])
+    assert answer.startswith("**Admission – TNEA B.E./B.Tech. Eligibility** [S1]") and "45%" in answer and "55%" not in answer
+    # equally named sections of one page are all quoted
+    every = ex.answer("Eligibility", [phd, be, me])
+    assert "55%" in every and "45%" in every and "bachelor" in every
+    # sub-headings are kept as labels
+    assert ex.answer("What are the fees?", [fees]).splitlines()[1:] == ["- **Tuition Fee:** Charged per semester.",
+                                                                     "- **Bus Fees:** By distance."]
+
+
+def test_labelled_table_detection_keeps_rows_with_a_colon_in_their_text():
+    from rag.llm.client import ExtractiveAnswerer
+
+    rows = ["Merit Award 180 | Trust | Cut-off of 180. Note: first come first served | Full waiver",
+            "Merit Award 170 | Trust | Cut-off of 170 | 50% waiver",
+            "Merit Award 160 | Trust | Cut-off of 160 | 25% waiver"]
+    table = RetrievedChunk(chunk_id="s", doc_id="adm", url="https://c.example/admission/", page_title="Admission",
+                           heading_path=["Scholarship"], text="\n".join(rows), score=1.0)
+    answer = ExtractiveAnswerer().answer("scholarship for a cut-off of 180", [table])
+    assert "180" in answer and "170" in answer and "160" in answer

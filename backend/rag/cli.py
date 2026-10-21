@@ -10,6 +10,7 @@
     python -m rag.cli search "hostel facilities"
     python -m rag.cli ask "What is the admission process?"
     python -m rag.cli eval [--questions eval/questions.jsonl] [--k 5]
+    python -m rag.cli eval-answers [--questions eval/answers_aaacet.jsonl]
     python -m rag.cli demo                  # build + index the fictional demo site (offline)
 """
 
@@ -98,6 +99,17 @@ def cmd_eval(args, settings) -> int:
     return 0 if report.questions else 1
 
 
+def cmd_eval_answers(args, settings) -> int:
+    from rag.eval.answer_eval import evaluate_answers, load_cases
+
+    settings.llm_provider = "extractive"  # measures what students get without an API key
+    services = _services(settings)
+    report = evaluate_answers(services.answers, load_cases(Path(args.questions)))
+    _print(report.summary())
+    services.close()
+    return 0
+
+
 def cmd_demo(args, settings) -> int:
     """Build the fictional demo site, serve it locally and run the whole pipeline on it."""
     from rag.demo.site import build_demo_site, serve_directory
@@ -137,13 +149,16 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("eval")
     p.add_argument("--questions", default=str(BACKEND_DIR / "eval" / "questions_aaacet.jsonl"))
     p.add_argument("--k", type=int, default=5)
+    p = sub.add_parser("eval-answers")
+    p.add_argument("--questions", default=str(BACKEND_DIR / "eval" / "answers_aaacet.jsonl"))
     p = sub.add_parser("demo")
     p.add_argument("--port", type=int, default=0)
 
     args = parser.parse_args(argv)
     settings = get_settings()
     logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    handlers = {"status": cmd_status, "search": cmd_search, "ask": cmd_ask, "eval": cmd_eval, "demo": cmd_demo}
+    handlers = {"status": cmd_status, "search": cmd_search, "ask": cmd_ask, "eval": cmd_eval,
+                "eval-answers": cmd_eval_answers, "demo": cmd_demo}
     return handlers.get(args.command, cmd_stage)(args, settings)
 
 

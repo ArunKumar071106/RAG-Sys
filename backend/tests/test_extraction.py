@@ -235,3 +235,40 @@ def test_common_site_name_is_stripped_from_titles():
     docs = [extract_html(f"<html><head><title>{t}</title></head><body><main><p>x y z</p></main></body></html>",
                          f"https://college.example/{i}", ALLOWED) for i, t in enumerate(titles)]
     assert [d.title for d in strip_common_title_suffix(docs)] == ["AAA Hostels", "Admission", "Placement – 2017", "Gallery | Other"]
+
+
+TABS_HTML = """
+<html><head><title>Admission</title></head><body><main>
+<h2>Admission</h2><p>Welcome to admissions.</p>
+<div class="e-n-tabs">
+  <div role="tablist">
+    <button role="tab" id="t1" aria-controls="p1">Courses offered</button>
+    <button role="tab" id="t2" aria-controls="p2">Management Quota</button>
+    <button role="tab" id="t3" aria-controls="p3">TNEA B.E./B.Tech. Eligibility</button>
+  </div>
+  <div class="e-n-tabs-content">
+    <div role="tabpanel" id="p1" aria-labelledby="t1"><h2>B.E. COURSES</h2><p>Civil Engineering intake 60.</p>
+      <h2>Ph.D</h2><p>Research programmes in CSE.</p></div>
+    <div role="tabpanel" id="p2" aria-labelledby="t2"><h4>Admissions through Management Quota</h4>
+      <p>Apply to the Association of Self Financing Colleges.</p></div>
+    <div role="tabpanel" id="p3" aria-labelledby="t3"><h4>TNEA B.E./B.Tech. Eligibility</h4>
+      <p>Pass 12th with 45% in Physics, Mathematics and Chemistry.</p></div>
+  </div>
+</div>
+<details><summary>Document Retention Policy</summary><p>As per UGC notifications.</p></details>
+</main></body></html>
+"""
+
+
+def test_tab_panels_are_sections_titled_by_their_tabs():
+    doc = extract_html(TABS_HTML, "https://college.example/admission/", ALLOWED)
+    by_text = {b.text: b.heading_path for b in doc.blocks if b.type == "text"}
+    # each panel is under its own tab's name, never under the previous panel's last heading ("Ph.D")
+    assert by_text["Civil Engineering intake 60."] == ["Admission", "Courses offered", "B.E. COURSES"]
+    assert by_text["Apply to the Association of Self Financing Colleges."] == \
+        ["Admission", "Management Quota", "Admissions through Management Quota"]
+    # a heading repeating the tab's name is not doubled
+    assert by_text["Pass 12th with 45% in Physics, Mathematics and Chemistry."] == ["Admission", "TNEA B.E./B.Tech. Eligibility"]
+    assert by_text["As per UGC notifications."] == ["Admission", "Document Retention Policy"]
+    # the row of tab buttons is not content
+    assert not any("Courses offered Management Quota" in b.text for b in doc.blocks)

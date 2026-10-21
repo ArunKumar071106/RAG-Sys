@@ -106,6 +106,14 @@ class BM25Index:
         weight = {t: max(self._bm25.idf.get(t, max_idf), 0.05) for t in terms}
         return sum(w for t, w in weight.items() if t in words) / sum(weight.values())
 
+    def rare_terms(self, query: str, n: int = 2) -> list[str]:
+        """The query's ``n`` rarest terms that occur in the corpus (highest IDF), most rare first;
+        none when the query has no more than ``n`` such terms (then they are the whole query)."""
+        if self._bm25 is None:
+            return []
+        known = sorted({t for t in tokenize(query) if t in self._bm25.idf}, key=lambda t: -self._bm25.idf[t])
+        return known[:n] if len(known) > n else []
+
     def coverage(self, query: str, doc_id: str) -> float:
         """Share of the query's IDF weight whose terms occur in the document (0..1).
 

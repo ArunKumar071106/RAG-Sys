@@ -1,0 +1,43 @@
+// Answer-quality questions for the real AAACET website. Each answer (extractive mode, no API key) must
+// contain one of "expect" (case-insensitive): the fact a student asking would need, taken from the page
+// that answers it. Run: python -m rag.cli eval-answers
+{"question": "Eligibility", "expect": ["45%"]}
+{"question": "TNEA B.E./B.Tech. Eligibility", "expect": ["45%"]}
+{"question": "What is the eligibility for B.E. and B.Tech admission?", "expect": ["45%"]}
+{"question": "What marks do I need in 12th to join B.E.?", "expect": ["45%"]}
+{"question": "Can students from outside Tamil Nadu apply?", "expect": ["outside candidates"]}
+{"question": "What is the eligibility for M.E. or M.Tech?", "expect": ["bachelor"]}
+{"question": "PhD eligibility", "expect": ["55%"]}
+{"question": "How do I get admission through management quota?", "expect": ["Association of Self Financing Colleges"]}
+{"question": "What is government quota admission?", "expect": ["state level counselling"]}
+{"question": "What documents are required for admission?", "expect": ["Transfer Certificate"]}
+{"question": "What scholarships are available for students?", "expect": ["single parent", "Meritorious", "First Graduate"]}
+{"question": "Is there a scholarship for a +2 cut-off of 180?", "expect": ["180"]}
+{"question": "What are the academic performance awards?", "expect": ["Rank Holders", "Rank Holder"]}
+{"question": "Whom should I contact for admission and scholarship?", "expect": ["9688449326", "Thenmoezhi"]}
+{"question": "What is the intake for CSE?", "expect": ["180"]}
+{"question": "What is the intake for AI&DS?", "expect": ["120"]}
+{"question": "Which B.Tech courses are offered?", "expect": ["Information Technology", "INFORMATION TECHNOLOGY"]}
+{"question": "Which PG courses are offered?", "expect": ["M.E"]}
+{"question": "Does the college offer Ph.D?", "expect": ["Ph.D"]}
+{"question": "What is the TNEA counselling code of AAACET?", "expect": ["4680"]}
+{"question": "Who is the principal?", "expect": ["Sekar"]}
+{"question": "Is the college accredited by NAAC?", "expect": ["‘A’ grade", "'A' grade", "A grade", "A’ grade", "grade A"]}
+{"question": "Which university is the college affiliated to?", "expect": ["Anna University"]}
+{"question": "Which departments are NBA accredited?", "expect": ["CIVIL, CSE", "Mechanical Engineering", "NBA Accredited"]}
+{"question": "Is there a canteen in the college?", "expect": ["cafeteria"]}
+{"question": "Is there a gym?", "expect": ["Gym"]}
+{"question": "What sports facilities are available?", "expect": ["Gym", "court", "ground"]}
+{"question": "What hostel facilities are available?", "expect": ["Boys and Girls", "boys and girls"]}
+{"question": "Is college bus transport available?", "expect": ["buses"]}
+{"question": "From which places do college buses run?", "expect": ["Madurai", "Sivakasi"]}
+{"question": "What facilities does the library have?", "expect": ["e-Journals", "e-books", "periodicals"]}
+{"question": "Is Wi-Fi available in the library?", "expect": ["Wi-Fi"]}
+{"question": "What is the contact phone number and email of the college?", "expect": ["04562-251111", "enquiry@aaacet.ac.in"]}
+{"question": "Where is the college located?", "expect": ["Amathur", "Kamarajar Educational Road"]}
+{"question": "What are the fees?", "expect": ["Tuition Fee"]}
+{"question": "Is there a hostel and mess fee?", "expect": ["Hostel & Mess Fees", "Mess Fees"]}
+{"question": "Who are the faculty of AI&DS department?", "expect": ["Karuppasamy"]}
+{"question": "Who are the faculty of the Civil Engineering department?", "expect": ["Krishnapriya"]}
+{"question": "When was the CSE department established?", "expect": ["2013"]}
+{"question": "What is the vision of the ECE department?", "expect": ["premier engineering department"]}

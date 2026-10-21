@@ -118,17 +118,20 @@ def _common_prefix(paths: list[list[str]]) -> list[str]:
 
 
 class StructureAwareChunker:
-    def __init__(self, chunk_size: int = 650, overlap: int = 100, min_tokens: int = 40):
+    def __init__(self, chunk_size: int = 650, overlap: int = 100, min_tokens: int = 40, small_section_tokens: int = 80):
         if overlap >= chunk_size:
             raise ValueError("overlap must be smaller than chunk_size")
         self.chunk_size = chunk_size
         self.overlap = overlap
         self.min_tokens = min_tokens
+        # a section shorter than this may share a chunk with its neighbour; longer ones stand alone, so a
+        # chunk is about one topic ("TNEA B.E./B.Tech. Eligibility", not every admission tab at once)
+        self.small_section_tokens = small_section_tokens
 
     # ------------------------------------------------------------ public API
     def chunk_document(self, doc: PageDocument, duplicate_urls: list[str] | None = None) -> list[TextChunk]:
         pieces: list[tuple[list[str], str]] = []  # (heading_path, text)
-        for group in self._merge_small_sections(_sections(doc.blocks)):
+        for group in self._merge_small_sections(_sections(doc.blocks), doc.title):
             if len(group) == 1 and group[0].tokens > self.chunk_size:
                 section = group[0]
                 for text in self._split_section(section):
@@ -158,17 +161,32 @@ class StructureAwareChunker:
         return chunks
 
     # ------------------------------------------------------------ merging
-    def _merge_small_sections(self, sections: list[_Section]) -> list[list[_Section]]:
+    def _merge_small_sections(self, sections: list[_Section], page_title: str = "") -> list[list[_Section]]:
+        """Group sections into chunks. A section joins the chunk before it only when it fits and is a
+        short subsection of that chunk's section, or a tiny sibling (same parent). Separate topics, such
+        as the tabs of one page, stay apart."""
         groups: list[list[_Section]] = []
         current: list[_Section] = []
         current_tokens = 0
         for section in sections:
             tokens = section.tokens
-            same_top = bool(current) and current[0].heading_path[:1] == section.heading_path[:1]
-            if current and same_top and current_tokens + tokens <= self.chunk_size:
-                current.append(section)
-                current_tokens += tokens
-                continue
+            if current and current_tokens + tokens <= self.chunk_size:
+                first, last = current[0].heading_path, current[-1].heading_path
+                path = section.heading_path
+                # a short subsection stays with its section (not with the page banner heading, which
+                # every section is under), and a tiny sibling (a heading with a line under it) joins
+                own = first[1:] if first[:1] == [page_title] else first  # the page banner heading is not a section
+                subsection = bool(own) and len(path) > len(first) and path[:len(first)] == first
+                small = tokens < self.small_section_tokens or current_tokens < self.small_section_tokens
+                siblings = len(path) == len(last) and path[:-1] == last[:-1]
+                # one-line sections share a chunk with each other, never with a full section (whose
+                # name the chunk would lose for the common parent's)
+                tiny_text = tokens < self.min_tokens and all(s.tokens < self.min_tokens for s in current) \
+                    and not any(u.kind == "table" for s in (section, current[-1]) for u in s.units)
+                if subsection and small or siblings and tiny_text:
+                    current.append(section)
+                    current_tokens += tokens
+                    continue
             if current:
                 groups.append(current)
             current, current_tokens = [section], tokens

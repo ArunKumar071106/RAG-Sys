@@ -23,7 +23,7 @@ from urllib.parse import urlsplit
 
 from rag.config import Settings
 from rag.embeddings.base import Embedder
-from rag.index.bm25 import BM25Index
+from rag.index.bm25 import BM25Index, tokenize
 from rag.index.qdrant_store import QdrantStore
 from rag.models import RetrievedChunk, RetrievedImage
 from rag.retrieval.corpus import Corpus
@@ -61,8 +61,42 @@ class Reranker:
 
 # Words that ask for a kind of answer ("show me photos of ...") rather than describing the topic.
 _REQUEST_WORDS_RE = re.compile(
-    r"\b(show( me)?|display|photos?|pictures?|pics?|images?|gallery|look(s)? like|view of)\b", re.I
+    r"\b(show( me)?|display|photos?|pictures?|pics?|images?|gallery|look(s)? like|view of|available|availability)\b", re.I
 )
+# Words too common to make a phrase: "counselling code" and "required documents" are phrases,
+# "is the" is not.
+_PHRASE_STOP = {"a", "an", "the", "of", "and", "or", "is", "are", "was", "were", "for", "to", "in", "on", "at", "by",
+                "with", "what", "which", "who", "whom", "how", "when", "where", "why", "do", "does", "did", "can",
+                "i", "me", "my", "you", "your", "there", "any", "it", "its", "this", "that", "be", "should", "will",
+                "about", "tell", "give", "list", "please", "college", "aaacet", "aaa"}
+
+
+_LABEL_RE = re.compile(r"^\s*[-*•]?\s*([A-Za-z][A-Za-z .&/()'-]{1,40}?)\s*:\s*\S")
+
+
+def labelled_fact_hits(text: str, q_tokens: set[str]) -> int:
+    """How many different "Label: value" labels - on their own line, or as a table cell
+    ("INTAKE: 120") - are made only of question words."""
+    found: set[frozenset[str]] = set()
+    for line in text.splitlines():
+        for cell in line.split(" | "):
+            match = _LABEL_RE.match(cell)
+            if match:
+                label = frozenset(tokenize(match.group(1))) - {"the", "of", "and"}
+                if label and label <= q_tokens:
+                    found.add(label)
+    return len(found)
+
+
+def query_phrases(query: str) -> list[str]:
+    """Adjacent topical word pairs of a question: "What is the TNEA counselling code?" ->
+    ["tnea counselling", "counselling code"]. A chunk containing the exact phrase is about it."""
+    words = re.findall(r"[a-z0-9][a-z0-9.&'-]*", query.lower())
+    pairs = []
+    for a, b in zip(words, words[1:]):
+        if a not in _PHRASE_STOP and b not in _PHRASE_STOP and len(a) > 1 and len(b) > 1:
+            pairs.append(f"{a} {b}")
+    return list(dict.fromkeys(pairs))
 
 
 def content_query(query: str) -> str:
@@ -71,11 +105,17 @@ def content_query(query: str) -> str:
     return stripped if re.search(r"\w{3,}", stripped) else query
 
 
+_MD_HEADING_RE = re.compile(r"^#{1,6}\s+(.+)$", re.M)
+
+
 def chunk_title_text(chunk) -> str:
-    """The page title (without the site-name suffix), the URL path words and the chunk's section
-    headings: "/civil/faculty-list/" says which department a "Faculty List" page belongs to."""
+    """The page title (without the site-name suffix), the URL path words, the chunk's section path and
+    the headings inside it: "/civil/faculty-list/" says which department a "Faculty List" page belongs
+    to, and a chunk holding several short sections ("Required Documents", "Reservation Policy") is
+    found by each of their names."""
     path_words = re.sub(r"[-_/]+", " ", urlsplit(chunk.url).path).strip()
-    return " ".join([chunk.page_title.split(" – ")[0].split(" | ")[0], path_words, *chunk.heading_path])
+    inner = [h for h in _MD_HEADING_RE.findall(chunk.text) if h not in chunk.heading_path]
+    return " ".join([chunk.page_title.split(" – ")[0].split(" | ")[0], path_words, *chunk.heading_path, *inner])
 
 
 def expand_query(query: str, expansions: dict[str, str]) -> str:
@@ -105,8 +145,23 @@ class HybridRetriever:
         self.bm25_titles = BM25Index.build([(cid, chunk_title_text(chunk)) for cid, chunk in corpus.chunks.items()])
 
     def normalize_query(self, query: str) -> str:
-        """What is searched for: request words dropped, short forms spelled out the website's way."""
-        return expand_query(content_query(query), self.settings.query_expansions)
+        """What is searched for: request words dropped, short forms spelled out the website's way,
+        "department" dropped when a department is named (it is implied, and "About Department"
+        pages would otherwise outrank the department's "Faculty List"), and words the website uses
+        for the question's intent added ("where is the college" -> "address")."""
+        text = expand_query(content_query(query), self.settings.query_expansions)
+        lowered = text.lower()
+        named = [d for d in self.settings.departments if d.lower() in lowered]
+        if named:
+            # "faculty of the Civil Engineering department": the department is implied, and "About
+            # Department" pages would outrank its "Faculty List"; but in "Tell me about the CSE
+            # department" the department itself is the topic, so the word stays
+            rest = re.sub(r"\bdepartments?\b", " ", lowered.replace(max(named, key=len).lower(), " "))
+            if any(w not in _PHRASE_STOP for w in re.findall(r"[a-z]{3,}", rest)):
+                text = re.sub(r"\bdepartments?\b", " ", text, flags=re.I)
+        extra = [words for pattern, words in self.settings.query_synonyms.items() if re.search(pattern, text, re.I)
+                 and words.lower() not in lowered]
+        return re.sub(r"\s+", " ", " ".join([text, *extra])).strip()
 
     # ------------------------------------------------------------- text
     def search_text(self, query: str, top_k: int | None = None) -> TextSearchResult:
@@ -140,14 +195,36 @@ class HybridRetriever:
                     titled.append(cid)
         title_ranked = set(titled)
         # Third ranking: how much of the question's (IDF-weighted) vocabulary each candidate contains.
-        candidates = list(dict.fromkeys([c for c, _ in semantic] + [c for c, _ in keyword] + titled))
+        # Chunks with the question's rarest words: "intake" in "intake for AI&DS" is what the answer
+        # has, while the department name is on a hundred pages.
+        rare = self.bm25_text.rare_terms(query, 2)
+        rare_hits = [cid for cid, _ in self.bm25_text.search(" ".join(rare), s.bm25_candidates)
+                     if cid in self.corpus.chunks] if rare else []
+        rare_set = set(rare_hits)
+        candidates = list(dict.fromkeys([c for c, _ in semantic] + [c for c, _ in keyword] + titled + rare_hits))
         coverage = {cid: self.bm25_text.coverage(query, cid) for cid in candidates}
         by_coverage = sorted(candidates, key=lambda c: -coverage[c])
         # Field boost: the question's terms in the page title / section headings ("Contact Us").
         for cid in candidates:
             if cid not in title_match:
                 title_match[cid] = self.bm25_text.weighted_overlap(query, chunk_title_text(self.corpus.chunks[cid]))
-        fused = reciprocal_rank_fusion([[c for c, _ in semantic], [c for c, _ in keyword], by_coverage], k=s.rrf_k)
+        # Fourth ranking: chunks containing the question's exact word pairs ("counselling code",
+        # "required documents", "academic performance").
+        phrases = query_phrases(query)
+        texts = {cid: re.sub(r"\s+", " ", self.corpus.chunks[cid].text.lower()) for cid in candidates} if phrases else {}
+        # only distinctive phrases count: "faculty members" is in every news post
+        phrases = [p for p in phrases if sum(p in t for t in texts.values()) <= max(3, len(candidates) // 5)]
+        phrase_hits = {cid: sum(p in texts[cid] for p in phrases) for cid in candidates} if phrases else {}
+        by_phrase = sorted((c for c in candidates if phrase_hits.get(c)), key=lambda c: -phrase_hits[c])
+        # Fifth: "Label: value" facts whose label the question names ("COUNSELLING CODE : 4680",
+        # "Address: ...", "Phone: ...") - the website's headers, footers and labelled table rows.
+        q_tokens = set(tokenize(query))
+        label_hits = {cid: labelled_fact_hits(self.corpus.chunks[cid].text, q_tokens) for cid in candidates}
+        by_label = sorted((c for c in candidates if label_hits[c]), key=lambda c: -label_hits[c])
+        fused = reciprocal_rank_fusion([[c for c, _ in semantic], [c for c, _ in keyword], by_coverage, by_phrase], k=s.rrf_k)
+        # A label the question names is a precise match: it counts like the title ranking does.
+        label_rrf = {cid: s.label_rank_weight / (s.rrf_k + rank) for rank, cid in enumerate(by_label, start=1)}
+        fused = [(cid, score + label_rrf.pop(cid, 0.0)) for cid, score in fused] + list(label_rrf.items())
         # The title ranking counts in proportion to how much of the question the title covers.
         title_rrf = {cid: s.title_rank_weight * title_match[cid] ** 2 / (s.rrf_k + rank) for rank, cid in enumerate(titled, start=1)}
         fused = [(cid, score + title_rrf.pop(cid, 0.0)) for cid, score in fused] + list(title_rrf.items())
@@ -163,7 +240,7 @@ class HybridRetriever:
             sem = sem_rank.get(cid)
             bm = bm_rank.get(cid)
             semantic_ok = sem is not None and sem[1] >= floor
-            lexical = bm is not None or cid in title_ranked
+            lexical = bm is not None or cid in title_ranked or cid in rare_set
             if not semantic_ok and (not lexical or coverage[cid] < s.min_query_coverage):
                 continue  # weak lexical overlap and no semantic support
             chunk = self.corpus.chunks[cid]
@@ -211,8 +288,10 @@ class HybridRetriever:
                 continue
             k = key(c)
             section = self.corpus.sections.get(k, [])
+            # only tables are completed: a long prose section (a page of NAAC criteria) would push
+            # the result that answers the question out of the top sources
             if k not in done and len(done) < max_sections and len(section) > 1 and c.chunk_id in section \
-                    and (position == 0 or len(hits[k]) >= 2):
+                    and " | " in c.text and (position == 0 or len(hits[k]) >= 2):
                 done.add(k)
                 anchor = min(section.index(cid) for cid in hits[k] if cid in section)
                 start = max(0, min(anchor, len(section) - max_chunks))

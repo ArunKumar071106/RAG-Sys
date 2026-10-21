@@ -123,3 +123,21 @@ def test_tiny_trailing_piece_is_folded_into_previous(n_long):
     assert chunks[-1].text.endswith("Short end.") and joined.count("Short end.") == 1
     for i in range(n_long):
         assert joined.count(f"Fact{i} ") == 1  # every piece kept exactly once
+
+
+def test_separate_sections_stay_separate_and_only_tiny_siblings_merge():
+    body = "Candidates must pass the qualifying examination with the required marks in the main subjects. " * 3
+    blocks = [h("Admission", 2, ["Admission"]), t("Welcome.", ["Admission"]),
+              h("Management Quota", 3, ["Admission", "Management Quota"]), t(body, ["Admission", "Management Quota"]),
+              h("Government Quota", 3, ["Admission", "Government Quota"]), t(body, ["Admission", "Government Quota"]),
+              h("Reservation Policy", 3, ["Admission", "Reservation Policy"]), t("As per rules.", ["Admission", "Reservation Policy"]),
+              h("Retention Policy", 3, ["Admission", "Retention Policy"]), t("As per UGC.", ["Admission", "Retention Policy"])]
+    chunks = StructureAwareChunker(chunk_size=650, overlap=50).chunk_document(doc(blocks, title="Admission"))
+    paths = [c.heading_path for c in chunks]
+    # two topics under one page heading are two chunks, not one 650-token mix
+    assert ["Management Quota"] in paths and ["Government Quota"] in paths
+    # the page intro is not merged into the first tab
+    assert not any("Welcome." in c.text and "Management Quota" in c.text for c in chunks)
+    # two one-line sections share a chunk; both headings stay in its text
+    tiny = [c for c in chunks if "As per rules." in c.text][0]
+    assert "As per UGC." in tiny.text and "Reservation Policy" in tiny.text and "Retention Policy" in tiny.text
