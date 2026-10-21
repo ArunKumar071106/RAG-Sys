@@ -99,3 +99,32 @@ describe("start chat button at the top", () => {
     expect(document.querySelector(".mov")?.getAttribute("data-moment")).toBe("greet");
   });
 });
+
+describe("down arrow to the chat", () => {
+  it("shows while the chat is below the screen, takes you there, and hides once it is in view", async () => {
+    let callback!: (entries: Partial<IntersectionObserverEntry>[]) => void;
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(cb: typeof callback) {
+          callback = cb;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
+    Element.prototype.scrollIntoView = vi.fn();
+    const user = userEvent.setup();
+    render(<App />);
+    const arrow = screen.getByRole("button", { name: "Go to the chat below" });
+    await user.click(arrow);
+    expect(box()).toHaveFocus();
+    act(() => callback([{ isIntersecting: true, boundingClientRect: { top: 400 } as DOMRectReadOnly }]));
+    expect(screen.queryByRole("button", { name: "Go to the chat below" })).not.toBeInTheDocument();
+    act(() => callback([{ isIntersecting: false, boundingClientRect: { top: -300 } as DOMRectReadOnly }]));
+    expect(screen.queryByRole("button", { name: "Go to the chat below" })).not.toBeInTheDocument(); // scrolled past
+    act(() => callback([{ isIntersecting: false, boundingClientRect: { top: 1200 } as DOMRectReadOnly }]));
+    expect(screen.getByRole("button", { name: "Go to the chat below" })).toBeInTheDocument();
+  });
+});

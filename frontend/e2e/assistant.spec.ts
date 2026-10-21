@@ -152,3 +152,21 @@ test("start chat button at the top, and the page does not grow with the conversa
   }
   await expect(page.getByRole("heading", { name: "You can also ask" })).toHaveCount(1); // under the latest answer only
 });
+
+test("down arrow shows the chat is below and takes you there", async ({ page }, info) => {
+  await page.goto("/");
+  await momentGone(page);
+  const arrow = page.getByRole("button", { name: "Go to the chat below" });
+  if (info.project.name === "mobile") {
+    // on phones the question box sticks to the bottom of the screen, so it is already in sight
+    await expect(page.getByLabel("Ask a question about AAACET")).toBeInViewport();
+    await expect(arrow).toBeHidden();
+    return;
+  }
+  await expect(arrow).toBeVisible();
+  await page.screenshot({ path: join(SHOTS, `${info.project.name}-chat-below.png`) });
+  await arrow.click();
+  await expect(page.getByLabel("Ask a question about AAACET")).toBeFocused();
+  await expect(page.getByLabel("Ask a question about AAACET")).toBeInViewport();
+  await expect(arrow).toBeHidden();
+});

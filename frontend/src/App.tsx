@@ -2,6 +2,7 @@ import { brand, safeHref } from "./brand";
 import { ChatWindow, startChat } from "./components/ChatWindow";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
+import { ScrollToChat } from "./components/ScrollToChat";
 import { RobotMoments } from "./robot/RobotMoments";
 
 /** `?embed=1` renders only the chat panel, for embedding in an iframe on the official site. */
@@ -51,6 +52,7 @@ export default function App() {
         <ChatWindow />
       </main>
       <Footer />
+      <ScrollToChat />
       <RobotMoments />
     </>
   );

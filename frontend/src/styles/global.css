@@ -1325,6 +1325,73 @@ img {
   font-size: 0.85rem;
 }
 
+/* down arrow to the chat, while its question box is below the screen */
+.scroll-to-chat {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 0 8px 0 18px;
+  border: 2px solid var(--brand-accent, #e0ac2a);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--brand-secondary, #323496);
+  font: inherit;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(13, 27, 61, 0.22);
+  cursor: pointer;
+  animation: scrollHint 1.8s ease-in-out infinite;
+}
+
+.scroll-to-chat svg {
+  display: block;
+  width: 38px;
+  height: 38px;
+  padding: 6px;
+  border-radius: 50%;
+  background: var(--brand-secondary, #323496);
+  color: #ffffff;
+}
+
+.scroll-to-chat:hover,
+.scroll-to-chat:focus-visible {
+  background: #fffaf0;
+  animation-play-state: paused;
+}
+
+.scroll-to-chat:focus-visible {
+  outline: 3px solid var(--brand-secondary, #323496);
+  outline-offset: 3px;
+}
+
+@keyframes scrollHint {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(6px);
+  }
+}
+
+@media (max-width: 760px) {
+  .scroll-to-chat {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-to-chat {
+    animation: none;
+  }
+}
+
 /* ------------------------------------------------------------------ robot moments */
 /* Arivazhai pops up centred over a blurred screen, then floats away (Moments.dc.html timing:
    0.35 s in, about 2.2 s hold, 0.4 s out). It never blocks the page: clicks and typing go through. */

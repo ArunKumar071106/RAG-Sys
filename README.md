@@ -138,6 +138,9 @@ flowchart LR
 * **Next questions:** every answer comes with three full questions to ask next (`follow_ups`): about the same
   department, then related topics (fees → scholarships, hostel → transport…), never one already asked. They are shown
   under the latest answer.
+* **Finding the chat:** a "Start chat with Arivazhai" button in the page banner, and a bouncing "Chat below" down
+  arrow at the bottom-right while the question box is still below the screen. Both scroll to the chat, greet and put
+  the cursor in the question box; the arrow hides once the chat is in view.
 * **Contact details:** when the website does not cover a question, and for questions about contacting the college,
   the answer ends with the office's phone numbers (tap to call) and email, from `brand.json`.
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
