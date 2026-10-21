@@ -134,11 +134,9 @@ test("embed mode renders only the chat panel", async ({ page }) => {
   await expectNoHorizontalScroll(page);
 });
 
-test("start chat button at the top, and the page does not grow with the conversation", async ({ page }) => {
+test("the page does not grow with the conversation", async ({ page }) => {
   await page.goto("/");
   await momentGone(page);
-  await page.getByRole("button", { name: /Start chat with Arivazhai/ }).click();
-  await expect(page.getByLabel("Ask a question about AAACET")).toBeFocused();
   const questions = ["What is the tuition fee for B.Tech Data Science?", "What are the library timings?", "Is there a hostel?"];
   for (const [i, q] of questions.entries()) {
     await ask(page, q);

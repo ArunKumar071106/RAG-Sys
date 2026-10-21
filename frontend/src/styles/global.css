@@ -1232,27 +1232,7 @@ img {
   max-height: none;
 }
 
-/* ------------------------------------------------------------------ start chat, follow-ups, contact, translate */
-.btn--start {
-  margin: 4px 0 14px;
-  min-height: 48px;
-  padding: 10px 24px;
-  border-radius: 999px;
-  background: var(--brand-secondary, #323496);
-  color: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-}
-
-.btn--start:hover {
-  background: color-mix(in srgb, var(--brand-secondary, #323496) 80%, #000);
-}
-
-.btn--start:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 3px;
-}
-
+/* ------------------------------------------------------------------ follow-ups, contact, translate */
 /* suggested next questions under the latest answer */
 .message--assistant > .suggestions {
   margin-top: 4px;

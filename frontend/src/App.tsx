@@ -1,5 +1,5 @@
 import { brand, safeHref } from "./brand";
-import { ChatWindow, startChat } from "./components/ChatWindow";
+import { ChatWindow } from "./components/ChatWindow";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { ScrollToChat } from "./components/ScrollToChat";
@@ -34,9 +34,6 @@ export default function App() {
           <div className="page-banner__box">
             <h1 className="page-banner__title">Arivazhai</h1>
             <p className="page-banner__lead">Ask about admissions, departments, placements and campus life - answered from the official website.</p>
-            <button type="button" className="btn btn--start" onClick={startChat}>
-              <span aria-hidden="true">💬</span> Start chat with Arivazhai
-            </button>
             <nav aria-label="Breadcrumb">
               <ol className="breadcrumb">
                 <li>

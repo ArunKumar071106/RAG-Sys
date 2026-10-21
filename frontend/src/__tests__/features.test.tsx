@@ -86,14 +86,15 @@ describe("suggested next questions", () => {
   });
 });
 
-describe("start chat button at the top", () => {
+describe("the Arivazhai menu link", () => {
   it("brings the chat into view, greets and puts the cursor in the question box", async () => {
     vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: /Start chat with Arivazhai/ }));
+    expect(screen.queryByRole("button", { name: /Start chat with Arivazhai/ })).not.toBeInTheDocument();
+    await user.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Arivazhai" }));
     expect(box()).toHaveFocus();
     expect(scroll).toHaveBeenCalled();
     expect(document.querySelector(".mov")?.getAttribute("data-moment")).toBe("greet");
