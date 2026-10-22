@@ -404,11 +404,22 @@ Schedule refreshes with cron (`docker compose run --rm backend python -m rag.cli
 `POST /api/admin/reindex`. Put the frontend behind HTTPS on the college's domain and point `CORS_ORIGINS` at it.
 Embedded Qdrant (`QDRANT_URL` empty) is for single-process development. Use the Qdrant server in production.
 
+### Qdrant Cloud
+1. Create a cluster at https://cloud.qdrant.io and an API key for it.
+2. In `.env`: `QDRANT_URL=https://<cluster-id>.<region>.cloud.qdrant.io:6333` and `QDRANT_API_KEY=<key>`.
+3. Fill it once (stop the API first): `cd backend && python -m rag.cli index --full`, then start the API as usual.
+   An API started on an empty cluster also builds it, answering with keyword search meanwhile.
+
+Only the vectors move: the keyword index, the knowledge base and the index manifest stay in `DATA_DIR`. Switching
+`QDRANT_URL` back or to another cluster needs `index --full` again, because the manifest describes the last one built.
+
 ## Troubleshooting
 | Symptom | Fix |
 |---|---|
 | `/api/health` says `degraded` / chat returns 503 | Run the pipeline first (`make all` or `make demo`), or read the `error` field (e.g. BGE-M3 not installed) |
 | `Storage folder … is already accessed by another instance` | Embedded Qdrant allows one process: stop the API before running CLI indexing, use `/api/admin/reindex`, or set `QDRANT_URL` to a server |
+| `401 (Unauthorized)` / `Invalid API key or JWT` | `QDRANT_API_KEY` in `.env` does not match the Qdrant Cloud cluster's key |
+| `Qdrant client version … is incompatible with server version …` | Only a warning; indexing and search work. Pick a cluster version close to `qdrant-client` in `backend/requirements.txt` to silence it |
 | `Collection … has N-d vectors but the embedder produces M-d` | You changed the embedding model: `python -m rag.cli index --full` |
 | Crawl finishes with 0 pages | Check network access to the site, `CRAWL_ALLOWED_DOMAINS`, and `robots.txt` (`python -m rag.cli status` shows `robots_forbidden`) |
 | Answers say "AI answer generation is not configured" | Set `ANTHROPIC_API_KEY` (or log in with `ant auth login`) and restart |
