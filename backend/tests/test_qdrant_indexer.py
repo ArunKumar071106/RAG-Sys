@@ -92,3 +92,31 @@ def test_demo_index_validation(pipeline):
     validation = pipeline.report["index"]["validation"]
     assert validation["ok"], validation
     assert validation["text_points"] == pipeline.report["chunks"]
+
+
+def test_upsert_splits_a_batch_that_keeps_timing_out(store, monkeypatch):
+    store.ensure_collection("t", 4)
+    real, sizes = store.client.upsert, []
+
+    def slow_link(name, points, wait):  # a batch of more than 2 points never finishes uploading
+        sizes.append(len(points))
+        if len(points) > 2:
+            raise TimeoutError("The write operation timed out")
+        return real(name, points=points, wait=wait)
+
+    monkeypatch.setattr(store.client, "upsert", slow_link)
+    monkeypatch.setattr("rag.index.qdrant_store.time.sleep", lambda s: None)
+    vecs = np.random.default_rng(0).random((8, 4), dtype=np.float32)
+    store.upsert("t", [f"c{i}" for i in range(8)], vecs, [{"chunk_id": f"c{i}"} for i in range(8)])
+    assert store.count("t") == 8 and max(s for s in sizes if s <= 2) == 2
+    assert store.search("t", vecs[5], 1)[0][0] == "c5"
+
+
+def test_remote_store_uses_small_batches_and_long_timeout(tmp_path):
+    from tests.conftest import make_settings
+
+    settings = make_settings(tmp_path / "data")
+    settings.qdrant_url, settings.qdrant_timeout, settings.qdrant_upsert_batch = "http://localhost:1", 99, 8
+    remote = QdrantStore.from_settings(settings)
+    assert remote.upsert_batch == 8
+    remote.close()

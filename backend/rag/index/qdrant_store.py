@@ -30,13 +30,16 @@ class VectorDimensionMismatch(RuntimeError):
 
 
 class QdrantStore:
-    def __init__(self, client: QdrantClient):
+    def __init__(self, client: QdrantClient, upsert_batch: int = 64):
         self.client = client
+        self.upsert_batch = upsert_batch
 
     @classmethod
     def from_settings(cls, settings) -> QdrantStore:
         if settings.qdrant_url:
-            client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None, timeout=30)
+            client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None,
+                                  timeout=settings.qdrant_timeout)
+            return cls(client, upsert_batch=max(1, settings.qdrant_upsert_batch))
         else:
             settings.qdrant_local_path.mkdir(parents=True, exist_ok=True)
             client = QdrantClient(path=str(settings.qdrant_local_path))
@@ -83,22 +86,35 @@ class QdrantStore:
 
     # ------------------------------------------------------------- writes
     def upsert(self, name: str, ids: Sequence[str], vectors: np.ndarray, payloads: Sequence[dict],
-               batch_size: int = 64, retries: int = 3) -> None:
+               batch_size: int | None = None, retries: int = 2) -> None:
+        batch_size = batch_size or self.upsert_batch
+        # 6 decimals keep cosine scores exact to ~1e-6 and halve the upload's size
+        rounded = np.round(np.asarray(vectors, dtype=np.float64), 6)
         for start in range(0, len(ids), batch_size):
             points = [
                 qm.PointStruct(id=point_id(cid), vector=vec.tolist(), payload=payload)
-                for cid, vec, payload in zip(ids[start:start + batch_size], vectors[start:start + batch_size],
+                for cid, vec, payload in zip(ids[start:start + batch_size], rounded[start:start + batch_size],
                                              payloads[start:start + batch_size])
             ]
-            for attempt in range(retries + 1):
-                try:
-                    self.client.upsert(name, points=points, wait=True)
-                    break
-                except Exception as exc:
-                    if attempt == retries:
+            self._upsert_points(name, points, retries)
+
+    def _upsert_points(self, name: str, points: list, retries: int) -> None:
+        """Send one batch; when it keeps failing (a timeout on a slow uplink), send it in halves."""
+        for attempt in range(retries + 1):
+            try:
+                self.client.upsert(name, points=points, wait=True)
+                return
+            except Exception as exc:
+                if attempt == retries:
+                    if len(points) == 1:
                         raise
-                    log.warning("Qdrant upsert failed (%s); retrying", exc)
-                    time.sleep(0.5 * (2 ** attempt))
+                    log.warning("Qdrant upsert of %d points failed (%s); sending it in halves", len(points), exc)
+                    half = len(points) // 2
+                    self._upsert_points(name, points[:half], retries)
+                    self._upsert_points(name, points[half:], retries)
+                    return
+                log.warning("Qdrant upsert failed (%s); retrying", exc)
+                time.sleep(0.5 * (2 ** attempt))
 
     def delete_by_field(self, name: str, field: str, values: Sequence[str]) -> None:
         if not values or not self.client.collection_exists(name):

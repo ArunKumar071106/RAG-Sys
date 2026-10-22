@@ -418,6 +418,7 @@ Only the vectors move: the keyword index, the knowledge base and the index manif
 |---|---|
 | `/api/health` says `degraded` / chat returns 503 | Run the pipeline first (`make all` or `make demo`), or read the `error` field (e.g. BGE-M3 not installed) |
 | `Storage folder … is already accessed by another instance` | Embedded Qdrant allows one process: stop the API before running CLI indexing, use `/api/admin/reindex`, or set `QDRANT_URL` to a server |
+| `The write operation timed out` while indexing into Qdrant Cloud | Slow upload: update and run `python -m rag.cli index` (no `--full`) to resume; uploads are 16 points with a 120 s limit and a batch that keeps timing out is sent in halves. Still timing out: `QDRANT_UPSERT_BATCH=4` in `.env` |
 | `401 (Unauthorized)` / `Invalid API key or JWT` | `QDRANT_API_KEY` in `.env` does not match the Qdrant Cloud cluster's key |
 | `Qdrant client version … is incompatible with server version …` | Only a warning; indexing and search work. Pick a cluster version close to `qdrant-client` in `backend/requirements.txt` to silence it |
 | `Collection … has N-d vectors but the embedder produces M-d` | You changed the embedding model: `python -m rag.cli index --full` |

@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     qdrant_url: str = ""  # empty => embedded local mode at qdrant_path
     qdrant_api_key: str = ""
     qdrant_path: Path | None = None
+    qdrant_timeout: int = 120  # seconds per request to a Qdrant server; slow uplinks need long uploads
+    qdrant_upsert_batch: int = 16  # points per upload to a Qdrant server (each carries its text)
     qdrant_text_collection: str = "aaacet_text"
     qdrant_image_collection: str = "aaacet_images"
 
