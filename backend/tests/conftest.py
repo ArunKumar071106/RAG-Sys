@@ -30,6 +30,9 @@ def make_settings(data_dir: Path, **overrides) -> Settings:
         cors_origins=["http://localhost:5173"],
         admin_token="",
         rate_limit_per_minute=0,
+        qdrant_url="",  # never a real server, whatever the shell exports
+        qdrant_api_key="",
+        qdrant_path=None,
     )
     values.update(overrides)
     return Settings(_env_file=None, **values)

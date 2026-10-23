@@ -120,3 +120,29 @@ def test_remote_store_uses_small_batches_and_long_timeout(tmp_path):
     remote = QdrantStore.from_settings(settings)
     assert remote.upsert_batch == 8
     remote.close()
+
+
+def test_vectors_missing_from_the_store_are_uploaded(settings, store):
+    write_jsonl(settings.chunks_file, [chunk("d1", 0, "hostel rooms"), chunk("d2", 0, "bus routes")])
+    embedder = HashingEmbedder(dim=32)
+    Indexer(settings, embedder, store).run()
+    store.client.delete_collection(settings.qdrant_text_collection)  # e.g. a new Qdrant Cloud cluster
+    assert Indexer.build_needed(settings, embedder, store) == "empty index"
+    store.ensure_collection(settings.qdrant_text_collection, 32)
+    store.upsert(settings.qdrant_text_collection, ["x"], np.ones((1, 32), dtype=np.float32), [{"chunk_id": "x"}])
+    assert Indexer.build_needed(settings, embedder, store) == "missing vectors"
+    report = Indexer(settings, embedder, store).run()
+    assert report["mode"] == "incremental" and store.count(settings.qdrant_text_collection) >= 2
+    assert Indexer.build_needed(settings, embedder, store) == ""
+
+
+def test_check_qdrant_says_what_to_do_next(tmp_path, capsys):
+    from rag.cli import cmd_check_qdrant
+    from tests.conftest import make_settings
+
+    settings = make_settings(tmp_path / "data")
+    assert cmd_check_qdrant(None, settings) == 1
+    assert "QDRANT_URL is empty" in capsys.readouterr().out
+    settings.qdrant_url, settings.qdrant_api_key = "https://abc.eu-central-1-0.aws.cloud.qdrant.io:6333", ""
+    assert cmd_check_qdrant(None, settings) == 1
+    assert "Qdrant Cloud needs one" in capsys.readouterr().out

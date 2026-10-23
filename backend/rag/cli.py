@@ -7,6 +7,7 @@
     python -m rag.cli index [--full]        # embed + Qdrant + BM25 (incremental by default)
     python -m rag.cli all [--full] [--skip-crawl]
     python -m rag.cli status
+    python -m rag.cli check-qdrant          # is Qdrant Cloud / a Qdrant server set up and filled?
     python -m rag.cli search "hostel facilities"
     python -m rag.cli ask "What is the admission process?"
     python -m rag.cli eval [--questions eval/questions.jsonl] [--k 5]
@@ -51,6 +52,69 @@ def cmd_status(args, settings) -> int:
     manifest = read_json(manifest_path(settings))
     _print({"stages": read_json(settings.status_file),
             "index": {k: manifest.get(k) for k in ("embedder", "dim", "indexed_at", "counts")}})
+    return 0
+
+
+def cmd_check_qdrant(args, settings) -> int:
+    """Check each step of moving the vectors to a Qdrant server, and say what to do next."""
+    from urllib.parse import urlparse
+
+    from rag.config import PROJECT_DIR
+    from rag.index.indexer import _count_lines
+    from rag.index.qdrant_store import QdrantStore
+
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    def line(ok: bool, text: str) -> None:
+        print(f"[{'OK' if ok else '!!'}] {text}")
+
+    def next_step(text: str) -> int:
+        print(f"\nNEXT: {text}")
+        return 1
+
+    env_files = [p for p in (PROJECT_DIR / ".env", BACKEND_DIR / ".env") if p.exists()]
+    line(bool(env_files), ".env file: " + (", ".join(str(p) for p in env_files) or f"none (expected {PROJECT_DIR / '.env'})"))
+    if not settings.qdrant_url:
+        line(False, "QDRANT_URL is empty: vectors are stored locally in " + str(settings.qdrant_local_path))
+        return next_step(f"put QDRANT_URL=<your cluster URL>:6333 and QDRANT_API_KEY=<key> in {PROJECT_DIR / '.env'}, "
+                         "save it, and run this check again.")
+    host = urlparse(settings.qdrant_url).hostname or settings.qdrant_url
+    line(True, f"QDRANT_URL points to {host}")
+    cloud = host.endswith("cloud.qdrant.io")
+    if settings.qdrant_api_key:
+        line(True, f"QDRANT_API_KEY is set ({len(settings.qdrant_api_key)} characters; never shown)")
+    else:
+        line(not cloud, "QDRANT_API_KEY is empty" + (": Qdrant Cloud needs one" if cloud else ""))
+        if cloud:
+            return next_step("create an API key for the cluster on cloud.qdrant.io and put QDRANT_API_KEY=<key> in .env.")
+    if cloud and urlparse(settings.qdrant_url).port != 6333:
+        line(False, "the URL has no :6333 at the end")
+        return next_step("add :6333 to the end of QDRANT_URL in .env.")
+
+    store = QdrantStore.from_settings(settings)
+    try:
+        counts = {name: store.count(name) for name in (settings.qdrant_text_collection, settings.qdrant_image_collection)}
+    except Exception as exc:
+        message = str(exc)
+        line(False, f"cannot use the cluster: {type(exc).__name__}: {message.splitlines()[0][:200] if message else ''}")
+        if "401" in message or "403" in message or "Unauthorized" in message or "Forbidden" in message:
+            return next_step("the API key is wrong for this cluster: copy it again (no spaces or quotes) into .env.")
+        return next_step("check the URL in .env, your internet connection, and that the cluster is running on cloud.qdrant.io.")
+    finally:
+        store.close()
+    line(True, "connected to the cluster")
+
+    expected = {settings.qdrant_text_collection: _count_lines(settings.chunks_file),
+                settings.qdrant_image_collection: _count_lines(settings.image_chunks_file)}
+    done = True
+    for name, want in expected.items():
+        have = counts[name]
+        line(have >= want > 0 or want == have == 0, f"{name}: {have} of {want} vectors uploaded")
+        done = done and have >= want
+    if not done:
+        return next_step("stop the backend (Ctrl+C), then run: python -m rag.cli index   "
+                         "(it continues where the last upload stopped).")
+    print("\nDONE: the vectors are in Qdrant. Start the backend and ask \"Eligibility\" in the app.")
     return 0
 
 
@@ -141,6 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--full", action="store_true")
     p.add_argument("--skip-crawl", action="store_true")
     sub.add_parser("status")
+    sub.add_parser("check-qdrant")
     p = sub.add_parser("search")
     p.add_argument("query")
     p.add_argument("--k", type=int, default=6)
@@ -158,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     handlers = {"status": cmd_status, "search": cmd_search, "ask": cmd_ask, "eval": cmd_eval,
-                "eval-answers": cmd_eval_answers, "demo": cmd_demo}
+                "eval-answers": cmd_eval_answers, "check-qdrant": cmd_check_qdrant, "demo": cmd_demo}
     return handlers.get(args.command, cmd_stage)(args, settings)
 
 

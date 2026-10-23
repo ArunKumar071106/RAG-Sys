@@ -85,6 +85,13 @@ def data_fingerprint(settings: Settings) -> str:
     return digest.hexdigest()
 
 
+def _count_lines(path) -> int:
+    if not path.exists():
+        return 0
+    with path.open(encoding="utf-8") as f:
+        return sum(1 for line in f if line.strip())
+
+
 class Indexer:
     def __init__(self, settings: Settings, embedder: Embedder, store: QdrantStore,
                  progress: Callable[[str, int, int], None] | None = None):
@@ -112,6 +119,9 @@ class Indexer:
             return "an interrupted build"
         if store.count(settings.qdrant_text_collection) == 0:
             return "empty index"
+        if store.count(settings.qdrant_text_collection) < _count_lines(settings.chunks_file) or \
+                store.count(settings.qdrant_image_collection) < _count_lines(settings.image_chunks_file):
+            return "missing vectors"
         if manifest.get("data") != data_fingerprint(settings):
             return "the knowledge base changed"
         return ""
@@ -136,6 +146,12 @@ class Indexer:
 
         self.store.ensure_collection(s.qdrant_text_collection, self.embedder.dim, recreate=full)
         self.store.ensure_collection(s.qdrant_image_collection, self.embedder.dim, recreate=full)
+        if not full and (self.store.count(s.qdrant_text_collection) < len(text_chunks)
+                         or self.store.count(s.qdrant_image_collection) < len(image_chunks)):
+            # e.g. a new Qdrant Cloud cluster, or an upload that failed: send every vector not stored yet
+            log.info("The vector store is missing vectors; uploading the missing ones")
+            self._skip_existing = True
+            manifest = {**manifest, "text_docs": {}, "image_items": {}}
         write_json(manifest_path(s), {**manifest, "embedder": self.embedder.name, "dim": self.embedder.dim, "complete": False})
 
         text_report, text_docs = self._index_text(text_chunks, manifest.get("text_docs", {}))

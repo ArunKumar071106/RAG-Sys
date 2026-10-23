@@ -38,7 +38,7 @@ class QdrantStore:
     def from_settings(cls, settings) -> QdrantStore:
         if settings.qdrant_url:
             client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None,
-                                  timeout=settings.qdrant_timeout)
+                                  timeout=settings.qdrant_timeout, check_compatibility=False)
             return cls(client, upsert_batch=max(1, settings.qdrant_upsert_batch))
         else:
             settings.qdrant_local_path.mkdir(parents=True, exist_ok=True)
