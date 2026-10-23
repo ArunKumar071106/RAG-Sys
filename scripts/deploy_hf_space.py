@@ -113,7 +113,15 @@ def main(argv: list[str] | None = None) -> int:
         token = args.token or os.environ.get("HF_TOKEN") or get_token() or getpass.getpass(
             "Hugging Face token (write permission, from https://huggingface.co/settings/tokens): ").strip()
         api = HfApi(token=token)
-        api.create_repo(args.space, repo_type="space", space_sdk="docker", exist_ok=True)
+        try:
+            user = api.whoami()["name"]
+        except Exception as exc:
+            sys.exit(f"The token was not accepted ({_reason(exc)}). Create a token of type Write at "
+                     "https://huggingface.co/settings/tokens and try again.")
+        if args.space.split("/")[0].lower() != user.lower():
+            print(f"Note: the token belongs to {user!r}; the Space is created under {args.space.split('/')[0]!r}.")
+        _step("creating the Space", lambda: api.create_repo(args.space, repo_type="space", space_sdk="docker",
+                                                            exist_ok=True))
         print(f"Space: https://huggingface.co/spaces/{args.space}")
 
         # secrets before the upload, so the first build starts with them
@@ -121,19 +129,35 @@ def main(argv: list[str] | None = None) -> int:
                    "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY") or _env_file_value("ANTHROPIC_API_KEY")}
         for key, value in secrets.items():
             if value:
-                api.add_space_secret(args.space, key, value)
+                _step(f"storing the secret {key}", lambda k=key, v=value: api.add_space_secret(args.space, k, v))
                 print(f"  secret {key} set")
         if args.cors:
-            api.add_space_variable(args.space, "CORS_ORIGINS", args.cors.rstrip("/"))
-            print(f"  variable CORS_ORIGINS = {args.cors.rstrip('/')}")
+            cors = args.cors.rstrip("/")
+            _step("storing CORS_ORIGINS", lambda: api.add_space_variable(args.space, "CORS_ORIGINS", cors))
+            print(f"  variable CORS_ORIGINS = {cors}")
 
-        api.upload_folder(folder_path=tmp, repo_id=args.space, repo_type="space",
-                          commit_message="Deploy the Arivazhai backend",
-                          delete_patterns=["backend/**", "data/**"])
+        _step("uploading the files", lambda: api.upload_folder(
+            folder_path=tmp, repo_id=args.space, repo_type="space", commit_message="Deploy the Arivazhai backend",
+            delete_patterns=["backend/**", "data/**"]))
     url = space_url(args.space)
     print(f"\nUploaded. The Space builds now (about 5-10 minutes the first time): https://huggingface.co/spaces/{args.space}")
     print(f"Then check {url}/api/health  - and set VITE_API_BASE_URL={url} on Netlify.")
     return 0
+
+
+def _reason(exc: Exception) -> str:
+    response = getattr(exc, "response", None)
+    detail = getattr(exc, "server_message", "") or (getattr(response, "text", "") or "")[:300]
+    status = getattr(response, "status_code", "")
+    return " ".join(str(x) for x in (type(exc).__name__, status, detail.strip() or exc) if x)
+
+
+def _step(what: str, action):
+    try:
+        return action()
+    except Exception as exc:
+        sys.exit(f"Failed while {what}: {_reason(exc)}\n"
+                 "Check that the token is of type Write and belongs to the account in --space.")
 
 
 def _env_file_value(key: str) -> str:
