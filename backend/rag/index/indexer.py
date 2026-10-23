@@ -27,6 +27,28 @@ def manifest_path(settings: Settings):
     return settings.index_dir / "manifest.json"
 
 
+def meta_collection(settings: Settings) -> str:
+    return f"{settings.qdrant_text_collection}_meta"
+
+
+def restore_manifest(settings: Settings, store: QdrantStore) -> bool:
+    """A server without data/index (a new deployment) takes the record of what is indexed from
+    Qdrant itself, instead of embedding and uploading every chunk again."""
+    path = manifest_path(settings)
+    if path.exists():
+        return False
+    try:
+        manifest = store.load_meta(meta_collection(settings), "manifest")
+    except Exception as exc:  # an older cluster without the record, or no connection: build as before
+        log.warning("Could not read the index record from Qdrant: %s", exc)
+        return False
+    if not manifest:
+        return False
+    write_json(path, manifest)
+    log.info("Index record restored from Qdrant (%s, indexed %s)", manifest.get("embedder"), manifest.get("indexed_at"))
+    return True
+
+
 def bm25_text_path(settings: Settings):
     return settings.index_dir / "bm25_text.json"
 
@@ -112,6 +134,7 @@ class Indexer:
         """
         if not settings.chunks_file.exists():
             return ""
+        restore_manifest(settings, store)
         manifest = read_json(manifest_path(settings))
         if manifest.get("embedder") != embedder.name or manifest.get("dim") != embedder.dim:
             return "first start or embedder change"
@@ -173,6 +196,10 @@ class Indexer:
             "complete": True,
         }
         write_json(manifest_path(s), new_manifest)
+        try:
+            self.store.save_meta(meta_collection(s), "manifest", new_manifest)
+        except Exception as exc:  # the vectors are stored; only a new server would have to rebuild
+            log.warning("Could not store the index record in Qdrant: %s", exc)
         report = {"mode": "full" if full else "incremental", "text": text_report, "images": image_report, "validation": validation}
         update_status(s.status_file, "index", state="finished" if validation["ok"] else "invalid", finished_at=utc_now(),
                       **{f"text_{k}": v for k, v in text_report.items()}, **{f"images_{k}": v for k, v in image_report.items()},

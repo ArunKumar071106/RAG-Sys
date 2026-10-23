@@ -61,7 +61,7 @@ def cmd_check_qdrant(args, settings) -> int:
     from urllib.parse import urlparse
 
     from rag.config import PROJECT_DIR
-    from rag.index.indexer import _count_lines
+    from rag.index.indexer import _count_lines, meta_collection
     from rag.index.qdrant_store import QdrantStore
 
     logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -116,6 +116,15 @@ def cmd_check_qdrant(args, settings) -> int:
     if not done:
         return next_step("stop the backend (Ctrl+C), then run: python -m rag.cli index   "
                          "(it continues where the last upload stopped).")
+    store = QdrantStore.from_settings(settings)
+    try:
+        record = store.load_meta(meta_collection(settings), "manifest")
+    finally:
+        store.close()
+    line(bool(record), "upload record stored in the cluster" + ("" if record else
+         ": a new server (Hugging Face, Docker) would upload everything again"))
+    if not record:
+        return next_step("run: python -m rag.cli index   (nothing is uploaded again; it only stores the record).")
     print("\nDONE: the vectors are in Qdrant. Start the backend and ask \"Eligibility\" in the app.")
     return 0
 

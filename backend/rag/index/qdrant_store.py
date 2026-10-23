@@ -8,6 +8,7 @@ process: run the API *or* a CLI indexing command, or use a Qdrant server.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import uuid
@@ -138,6 +139,21 @@ class QdrantStore:
         if not chunk_ids or not self.client.collection_exists(name):
             return
         self.client.delete(name, points_selector=qm.PointIdsList(points=[point_id(c) for c in chunk_ids]), wait=True)
+
+    # ------------------------------------------------------------- metadata
+    def save_meta(self, collection: str, key: str, data: dict) -> None:
+        """Store a JSON document (the record of what is indexed) next to the vectors, so a new
+        server pointed at the same Qdrant knows them without its own copy of data/index."""
+        if not self.client.collection_exists(collection):
+            self.client.create_collection(collection, vectors_config=qm.VectorParams(size=1, distance=qm.Distance.COSINE))
+        point = qm.PointStruct(id=point_id(f"meta:{key}"), vector=[1.0], payload={"key": key, "json": json.dumps(data)})
+        self.client.upsert(collection, points=[point], wait=True)
+
+    def load_meta(self, collection: str, key: str) -> dict | None:
+        if not self.client.collection_exists(collection):
+            return None
+        points = self.client.retrieve(collection, ids=[point_id(f"meta:{key}")], with_payload=True)
+        return json.loads(points[0].payload["json"]) if points else None
 
     # ------------------------------------------------------------- reads
     def search(self, name: str, vector: np.ndarray, limit: int) -> list[tuple[str, float, dict]]:

@@ -429,6 +429,31 @@ Only the vectors move: the keyword index, the knowledge base and the index manif
 `QDRANT_URL` back to a local folder built earlier needs `index --full`, because the manifest describes the last store
 built.
 
+### Backend on Hugging Face Spaces, frontend on Netlify
+Netlify serves static sites only, so the backend runs on a Hugging Face Space (Docker, free CPU tier with 16 GB RAM)
+and uses the vectors already in Qdrant Cloud.
+
+1. Vectors in Qdrant Cloud (above). `index` also stores the record of what is indexed in the cluster
+   (`aaacet_text_meta`): a server without `data/index` restores it at start instead of embedding and uploading
+   everything again. `check-qdrant` reports it (`upload record stored in the cluster`).
+2. A Hugging Face access token with write permission (https://huggingface.co/settings/tokens), then:
+   ```bash
+   python scripts/deploy_hf_space.py --space <hf-username>/arivazhai-api --cors https://<site>.netlify.app
+   ```
+   It checks the cluster, creates the Space, stores `QDRANT_URL`, `QDRANT_API_KEY` (and `ANTHROPIC_API_KEY` if set)
+   as Space secrets and `CORS_ORIGINS` as a variable, and uploads `deploy/huggingface/` (Dockerfile on port 7860,
+   the search model built into the image), `backend/rag` and the knowledge base. `--dry-run` lists the files.
+   The API is at `https://<hf-username>-arivazhai-api.hf.space` (`/api/health`). A free Space sleeps after 48 hours
+   without visitors and wakes on the next request (about a minute).
+3. Netlify: import the GitHub repository; `netlify.toml` sets the base directory (`frontend`), build command and
+   headers. Set `VITE_API_BASE_URL` to the Space's address under Site configuration → Environment variables, and
+   redeploy. If the Netlify address changes, run the script again with the new `--cors`.
+
+Tested here by building the Space image from exactly the uploaded files and starting it against a Qdrant server
+holding the vectors: ready in about 12 seconds, the record restored, nothing re-uploaded, hybrid search, CORS allowing
+the Netlify origin. (This build environment's proxy blocks Debian's package server and model downloads, so the test
+image skipped the `apt-get` and model steps that run normally on Hugging Face.)
+
 ## Troubleshooting
 | Symptom | Fix |
 |---|---|

@@ -146,3 +146,15 @@ def test_check_qdrant_says_what_to_do_next(tmp_path, capsys):
     settings.qdrant_url, settings.qdrant_api_key = "https://abc.eu-central-1-0.aws.cloud.qdrant.io:6333", ""
     assert cmd_check_qdrant(None, settings) == 1
     assert "Qdrant Cloud needs one" in capsys.readouterr().out
+
+
+def test_a_new_server_reuses_the_vectors_through_the_record_in_qdrant(settings, store):
+    from rag.index.indexer import meta_collection
+
+    write_jsonl(settings.chunks_file, [chunk("d1", 0, "hostel rooms"), chunk("d2", 0, "bus routes")])
+    embedder = HashingEmbedder(dim=32)
+    Indexer(settings, embedder, store).run()
+    assert store.load_meta(meta_collection(settings), "manifest")["embedder"] == embedder.name
+    manifest_path(settings).unlink()  # a fresh deployment: data/processed only, no data/index
+    assert Indexer.build_needed(settings, embedder, store) == ""  # nothing to embed or upload again
+    assert read_json(manifest_path(settings))["counts"]["text_chunks"] == 2
