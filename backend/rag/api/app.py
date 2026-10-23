@@ -73,6 +73,7 @@ class ReindexRequest(BaseModel):
 def create_app(settings: Settings | None = None, services: Services | None = None) -> FastAPI:
     settings = settings or get_settings()
     logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per Qdrant Cloud request is noise
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
