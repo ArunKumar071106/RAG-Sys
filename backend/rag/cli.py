@@ -87,9 +87,10 @@ def cmd_check_qdrant(args, settings) -> int:
         line(not cloud, "QDRANT_API_KEY is empty" + (": Qdrant Cloud needs one" if cloud else ""))
         if cloud:
             return next_step("create an API key for the cluster on cloud.qdrant.io and put QDRANT_API_KEY=<key> in .env.")
-    if cloud and urlparse(settings.qdrant_url).port != 6333:
-        line(False, "the URL has no :6333 at the end")
-        return next_step("add :6333 to the end of QDRANT_URL in .env.")
+    port = urlparse(settings.qdrant_url).port
+    if cloud and port not in (None, 6333):  # no port is fine: the client adds :6333
+        line(False, f"the URL ends with :{port}; Qdrant Cloud uses :6333")
+        return next_step("end QDRANT_URL in .env with :6333 (or no port at all).")
 
     store = QdrantStore.from_settings(settings)
     try:
