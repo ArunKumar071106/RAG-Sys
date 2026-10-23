@@ -2,9 +2,10 @@
 
 1. Group a page's blocks into sections by heading path (page title -> H1 ->
    H2 -> ...).
-2. Merge consecutive small sections that share the same top-level heading
-   while they fit in ``chunk_size`` tokens, so short facts stay together
-   with their siblings instead of becoming tiny chunks.
+2. Keep every section its own chunk (one topic per chunk). Only a short
+   subsection joins its parent, and one-line sections join each other,
+   while they fit in ``chunk_size`` tokens. Tab panels and accordions are
+   sections of their own, titled with their tab's name.
 3. Split a section that is too large recursively: paragraphs/tables ->
    sentences -> words. Tables are split on row boundaries and every piece
    repeats the table header, so a row is never cut in half.
