@@ -168,3 +168,28 @@ def test_only_tables_are_completed_with_the_rest_of_their_section(tmp_path):
                          text=c.text, score=1.0)
     # a long prose section is not pulled in: it would push the result that answers out of the top sources
     assert [r.chunk_id for r in retriever.expand_section([hit])] == ["p1"]
+
+
+
+def test_remote_store_searches_images_alongside_text_with_one_embedding(services, monkeypatch):
+    """Over the network the image search starts with the text search; the question is embedded once."""
+    import threading
+
+    from rag.retrieval.hybrid import HybridRetriever
+
+    base = services.retriever
+    store, embedder = base.store, base.embedder
+    monkeypatch.setattr(store, "remote", True)
+    parts = (base.settings, embedder, store, base.corpus, base.bm25_text, base.bm25_images)
+    retriever = HybridRetriever(*parts)
+    embedded, threads = [], set()
+    real_embed, real_search = embedder.embed_query, store.search
+    monkeypatch.setattr(embedder, "embed_query", lambda q: embedded.append(q) or real_embed(q))
+    monkeypatch.setattr(store, "search", lambda *a, **k: threads.add(threading.current_thread().name) or real_search(*a, **k))
+    query = "campus map"
+    images = retriever.search_images(query, 3, retriever.search_text(query).chunks)
+    assert len(embedded) == 1 and any(t.startswith("qdrant") for t in threads)
+    sequential = HybridRetriever(*parts)
+    sequential._pool = None
+    expected = sequential.search_images(query, 3, sequential.search_text(query).chunks)
+    assert images and [i.image_id for i in images] == [i.image_id for i in expected]

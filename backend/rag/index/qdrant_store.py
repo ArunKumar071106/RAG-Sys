@@ -30,16 +30,19 @@ class VectorDimensionMismatch(RuntimeError):
 
 
 class QdrantStore:
-    def __init__(self, client: QdrantClient, upsert_batch: int = 64):
+    def __init__(self, client: QdrantClient, upsert_batch: int = 64, remote: bool = False):
         self.client = client
         self.upsert_batch = upsert_batch
+        # a Qdrant server or Qdrant Cloud: every call is a network round trip, so callers may overlap them
+        self.remote = remote
+        self._known: set[str] = set()  # collections seen to exist, so a search is one round trip
 
     @classmethod
     def from_settings(cls, settings) -> QdrantStore:
         if settings.qdrant_url:
             client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None,
                                   timeout=settings.qdrant_timeout, check_compatibility=False)
-            return cls(client, upsert_batch=max(1, settings.qdrant_upsert_batch))
+            return cls(client, upsert_batch=max(1, settings.qdrant_upsert_batch), remote=True)
         else:
             settings.qdrant_local_path.mkdir(parents=True, exist_ok=True)
             client = QdrantClient(path=str(settings.qdrant_local_path))
@@ -70,6 +73,7 @@ class QdrantStore:
                     "Run a full reindex (python -m rag.cli index --full) to rebuild it."
                 )
             self.client.delete_collection(name)
+            self._known.discard(name)
             existing = None
         if existing is None:
             self.client.create_collection(name, vectors_config=qm.VectorParams(size=dim, distance=qm.Distance.COSINE))
@@ -80,9 +84,17 @@ class QdrantStore:
                     pass
 
     def count(self, name: str) -> int:
-        if not self.client.collection_exists(name):
-            return 0
-        return int(self.client.count(name, exact=True).count)
+        if name not in self._known:
+            if not self.client.collection_exists(name):
+                return 0
+            self._known.add(name)
+        try:
+            return int(self.client.count(name, exact=True).count)
+        except Exception:
+            self._known.discard(name)
+            if not self.client.collection_exists(name):
+                return 0
+            raise
 
     # ------------------------------------------------------------- writes
     def upsert(self, name: str, ids: Sequence[str], vectors: np.ndarray, payloads: Sequence[dict],
@@ -129,9 +141,17 @@ class QdrantStore:
 
     # ------------------------------------------------------------- reads
     def search(self, name: str, vector: np.ndarray, limit: int) -> list[tuple[str, float, dict]]:
-        if not self.client.collection_exists(name):
-            return []
-        result = self.client.query_points(name, query=vector.tolist(), limit=limit, with_payload=True)
+        if name not in self._known:
+            if not self.client.collection_exists(name):
+                return []
+            self._known.add(name)
+        try:
+            result = self.client.query_points(name, query=vector.tolist(), limit=limit, with_payload=True)
+        except Exception:
+            self._known.discard(name)
+            if not self.client.collection_exists(name):  # deleted since: nothing to find
+                return []
+            raise
         return [(p.payload.get("chunk_id", ""), float(p.score), p.payload) for p in result.points]
 
     def existing_ids(self, name: str, chunk_ids: Sequence[str], batch_size: int = 256) -> set[str]:

@@ -18,8 +18,13 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+from collections import OrderedDict
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from urllib.parse import urlsplit
+
+import numpy as np
 
 from rag.config import Settings
 from rag.embeddings.base import Embedder
@@ -143,6 +148,29 @@ class HybridRetriever:
         # Field index over page titles and section headings: "Who is the principal?" should
         # find the "Principal Message" page even when news posts mention the principal more.
         self.bm25_titles = BM25Index.build([(cid, chunk_title_text(chunk)) for cid, chunk in corpus.chunks.items()])
+        # Over the network (Qdrant Cloud) the image search for a question starts with its text search,
+        # so a question waits for one round trip instead of two; search_images picks the result up.
+        self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="qdrant") if getattr(store, "remote", False) else None
+        self._image_hits: OrderedDict[str, Future] = OrderedDict()
+        self._vectors: OrderedDict[str, np.ndarray] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def _query_vector(self, query: str) -> np.ndarray:
+        """The query's embedding, computed once for its text and image searches."""
+        with self._lock:
+            if query in self._vectors:
+                return self._vectors[query]
+        vector = self.embedder.embed_query(query)
+        with self._lock:
+            self._vectors[query] = vector
+            while len(self._vectors) > 64:
+                self._vectors.popitem(last=False)
+        return vector
+
+    def _image_semantic(self, query: str, vector: np.ndarray) -> list[tuple[str, float]]:
+        s = self.settings
+        return [(cid, score) for cid, score, _ in self.store.search(s.qdrant_image_collection, vector, s.semantic_candidates)
+                if cid in self.corpus.image_chunks]
 
     def normalize_query(self, query: str) -> str:
         """What is searched for: request words dropped, short forms spelled out the website's way,
@@ -170,7 +198,13 @@ class HybridRetriever:
         query = self.normalize_query(query)
         semantic: list[tuple[str, float]] = []
         if self.semantic_enabled:
-            vector = self.embedder.embed_query(query)
+            vector = self._query_vector(query)
+            if self._pool is not None and self.corpus.image_chunks:
+                future = self._pool.submit(self._image_semantic, query, vector)
+                with self._lock:
+                    self._image_hits[query] = future
+                    while len(self._image_hits) > 64:
+                        self._image_hits.popitem(last=False)
             semantic = [(cid, score) for cid, score, _ in self.store.search(s.qdrant_text_collection, vector, s.semantic_candidates)
                         if cid in self.corpus.chunks]
         keyword = [(cid, score) for cid, score in self.bm25_text.search(query, s.bm25_candidates) if cid in self.corpus.chunks]
@@ -321,9 +355,9 @@ class HybridRetriever:
         query = self.normalize_query(query)
         semantic: list[tuple[str, float]] = []
         if self.semantic_enabled:
-            vector = self.embedder.embed_query(query)
-            semantic = [(cid, score) for cid, score, _ in self.store.search(s.qdrant_image_collection, vector, s.semantic_candidates)
-                        if cid in self.corpus.image_chunks]
+            with self._lock:
+                future = self._image_hits.pop(query, None)
+            semantic = future.result() if future is not None else self._image_semantic(query, self._query_vector(query))
         keyword = [(cid, score) for cid, score in self.bm25_images.search(query, s.bm25_candidates) if cid in self.corpus.image_chunks]
 
         page_linked: list[str] = []
