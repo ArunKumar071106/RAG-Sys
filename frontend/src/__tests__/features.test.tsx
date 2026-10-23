@@ -56,6 +56,11 @@ describe("contact details", () => {
     expect(within(card).getByRole("link", { name: "04562-251111" })).toHaveAttribute("href", "tel:04562251111");
     expect(within(card).getByRole("link", { name: "1800 425 8807" })).toHaveAttribute("href", "tel:18004258807");
     expect(within(card).getByRole("link", { name: "enquiry@aaacet.ac.in" })).toHaveAttribute("href", "mailto:enquiry@aaacet.ac.in");
+    expect(within(card).getByRole("link", { name: "04562-251112" })).toHaveAttribute("href", "tel:04562251112");
+    expect(within(card).getByRole("link", { name: "admissions@aaacet.ac.in" })).toBeInTheDocument();
+    // the website has no answer: the admission and scholarship staff can help
+    expect(within(card).getByText("Mr. R. Chandhran")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "7373527252" })).toHaveAttribute("href", "tel:7373527252");
     expect(formatPhone("18004258807")).toBe("1800 425 8807");
   });
 
@@ -64,7 +69,18 @@ describe("contact details", () => {
     const user = userEvent.setup();
     render(<ChatWindow />);
     await user.type(box(), "How can I contact the admission office?{Enter}");
-    expect(await screen.findByRole("region", { name: "Contact the college" })).toBeInTheDocument();
+    const card = await screen.findByRole("region", { name: "Contact the college" });
+    expect(within(card).getByText("Admission & scholarship")).toBeInTheDocument();
+  });
+
+  it("leaves the admission staff out of other contact questions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(answerResult)));
+    const user = userEvent.setup();
+    render(<ChatWindow />);
+    await user.type(box(), "What is the college phone number?{Enter}");
+    const card = await screen.findByRole("region", { name: "Contact the college" });
+    expect(within(card).getByRole("link", { name: "04562-251111" })).toBeInTheDocument();
+    expect(within(card).queryByText("Admission & scholarship")).not.toBeInTheDocument();
   });
 });
 
@@ -87,7 +103,7 @@ describe("suggested next questions", () => {
 });
 
 describe("the Arivazhai menu link", () => {
-  it("brings the chat into view, greets and puts the cursor in the question box", async () => {
+  it("brings the chat into view and puts the cursor in the question box, without a robot moment", async () => {
     vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;
@@ -97,7 +113,7 @@ describe("the Arivazhai menu link", () => {
     await user.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Arivazhai" }));
     expect(box()).toHaveFocus();
     expect(scroll).toHaveBeenCalled();
-    expect(document.querySelector(".mov")?.getAttribute("data-moment")).toBe("greet");
+    expect(moments.kind).toBe("load"); // still the page's loading moment: the click adds none
   });
 });
 

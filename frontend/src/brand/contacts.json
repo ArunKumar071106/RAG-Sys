@@ -1,0 +1,12 @@
+{
+  "source": "Official website: https://aaaenggcoll.ac.in/contact-us/ (office), https://aaaenggcoll.ac.in/admission/ (For ADMISSION & SCHOLARSHIP CONTACT) and the college prospectus (admissions email). Kept by hand: scripts/extract_brand.py does not overwrite this file.",
+  "office_phones": ["04562-251111", "04562-251112", "18004258807"],
+  "emails": ["enquiry@aaacet.ac.in", "admissions@aaacet.ac.in"],
+  "admission": [
+    { "name": "Dr. N. Thenmoezhi", "phone": "9688449326" },
+    { "name": "Mr. R. Chandhran", "role": "Admission officer", "phone": "7373527252" },
+    { "name": "Mr. D. John Elisa", "phone": "9003129428" },
+    { "name": "Dr. P. Senthil Pandian", "phone": "9159699366" },
+    { "name": "Mr. P. Manikandan", "phone": "97884 92136" }
+  ]
+}

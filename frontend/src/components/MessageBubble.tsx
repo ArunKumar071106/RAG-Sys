@@ -5,7 +5,7 @@ import type { Message } from "../hooks/useChat";
 import { safeHref } from "../brand";
 import { CITATION_TEXT, linkCitations } from "./citations";
 import { AssistantLabel } from "./AssistantLabel";
-import { CONTACT_QUESTION, ContactCard } from "./ContactCard";
+import { ADMISSION_QUESTION, CONTACT_QUESTION, ContactCard } from "./ContactCard";
 import { ErrorMessage } from "./ErrorMessage";
 import { ImageCard } from "./ImageCard";
 import { SourceList } from "./SourceList";
@@ -88,6 +88,8 @@ export function MessageBubble({ message, onRetry, busy, onAsk }: Props) {
   const markdown = result ? linkCitations(text, result.sources, result.images, message.id) : text;
   // "not on the website" and contact questions end with how to reach the college
   const showContact = noAnswer || CONTACT_QUESTION.test(message.question ?? "");
+  // the admission and scholarship staff, when that is who can help
+  const showStaff = noAnswer || ADMISSION_QUESTION.test(message.question ?? "");
   const followUps = onAsk ? result?.follow_ups ?? [] : [];
 
   return (
@@ -120,7 +122,9 @@ export function MessageBubble({ message, onRetry, busy, onAsk }: Props) {
         {result && noAnswer && result.related_sources.length > 0 && (
           <SourceList sources={result.related_sources} variant="related" title="These official pages may be related" />
         )}
-        {showContact && <ContactCard title={noAnswer ? "The admission office can help you directly" : "Contact the college"} />}
+        {showContact && (
+          <ContactCard title={noAnswer ? "The admission office can help you directly" : "Contact the college"} staff={showStaff} />
+        )}
       </div>
       {followUps.length > 0 && onAsk && <SuggestedQuestions questions={followUps} onSelect={onAsk} disabled={busy} title="You can also ask" />}
     </div>

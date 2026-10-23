@@ -156,10 +156,13 @@ flowchart LR
   department, then related topics (fees → scholarships, hostel → transport…), never one already asked. They are shown
   under the latest answer.
 * **Finding the chat:** a bouncing "Chat below" down arrow at the bottom-right while the question box is still below
-  the screen (and the Arivazhai menu link) scroll to the chat, greet and put the cursor in the question box; the arrow
+  the screen (and the Arivazhai menu link) scroll to the chat and put the cursor in the question box, with no robot moment; the arrow
   hides once the chat is in view.
 * **Contact details:** when the website does not cover a question, and for questions about contacting the college,
-  the answer ends with the office's phone numbers (tap to call) and email, from `brand.json`.
+  the answer ends with the office's phone numbers (04562-251111, 04562-251112, toll-free 1800 425 8807, tap to call)
+  and emails (enquiry@, admissions@). For admission, scholarship and fee questions, and when the website has no answer,
+  the card also lists the admission & scholarship staff from the admission page. These come from
+  `frontend/src/brand/contacts.json` (kept by hand, with sources) merged with the footer's contacts in `brand.json`.
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
   the UI shows a notice. **The best sections are quoted whole, in search order**: the first one at length (24 lines, a
   table up to 40 rows), up to two more shorter, and only while they share most of the question's weight with the

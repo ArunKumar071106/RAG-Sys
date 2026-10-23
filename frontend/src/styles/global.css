@@ -1273,6 +1273,40 @@ img {
   font-size: 0.85rem;
 }
 
+.contact-card__subtitle {
+  margin: 10px 0 4px;
+  font-size: 0.85rem;
+  color: var(--desk-navy, #323496);
+}
+
+.contact-card__people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 4px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contact-card__people li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 10px;
+}
+
+.contact-card__role {
+  display: block;
+  color: var(--brand-muted);
+  font-size: 0.8rem;
+}
+
+.contact-card__people a {
+  color: var(--desk-navy, #323496);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .translate {
   display: flex;
   flex-wrap: wrap;

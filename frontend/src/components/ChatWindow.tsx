@@ -9,7 +9,7 @@ import { RobotProfile } from "../robot/RobotProfile";
 import { AssistantLabel } from "./AssistantLabel";
 import { SuggestedQuestions } from "./SuggestedQuestions";
 
-/** Event the page's "Start chat" buttons send; the chat scrolls into view, greets and takes focus. */
+/** Event the page's "Chat below" arrow and Arivazhai menu link send; the chat scrolls into view and takes focus. */
 export const START_CHAT_EVENT = "arivazhai:start-chat";
 
 export function startChat() {
@@ -39,7 +39,6 @@ export function ChatWindow() {
     const start = () => {
       document.getElementById("assistant")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
       inputRef.current?.focus({ preventScroll: true });
-      moments.show({ kind: "greet" });
     };
     window.addEventListener(START_CHAT_EVENT, start);
     return () => window.removeEventListener(START_CHAT_EVENT, start);
