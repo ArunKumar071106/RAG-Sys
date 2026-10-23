@@ -153,7 +153,8 @@ class AnswerService:
         self.llm = llm
         idf = getattr(getattr(retriever.bm25_text, "_bm25", None), "idf", None) or {}
         floor = max(idf.values(), default=1.0)
-        self.extractive = ExtractiveAnswerer(lambda t: max(idf.get(t, floor), 0.05))
+        self.extractive = ExtractiveAnswerer(lambda t: max(idf.get(t, floor), 0.05),
+                                             whole_sections=retriever.settings.extractive_whole_sections)
         self.history_turns = history_turns
         self.top_k = top_k
         self.image_top_k = image_top_k
@@ -251,7 +252,7 @@ class AnswerService:
         if not text.chunks:
             return ChatResult(answer=NO_ANSWER_TEXT, mode="no_answer", insufficient_evidence=True, notice=language_notice,
                               timings_ms=timings)
-        text.chunks = self.retriever.expand_section(text.chunks)
+        text.chunks = self.retriever.expand_section(self.retriever.with_parent_overview(text.chunks))
 
         sources_all = [source_out(i, c) for i, c in enumerate(text.chunks, start=1)]
         images_all = [image_out(i, im) for i, im in enumerate(images, start=1)]

@@ -112,6 +112,9 @@ class Settings(BaseSettings):
         r"\b(where|located|location|situated|how to reach)\b": "address",
         r"\b(phone|mobile|call|contact number)\b": "phone",
         r"\bseats?\b": "intake",
+        r"\b(bus|buses|transport)\b": "transport facilities",
+        r"\bwi-?fi\b": "Wi-Fi internet",
+        r"\bplacement (officer|cell|head)|\btpo\b": "training placement cell",
     }
     # Department names as the website writes them; type-ahead suggests questions about each.
     departments: CsvList = [
@@ -128,6 +131,8 @@ class Settings(BaseSettings):
 
     # ---- LLM -----------------------------------------------------------
     llm_provider: Literal["anthropic", "extractive"] = "anthropic"
+    # Without an AI model: quote the best sections whole (true) or pick single matching sentences (false)
+    extractive_whole_sections: bool = True
     llm_model: str = "claude-opus-5-5"
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
     llm_max_tokens: int = 16000

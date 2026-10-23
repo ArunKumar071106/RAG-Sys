@@ -141,3 +141,16 @@ def test_separate_sections_stay_separate_and_only_tiny_siblings_merge():
     # two one-line sections share a chunk; both headings stay in its text
     tiny = [c for c in chunks if "As per rules." in c.text][0]
     assert "As per UGC." in tiny.text and "Reservation Policy" in tiny.text and "Retention Policy" in tiny.text
+
+
+def test_cards_drawn_as_empty_headings_become_a_list_of_their_section():
+    labs = ["Thermal Engineering Laboratory", "Fluid Mechanics Laboratory", "CAM Laboratory"]
+    blocks = [h("Lab Facilities", 2, ["Lab Facilities"]), t("The department has well equipped laboratories.", ["Lab Facilities"])]
+    blocks += [h(lab, 3, ["Lab Facilities", lab]) for lab in labs]
+    blocks += [h("Contact", 2, ["Contact"]), t("Phone 123.", ["Contact"])]
+    chunks = StructureAwareChunker(chunk_size=200, overlap=20).chunk_document(doc(blocks))
+    labs_chunk = next(c for c in chunks if "Lab Facilities" in c.text)
+    assert all(f"- {lab}" in labs_chunk.text for lab in labs)
+    # a heading with subsections of its own is a parent, not an empty card
+    nested = [h("About", 2, ["About"]), h("Vision", 3, ["About", "Vision"]), t("Excellence.", ["About", "Vision"])]
+    assert "- Vision" not in StructureAwareChunker(chunk_size=200, overlap=20).chunk_document(doc(nested))[0].text

@@ -457,6 +457,9 @@ def _strip_chrome(root: Tag) -> None:
             continue
         if tag.name in ("html", "body", "main", "article"):
             continue
+        # an accordion item's title is content, though Elementor wraps it in "...-title-header"
+        if tag.find_parent("summary") is not None:
+            continue
         if _is_chrome(tag):
             tag.decompose()
     for tag in root.find_all(attrs={"hidden": True}):

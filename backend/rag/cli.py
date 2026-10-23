@@ -12,6 +12,7 @@
     python -m rag.cli ask "What is the admission process?"
     python -m rag.cli eval [--questions eval/questions.jsonl] [--k 5]
     python -m rag.cli eval-answers [--questions eval/answers_aaacet.jsonl]
+    python -m rag.cli eval-facts [--verbose]  # which facts of each answer are lost, and where
     python -m rag.cli demo                  # build + index the fictional demo site (offline)
 """
 
@@ -175,6 +176,22 @@ def cmd_eval_answers(args, settings) -> int:
     return 0
 
 
+def cmd_eval_facts(args, settings) -> int:
+    from rag.eval.fact_eval import evaluate_facts, load_fact_cases
+
+    settings.llm_provider = "extractive"
+    services = _services(settings)
+    report = evaluate_facts(services, load_fact_cases(Path(args.questions)))
+    if args.verbose:
+        for r in report.results:
+            got = sum(f["stage"] == "answer" for f in r["facts"])
+            lost = "; ".join(f"{f['fact']} ({f['stage']})" for f in r["facts"] if f["stage"] != "answer")
+            print(f"[{got}/{len(r['facts'])}] {r['question']}" + (f"  - missing: {lost}" if lost else ""))
+    _print(report.summary())
+    services.close()
+    return 0
+
+
 def cmd_demo(args, settings) -> int:
     """Build the fictional demo site, serve it locally and run the whole pipeline on it."""
     from rag.demo.site import build_demo_site, serve_directory
@@ -217,6 +234,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--k", type=int, default=5)
     p = sub.add_parser("eval-answers")
     p.add_argument("--questions", default=str(BACKEND_DIR / "eval" / "answers_aaacet.jsonl"))
+    p = sub.add_parser("eval-facts")
+    p.add_argument("--questions", default=str(BACKEND_DIR / "eval" / "facts_aaacet.jsonl"))
+    p.add_argument("--verbose", action="store_true", help="one line per question with the facts it misses")
     p = sub.add_parser("demo")
     p.add_argument("--port", type=int, default=0)
 
@@ -224,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     handlers = {"status": cmd_status, "search": cmd_search, "ask": cmd_ask, "eval": cmd_eval,
-                "eval-answers": cmd_eval_answers, "check-qdrant": cmd_check_qdrant, "demo": cmd_demo}
+                "eval-answers": cmd_eval_answers, "eval-facts": cmd_eval_facts, "check-qdrant": cmd_check_qdrant, "demo": cmd_demo}
     return handlers.get(args.command, cmd_stage)(args, settings)
 
 

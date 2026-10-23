@@ -272,3 +272,14 @@ def test_tab_panels_are_sections_titled_by_their_tabs():
     assert by_text["As per UGC notifications."] == ["Admission", "Document Retention Policy"]
     # the row of tab buttons is not content
     assert not any("Courses offered Management Quota" in b.text for b in doc.blocks)
+
+
+def test_accordion_titles_survive_chrome_removal():
+    # Elementor wraps an accordion item's title in "...-title-header", a class chrome removal drops
+    html = """<html><body><main><h2>Transport Facilities</h2>
+    <details><summary class="e-n-accordion-item-title"><span class="e-n-accordion-item-title-header">
+      <div class="e-n-accordion-item-title-text">Kovilpatti BUS ROUTE TN 84 Z 9849</div></span></summary>
+      <p>Boarding point: Nadar School at 6:50 AM.</p></details></main></body></html>"""
+    doc = extract_html(html, BASE, ALLOWED)
+    text = next(b for b in doc.blocks if "Nadar School" in b.text)
+    assert text.heading_path[-1] == "Kovilpatti BUS ROUTE TN 84 Z 9849"

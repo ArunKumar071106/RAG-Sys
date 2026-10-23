@@ -193,3 +193,23 @@ def test_remote_store_searches_images_alongside_text_with_one_embedding(services
     sequential._pool = None
     expected = sequential.search_images(query, 3, sequential.search_text(query).chunks)
     assert images and [i.image_id for i in images] == [i.image_id for i in expected]
+
+
+def test_parent_overview_goes_before_its_subsections():
+    from types import SimpleNamespace
+
+    from rag.models import RetrievedChunk
+    from rag.retrieval.hybrid import HybridRetriever
+
+    overview = SimpleNamespace(chunk_id="o", doc_id="t", url="https://c.example/transport/", page_title="Transport",
+                               heading_path=["Transport Facilities"], text="12 buses run up to 70 kms.")
+    retriever = HybridRetriever.__new__(HybridRetriever)
+    retriever.corpus = SimpleNamespace(sections={("t", ("Transport Facilities",)): ["o"]}, chunks={"o": overview})
+
+    def route(name):
+        return RetrievedChunk(chunk_id=name, doc_id="t", url=overview.url, page_title="Transport",
+                              heading_path=["Transport Facilities", f"{name} Bus Route"], text="Boarding Point: X", score=1)
+
+    routes = [route("Madurai"), route("Kovilpatti")]
+    assert [c.chunk_id for c in retriever.with_parent_overview(routes)] == ["o", "Madurai", "Kovilpatti"]
+    assert retriever.with_parent_overview(routes[:1]) == routes[:1]  # one subsection: it is the answer

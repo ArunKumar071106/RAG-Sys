@@ -297,6 +297,23 @@ class HybridRetriever:
             best_bm25=max((s_ for _, s_ in keyword), default=0.0),
         )
 
+    def with_parent_overview(self, chunks: list[RetrievedChunk], min_children: int = 2) -> list[RetrievedChunk]:
+        """When the best results are subsections of one section ("Is there college bus?": a page of
+        bus routes, each its own accordion item), that section's own text is the overview the
+        question asks for ("12 buses ... from Madurai, Kovilpatti, ..."): it goes first."""
+        if not chunks or len(chunks[0].heading_path) < 2:
+            return chunks
+        top = chunks[0]
+        parent = (top.doc_id, tuple(top.heading_path[:-1]))
+        children = [c for c in chunks[:4] if c.doc_id == top.doc_id and tuple(c.heading_path[:-1]) == parent[1]]
+        ids = self.corpus.sections.get(parent, [])
+        if len(children) < min_children or not ids or any(c.chunk_id == ids[0] for c in chunks):
+            return chunks
+        part = self.corpus.chunks[ids[0]]
+        overview = RetrievedChunk(chunk_id=part.chunk_id, doc_id=part.doc_id, url=part.url, page_title=part.page_title,
+                                  heading_path=part.heading_path, text=part.text, score=top.score)
+        return [overview, *chunks]
+
     def expand_section(self, chunks: list[RetrievedChunk], max_chunks: int | None = None,
                        max_sections: int = 2) -> list[RetrievedChunk]:
         """Complete the sections the results point at, in page order.

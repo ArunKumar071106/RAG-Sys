@@ -24,8 +24,9 @@ images (photos, posters, notices) alongside the answer.
 
 | Area | Status |
 |---|---|
-| **Knowledge base** | Crawled from https://aaaenggcoll.ac.in/ on 2026-10-18/19: **2,115 pages** (all 1,979 sitemap pages: main pages, department and lab pages, news posts, plus 69 PDFs) → 2,029 documents → **3,577 text chunks**; **4,785 images** (439 duplicates removed) with OCR text in 3,516. Shipped in `data/processed/`. |
+| **Knowledge base** | Crawled from https://aaaenggcoll.ac.in/ on 2026-10-18/19: **2,115 pages** (all 1,979 sitemap pages: main pages, department and lab pages, news posts, plus 69 PDFs) → 2,029 documents → **3,604 text chunks**; **4,785 images** (439 duplicates removed) with OCR text in 3,516. Shipped in `data/processed/`. |
 | Retrieval quality on the real site | 35 labelled questions with the official pages that answer them (including every suggested question in the UI and a faculty-list question for each department), plus one off-topic question (`backend/eval/questions_aaacet.jsonl`): **Recall@1 = 0.71, Recall@3 = 0.97, Recall@5 = 0.97, MRR = 0.84**, image hit rate 1.0, with hybrid search and a semantic stand-in (all-MiniLM-L6-v2, the only model the build environment could download). Before the section-level chunking it was 0.77 / 0.97 / 0.97 / 0.87: two questions now get a matching section of another page first (the home page's "Hostel Facilities" box, a department's "Journal Editorial Board Member" list), while the answers themselves got much better (see the next row). Asked for a department's faculty, the extractive answer lists every name for all 10 departments, the main faculty list first (for CSE, EEE and Civil the visiting professors page is the top search hit, the faculty list second). Misses: "What courses does AAACET offer?" ("offer" matches a job-offer post) |
+| Complete answers (no API key) | 60 questions written from the live website by someone who never saw this system, each with every fact a complete answer contains (2–6 per question, 245 facts; `backend/eval/facts_aaacet.jsonl`, `python -m rag.cli eval-facts --verbose`). Each fact is traced to where it is lost. Before: answers held **40%** of their facts; 32% were handed to the answer composer and left out, 22% were found but ranked below the results used, 6% were not in the knowledge base. After the fixes below: **74%** on the 40 questions used while fixing (was 44%; 21 complete answers, was 9) and **47%** on the 20 held-out questions never looked at (was 31%). What is left is mostly ranking (28% of held-out facts are found but ranked too low) and about 4% of facts that are only in scanned PDFs, images or a brochure the crawl never reached. |
 | Answer quality (no API key) | 40 everyday questions, each with the fact a correct answer must contain (`backend/eval/answers_aaacet.jsonl`, `python -m rag.cli eval-answers`): **40/40** (was 18/40 before the tab, chunking and answer fixes below). 20 held-out questions written after tuning and never tuned on (`answers_aaacet_holdout.jsonl`): **19/20** (was 16/20). Measured with hybrid search (all-MiniLM-L6-v2 stand-in) in extractive mode. Page retrieval after these changes: Recall@1 0.71, Recall@3 0.97, MRR 0.84. |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
 | Tests | 110 backend tests, 28 frontend unit tests, 22 Playwright tests on desktop, tablet and mobile |
@@ -74,6 +75,9 @@ flowchart LR
    **Tab panels and accordions** (89 of the site's pages, e.g. the admission page's "Courses offered", "Management
    Quota", "TNEA B.E./B.Tech. Eligibility" tabs) are sections of their own, titled with their tab's name: one tab's
    headings never become the parents of the next tab's content.
+   Accordion titles are kept although Elementor wraps them in a `…-title-header` class (it removed every bus route's
+   name). Cards drawn as a run of headings with nothing under them (a department's labs, the college's mission
+   points) become a bullet list of their section instead of being dropped as empty.
 2. Blocks are grouped into sections by heading. **Every real section is its own chunk**, so a chunk is about one topic:
    only a short subsection joins its section, and one-line sections share a chunk with each other. (Merging every
    sibling section up to the chunk size mixed the admission page's tabs into one chunk, and answers quoted the wrong
@@ -157,7 +161,11 @@ flowchart LR
 * **Contact details:** when the website does not cover a question, and for questions about contacting the college,
   the answer ends with the office's phone numbers (tap to call) and email, from `brand.json`.
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
-  the UI shows a notice. A short section whose title names the question ("TNEA B.E./B.Tech. Eligibility", "Fees",
+  the UI shows a notice. **The best sections are quoted whole, in search order**: the first one at length (24 lines, a
+  table up to 40 rows), up to two more shorter, and only while they share most of the question's weight with the
+  first, so "what documents should I bring" lists every certificate instead of one matching line. When the best
+  results are subsections of one section (each bus route of the transport page), that section's own overview goes
+  first. `EXTRACTIVE_WHOLE_SECTIONS=false` restores the older composer described next: a short section whose title names the question ("TNEA B.E./B.Tech. Eligibility", "Fees",
   "Required Documents") is quoted whole, with its sub-headings as labels ("**Tuition Fee:** …"), so the line with the
   answer is never dropped; equally named sections of one page are all quoted ("Eligibility" gives B.E., M.E. and
   Ph.D.). Extractive answers are formatted too: a table answer becomes one compact Markdown table
@@ -356,6 +364,7 @@ make test-backend     # pytest: crawler (real Scrapy run against a local site), 
 make test-frontend    # tsc + Vitest: chat submission, Enter/Shift+Enter, loading, sources, image cards,
                       # broken-image fallback, no-answer, network error + retry, new chat, embed mode
 python -m rag.cli eval-answers   # answer quality: does each answer contain the fact a student needs?
+python -m rag.cli eval-facts --verbose   # complete answers: which facts each answer misses, and where they are lost
 make e2e              # Playwright against the real API (demo data): desktop 1366px, tablet 820px,
                       # mobile 390px; checks no horizontal scrolling, real image loading, keyboard use,
                       # mobile menu; writes docs/screenshots/*

@@ -42,7 +42,7 @@ def test_extractive_answer_keeps_abbreviations_rows_and_skips_headings_and_dupli
     text = ("## Fee Structure\n\nProgramme: B.Tech Data Science | Tuition fee per year: Rs. 60,000\n\n"
             "- The tuition fee is payable in two instalments.\n\nThe tuition fee is payable in two instalments.")
     chunk = RetrievedChunk(chunk_id="c", doc_id="d", url="u", page_title="P", heading_path=[], text=text, score=1)
-    answer = ExtractiveAnswerer().answer("tuition fee for data science", [chunk])
+    answer = ExtractiveAnswerer(whole_sections=False).answer("tuition fee for data science", [chunk])
     assert answer.splitlines()[2:5] == ["| Programme | Tuition fee per year |", "|---|---|", "| B.Tech Data Science | Rs. 60,000 |"]
     assert answer.count("instalments") == 1
     assert "Fee Structure" not in answer and "- - " not in answer
@@ -85,7 +85,7 @@ def test_equally_matching_tables_show_the_main_list_first():
     visiting = part("faculties", "Faculty", "Visiting Professors", ["S.No: 1. | Faculty Name: Dr.A.Visitor | Designation: Visiting Professor"])
     main = part("faculty-list", "Faculty List", "Academic Year", [f"S.No: {i}. | Name of the Faculty: Dr.B.Staff{i}" for i in range(1, 6)])
     board = part("governance", "Governance", "Board", [f"S.No: {i}. | Name of the Faculty: Dr.C.Board{i} | Category: Member" for i in range(1, 9)])
-    answer = ExtractiveAnswerer().answer("Electrical Engineering faculty", [visiting, main, board])
+    answer = ExtractiveAnswerer(whole_sections=False).answer("Electrical Engineering faculty", [visiting, main, board])
     headings = [line for line in answer.splitlines() if line.startswith("**")]
     assert headings[0].startswith("**Faculty List") and headings[1].startswith("**Faculty – ")  # main list, then visiting
     assert "Governance" not in answer  # its title does not name the question
@@ -100,7 +100,7 @@ def test_extractive_answer_groups_relevant_sentences_by_page():
 
     chunks = [part("h", "AAA Hostels", "Separate hostels for boys and girls are available on campus. The mess serves food."),
               part("s", "Sports", "Students play cricket in the evening near the hostel gate.")]
-    answer = ExtractiveAnswerer().answer("hostels for boys and girls", chunks)
+    answer = ExtractiveAnswerer(whole_sections=False).answer("hostels for boys and girls", chunks)
     assert answer.splitlines()[:2] == ["**AAA Hostels** [S1]", "- Separate hostels for boys and girls are available on campus."]
     assert "cricket" not in answer and "mess" not in answer  # weakly related lines are left out
 
@@ -115,7 +115,7 @@ def test_extractive_answer_quotes_a_table_across_its_chunks():
     chunks = [part("a", ["S.No: 1. | Name of the Faculty: Dr.M.Karuppasamy", "S.No: 2. | Name of the Faculty: Dr.Sugumar"]),
               part("b", ["S.No: 3. | Name of the Faculty: Dr.R.Prabhu"]),
               part("c", ["Research centre approved by Anna University for faculty."], heading="Research")]
-    answer = ExtractiveAnswerer().answer("AI&DS faculty name", chunks)
+    answer = ExtractiveAnswerer(whole_sections=False).answer("AI&DS faculty name", chunks)
     assert answer.splitlines() == ["**Faculty List – AI&DS** · 3 entries [S1][S2]", "",  # the table is the answer
                                    "| Name of the Faculty |", "|---|",  # serial numbers dropped
                                    "| Dr.M.Karuppasamy |", "| Dr.Sugumar |", "| Dr.R.Prabhu |"]
@@ -132,7 +132,7 @@ def test_extractive_answer_prefers_the_table_whose_page_title_names_the_question
                    "Electrical engineering taught by eminent faculty with modern facilities."),
               part("f1", "https://c.example/eee/faculty-list/", "Faculty List", "S.N.: 1. | Name: Dr.C.Senthil Kumar"),
               part("f2", "https://c.example/eee/faculty-list/", "Faculty List", "S.N.: 2. | Name: Dr.R.Pon Vengatesh")]
-    answer = ExtractiveAnswerer().answer("Electrical Engineering faculty", chunks)
+    answer = ExtractiveAnswerer(whole_sections=False).answer("Electrical Engineering faculty", chunks)
     assert answer.splitlines()[0].startswith("**Faculty List") and answer.splitlines()[0].endswith("[S2][S3]")
     assert "| Dr.C.Senthil Kumar |" in answer and "| Dr.R.Pon Vengatesh |" in answer and "eminent" not in answer
 
@@ -385,7 +385,7 @@ def test_a_section_named_by_the_question_is_quoted_whole():
     phd = part("phd", "TNEA PhD Eligibility", "A Master's degree with 55% marks is required.")
     fees = RetrievedChunk(chunk_id="f", doc_id="fees", url="https://c.example/fees/", page_title="Fees", heading_path=["Fees"],
                           text="### Fees\n\n###### Tuition Fee\n\n- Charged per semester.\n\n###### Bus Fees\n\n- By distance.", score=1.0)
-    ex = ExtractiveAnswerer()
+    ex = ExtractiveAnswerer(whole_sections=False)
     # the whole section, so the line with the answer ("45%") is not dropped for sharing fewer words
     answer = ex.answer("What is the eligibility for B.E. and B.Tech admission?", [be, me, phd])
     assert answer.startswith("**Admission – TNEA B.E./B.Tech. Eligibility** [S1]") and "45%" in answer and "55%" not in answer
@@ -405,5 +405,33 @@ def test_labelled_table_detection_keeps_rows_with_a_colon_in_their_text():
             "Merit Award 160 | Trust | Cut-off of 160 | 25% waiver"]
     table = RetrievedChunk(chunk_id="s", doc_id="adm", url="https://c.example/admission/", page_title="Admission",
                            heading_path=["Scholarship"], text="\n".join(rows), score=1.0)
-    answer = ExtractiveAnswerer().answer("scholarship for a cut-off of 180", [table])
+    answer = ExtractiveAnswerer(whole_sections=False).answer("scholarship for a cut-off of 180", [table])
     assert "180" in answer and "170" in answer and "160" in answer
+
+
+def test_extractive_answer_quotes_the_best_section_whole():
+    from rag.llm.client import ExtractiveAnswerer
+
+    def part(cid, title, path, text):
+        return RetrievedChunk(chunk_id=cid, doc_id=cid, url=f"https://c.example/{cid}/", page_title=title,
+                              heading_path=path, text=text, score=1)
+
+    docs = part("adm", "Admission", ["Required Documents"],
+                "### Required Documents\n\n- Transfer Certificate\n- Community Certificate\n- Aadhar Card\n- Conduct Certificate")
+    officer = part("off", "Admission officer", [], "Name: Mr. R. Chandhran | Designation: Admission officer")
+    sports = part("spo", "Sports", ["Games"], "Cricket and kabaddi courts are on the campus.")
+    answer = ExtractiveAnswerer().answer("what documents should i bring for admission", [docs, officer, sports])
+    assert answer.startswith("**Admission – Required Documents** [S1]")
+    for item in ("Transfer Certificate", "Community Certificate", "Aadhar Card", "Conduct Certificate"):
+        assert f"- {item}" in answer
+    assert "Cricket" not in answer  # shares no word of the question
+
+
+def test_long_section_quote_is_capped_with_a_pointer_to_the_page():
+    from rag.llm.client import ExtractiveAnswerer
+
+    lines = "\n".join(f"- Boarding point {i} at 7:{i:02d} AM." for i in range(40))
+    chunk = RetrievedChunk(chunk_id="b", doc_id="b", url="https://c.example/bus/", page_title="Transport",
+                           heading_path=["Bus Routes"], text=lines, score=1)
+    answer = ExtractiveAnswerer().answer("bus boarding points", [chunk])
+    assert answer.count("\n- Boarding point") == 24 and answer.endswith("- … more on the source page.")

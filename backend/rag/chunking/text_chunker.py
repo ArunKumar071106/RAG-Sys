@@ -103,7 +103,39 @@ def _sections(blocks: list[Block]) -> list[_Section]:
         else:
             current.units.append(_Unit("text", block.text))
     sections.append(current)
+    _fold_heading_lists(sections)
     return [s for s in sections if s.units]
+
+
+def _fold_heading_lists(sections: list[_Section], min_run: int = 3) -> None:
+    """A run of sibling headings with nothing under them is a list drawn as cards (a
+    department's labs, each card a title and a link): it becomes a bullet list of its
+    parent section instead of being dropped as empty."""
+    def parent_of(index: int) -> bool:  # the heading has subsections, so it is not empty
+        nxt = sections[index + 1] if index + 1 < len(sections) else None
+        path = sections[index].heading_path
+        return nxt is not None and len(nxt.heading_path) > len(path) and nxt.heading_path[:len(path)] == path
+
+    i = 0
+    while i < len(sections):
+        s = sections[i]
+        if s.units or not s.heading_path or parent_of(i):
+            i += 1
+            continue
+        run = [i]
+        while run[-1] + 1 < len(sections):
+            nxt = sections[run[-1] + 1]
+            if nxt.units or nxt.heading_path[:-1] != s.heading_path[:-1] or parent_of(run[-1] + 1):
+                break
+            run.append(run[-1] + 1)
+        if len(run) >= min_run:
+            parent = next((p for p in reversed(sections[:i]) if p.heading_path == s.heading_path[:-1]), None)
+            if parent is None:
+                parent = _Section(heading_path=s.heading_path[:-1], level=max(s.level - 1, 0))
+                sections.insert(i, parent)
+                run = [r + 1 for r in run]
+            parent.units.append(_Unit("text", "\n".join(f"- {sections[r].heading_path[-1]}" for r in run)))
+        i = run[-1] + 1
 
 
 def _common_prefix(paths: list[list[str]]) -> list[str]:

@@ -106,9 +106,12 @@ class ExtractiveAnswerer:
                 out.extend(split_sentences(line))
         return out
 
-    def __init__(self, term_weight=None):
+    def __init__(self, term_weight=None, whole_sections: bool = True):
         # term_weight(token) -> importance (e.g. BM25 IDF); rare terms decide which sentence is quoted
         self.term_weight = term_weight or (lambda token: 1.0)
+        # quote the best sections in search order (lists, sub-headings and tables kept) instead of
+        # picking single sentences that share words with the question
+        self.whole_sections = whole_sections
 
     def answer(self, question: str, chunks: list[RetrievedChunk], max_sources: int = 3, per_source: int = 3,
                max_lines: int = 6, max_table_rows: int = 40, relevance: float = 0.5) -> str:
@@ -120,6 +123,8 @@ class ExtractiveAnswerer:
         from rag.retrieval.hybrid import chunk_title_text
 
         q = set(tokenize(question))
+        if self.whole_sections:
+            return self._quote_sections(q, chunks, max_sections=max_sources, max_table_rows=max_table_rows)
         section = self._section_answer(q, chunks[:max_sources])
         if section:
             return section
@@ -258,6 +263,102 @@ class ExtractiveAnswerer:
             if len(lines) >= max_lines:
                 break
         return lines
+
+    def _quote_sections(self, q: set[str], chunks: list[RetrievedChunk], max_sections: int = 3,
+                        budgets: tuple[int, ...] = (24, 10, 8), max_table_rows: int = 40) -> str:
+        """The best search results' sections quoted in search order: the first one at length, the
+        next ones shorter, and only while they still share most of the question's weight with
+        it. Each chunk is one topic, so its lines answer together ("documents required": every
+        certificate, not the one line that says "documents")."""
+        from rag.retrieval.hybrid import chunk_title_text
+
+        groups: dict[tuple, list[tuple[int, RetrievedChunk]]] = {}
+        for i, chunk in enumerate(chunks, start=1):
+            groups.setdefault((chunk.url, tuple(chunk.heading_path)), []).append((i, chunk))
+        total = sum(self.term_weight(t) for t in q) or 1.0
+
+        def share(parts: list[tuple[int, RetrievedChunk]]) -> float:
+            words = set(tokenize(chunk_title_text(parts[0][1])))
+            for _, part in parts:
+                words |= set(tokenize(part.text))
+            return sum(self.term_weight(t) for t in q & words) / total
+
+        items = list(groups.values())
+        if not items:
+            return ""
+        first = share(items[0])
+        blocks: list[str] = []
+        seen: set[str] = set()
+        for n, parts in enumerate(items):
+            if len(blocks) >= max_sections:
+                break
+            if n and share(parts) < max(0.34, 0.75 * first):
+                continue
+            budget = budgets[min(len(blocks), len(budgets) - 1)]
+            lines = self._section_quote(parts, q, budget, max_table_rows if not blocks else 15, seen)
+            if lines:
+                blocks.append("\n".join(lines))
+        return "\n\n".join(blocks)
+
+    def _section_quote(self, parts: list[tuple[int, RetrievedChunk]], q: set[str], budget: int, max_rows: int,
+                       seen: set[str], max_chars: int = 700) -> list[str]:
+        anchor = parts[0][1]
+        out: list[str] = []
+        rows: list[str] = []
+        label = ""
+        more = False
+
+        def flush() -> None:
+            nonlocal rows
+            if not rows:
+                return
+            labelled = [r for r in rows if all(_CELL_LABEL_RE.match(cell) for cell in r.split(" | "))]
+            if len(labelled) * 2 >= len(rows):
+                rows = labelled
+            table = markdown_table(rows[:max_rows], q)
+            out.extend(([""] if out else []) + (table if table else [f"- {r}" for r in rows[:max_rows]]))
+            if len(rows) > max_rows:
+                out.extend(["", f"Showing the first {max_rows} of {len(rows)} entries; the source page has the rest."])
+            out.append("")
+            rows = []
+
+        for _, part in parts:
+            for raw in part.text.splitlines():
+                line = raw.strip()
+                if not line:
+                    continue
+                heading = re.match(r"^#{1,6}\s+(.+)$", line)
+                if heading:
+                    flush()
+                    text = heading.group(1).strip()
+                    label = "" if text in anchor.heading_path else text
+                    continue
+                key = re.sub(r"\W+", " ", line.lower()).strip()
+                if key in seen:  # overlap between the pieces of a split section
+                    continue
+                seen.add(key)
+                if " | " in line:
+                    rows.append(line)
+                    continue
+                flush()
+                if sum(1 for x in out if x.startswith("- ")) >= budget:
+                    more = True
+                    continue
+                line = re.sub(r"^[-*•]\s+", "", line)
+                if len(line) > max_chars:
+                    cut = line.rfind(". ", 0, max_chars)
+                    line = line[:cut + 1 if cut > max_chars // 2 else max_chars].rstrip() + " …"
+                out.append(f"- **{label}:** {line}" if label else f"- {line}")
+                label = ""
+        flush()
+        while out and not out[-1]:
+            out.pop()
+        if not out:
+            return []
+        cites = "".join(f"[S{i}]" for i, _ in parts)
+        if more:
+            out.append("- … more on the source page.")
+        return [f"**{source_label(anchor, q)}** {cites}", *out]
 
     def _quote_table(self, chunks: list[RetrievedChunk], anchor: RetrievedChunk, q: set[str], max_rows: int) -> list[str]:
         """The anchor's whole table, across the sources holding its parts, as a compact Markdown table."""

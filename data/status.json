@@ -13,14 +13,14 @@
     "duplicates": 0,
     "errors": 0,
     "images_referenced": 5481,
-    "updated_at": "2026-10-21T10:32:21+00:00"
+    "updated_at": "2026-10-23T16:46:26+00:00"
   },
   "chunk": {
     "documents": 2029,
-    "chunks": 3577,
+    "chunks": 3604,
     "duplicate_chunks": 66,
-    "avg_tokens": 294.4,
-    "updated_at": "2026-10-21T10:56:34+00:00"
+    "avg_tokens": 292.2,
+    "updated_at": "2026-10-23T16:46:29+00:00"
   },
   "index": {
     "state": "finished",
