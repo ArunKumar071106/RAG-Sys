@@ -435,3 +435,68 @@ def test_long_section_quote_is_capped_with_a_pointer_to_the_page():
                            heading_path=["Bus Routes"], text=lines, score=1)
     answer = ExtractiveAnswerer().answer("bus boarding points", [chunk])
     assert answer.count("\n- Boarding point") == 24 and answer.endswith("- … more on the source page.")
+
+
+class _FakeGemini:
+    """google-genai's client.aio.models.generate_content, recording the request."""
+
+    def __init__(self, response=None, error=None):
+        self.calls, self.response, self.error = [], response, error
+        self.aio = SimpleNamespace(models=SimpleNamespace(generate_content=self._generate))
+
+    async def _generate(self, model, contents, config):
+        self.calls.append(SimpleNamespace(model=model, contents=contents, config=config))
+        if self.error:
+            raise self.error
+        return self.response
+
+
+def _gemini_response(text, finish="STOP", blocked=None):
+    candidate = SimpleNamespace(finish_reason=f"FinishReason.{finish}")
+    return SimpleNamespace(text=text, candidates=[candidate], prompt_feedback=SimpleNamespace(block_reason=blocked),
+                           model_version="gemini-x-flash")
+
+
+def test_gemini_answers_with_the_system_prompt_and_the_conversation():
+    import asyncio
+
+    from rag.llm.client import GeminiLLM
+
+    fake = _FakeGemini(_gemini_response("Accredited by NAAC with A grade [S1]."))
+    llm = GeminiLLM("gemini-flash-latest", "key", client=fake)
+    answer = asyncio.run(llm.generate("SYSTEM", [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"},
+                                                 {"role": "user", "content": "Why choose AAACET?"}]))
+    assert answer.text == "Accredited by NAAC with A grade [S1]." and answer.model == "gemini-x-flash"
+    call = fake.calls[0]
+    assert call.config.system_instruction == "SYSTEM" and [c.role for c in call.contents] == ["user", "model", "user"]
+    assert call.config.automatic_function_calling.disable is True
+
+
+def test_gemini_failures_fall_back_and_blocked_answers_are_refusals():
+    import asyncio
+
+    from google.genai import errors
+
+    from rag.llm.client import GeminiLLM
+
+    blocked = GeminiLLM("m", "k", client=_FakeGemini(_gemini_response("", finish="SAFETY")))
+    assert asyncio.run(blocked.generate("S", [{"role": "user", "content": "q"}])).refused
+    for fake, words in [(_FakeGemini(_gemini_response("", finish="RECITATION")), "no text"),
+                        (_FakeGemini(error=errors.ClientError(429, {"error": {"message": "quota"}})), "quota"),
+                        (_FakeGemini(error=errors.ClientError(404, {"error": {"message": "nope"}})), "GEMINI_MODEL"),
+                        (_FakeGemini(error=OSError("getaddrinfo failed")), "reach")]:
+        with pytest.raises(LLMUnavailable, match=words):
+            asyncio.run(GeminiLLM("m", "k", client=fake).generate("S", [{"role": "user", "content": "q"}]))
+
+
+def test_a_gemini_key_alone_switches_answers_to_gemini(monkeypatch):
+    from rag.config import Settings
+    from rag.llm import client as llm_client
+
+    monkeypatch.setattr(llm_client, "anthropic_credentials_present", lambda: False)
+    monkeypatch.setattr(llm_client, "GeminiLLM", lambda model, key, *a: SimpleNamespace(name=f"gemini:{model}", key=key))
+    for provider in ("auto", "anthropic", "gemini"):
+        settings = Settings(_env_file=None, llm_provider=provider, gemini_api_key="g-key")
+        assert llm_client.get_llm(settings).name == "gemini:gemini-flash-latest"
+    assert llm_client.get_llm(Settings(_env_file=None, llm_provider="auto", gemini_api_key="")) is None
+    assert llm_client.get_llm(Settings(_env_file=None, llm_provider="extractive", gemini_api_key="g-key")) is None

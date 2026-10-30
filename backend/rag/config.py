@@ -115,6 +115,10 @@ class Settings(BaseSettings):
         r"\b(bus|buses|transport)\b": "transport facilities",
         r"\bwi-?fi\b": "Wi-Fi internet",
         r"\bplacement (officer|cell|head)|\btpo\b": "training placement cell",
+        # "why should I choose / join this college", "what is special about AAACET": its strengths, as the
+        # website's "About AAACET" / "About College" sections state them
+        r"\bwhy\b.*\b(choose|join|select|prefer|study|apply)\b|\b(special|unique|advantages?|highlights?|strengths?)\b"
+        r"|\b(best|good|top)\s+(engineering\s+)?college\b": "About AAACET college youngest NAAC A grade ISO 21001 accredited",
     }
     # Department names as the website writes them; type-ahead suggests questions about each.
     departments: CsvList = [
@@ -130,7 +134,10 @@ class Settings(BaseSettings):
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
 
     # ---- LLM -----------------------------------------------------------
-    llm_provider: Literal["anthropic", "extractive"] = "anthropic"
+    # auto: Claude when ANTHROPIC_API_KEY is set, else Gemini when GEMINI_API_KEY is set, else quote the website
+    llm_provider: Literal["auto", "anthropic", "gemini", "extractive"] = "auto"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-flash-latest"  # Google's alias for the current Flash model (on the free tier)
     # Without an AI model: quote the best sections whole (true) or pick single matching sentences (false)
     extractive_whole_sections: bool = True
     llm_model: str = "claude-opus-5-5"

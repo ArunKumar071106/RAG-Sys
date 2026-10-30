@@ -213,3 +213,9 @@ def test_parent_overview_goes_before_its_subsections():
     routes = [route("Madurai"), route("Kovilpatti")]
     assert [c.chunk_id for c in retriever.with_parent_overview(routes)] == ["o", "Madurai", "Kovilpatti"]
     assert retriever.with_parent_overview(routes[:1]) == routes[:1]  # one subsection: it is the answer
+
+
+def test_why_choose_questions_search_for_the_colleges_strengths(services):
+    for question in ("Why should I choose this college?", "why join AAACET", "what is special about this college"):
+        assert "NAAC" in services.retriever.normalize_query(question)
+    assert "NAAC" not in services.retriever.normalize_query("Which hostel rooms are available?")

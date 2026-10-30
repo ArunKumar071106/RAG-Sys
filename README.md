@@ -163,6 +163,12 @@ flowchart LR
   and emails (enquiry@, admissions@). For admission, scholarship and fee questions, and when the website has no answer,
   the card also lists the admission & scholarship staff from the admission page. These come from
   `frontend/src/brand/contacts.json` (kept by hand, with sources) merged with the footer's contacts in `brand.json`.
+* **Answer model:** Claude (`ANTHROPIC_API_KEY`) or Google Gemini (`GEMINI_API_KEY`, free tier for the Flash models).
+  With `LLM_PROVIDER=auto` (the default) a Claude key wins, then a Gemini key; one Gemini key in `.env` is enough
+  to switch. Both get the same grounded prompt, citations, translations and follow-up questions; a Gemini answer
+  stopped for repeating its sources word for word ("recitation") falls back to quoting the website.
+* Questions about the college's strengths ("Why should I choose this college?", "what is special about AAACET")
+  search for its "About College" sections (youngest NAAC 'A' college, ISO 21001, research centre, 400+ papers).
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
   the UI shows a notice. **The best sections are quoted whole, in search order**: the first one at length (24 lines, a
   table up to 40 rows), up to two more shorter, and only while they share most of the question's weight with the
@@ -383,6 +389,7 @@ All configuration lives in environment variables (see `.env.example`). The exter
 | Variable | Needed for | Without it |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Claude answers, vision descriptions | extractive answers, no AI image descriptions |
+| `GEMINI_API_KEY` | Gemini answers (`LLM_PROVIDER=auto` or `gemini`; `GEMINI_MODEL`, default `gemini-flash-latest`, the Flash models are on Google's free tier). Used when no Anthropic key is set | extractive answers |
 | `ADMIN_TOKEN` | `/api/admin/*` | admin endpoints return 503 |
 | `QDRANT_API_KEY` | secured Qdrant server / cloud | not needed for local or embedded Qdrant |
 | Hugging Face access | first download of `BAAI/bge-m3` | set `EMBEDDING_MODEL` to a local path, or use `hashing` |
