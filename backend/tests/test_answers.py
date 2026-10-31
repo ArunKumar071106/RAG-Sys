@@ -500,3 +500,20 @@ def test_a_gemini_key_alone_switches_answers_to_gemini(monkeypatch):
         assert llm_client.get_llm(settings).name == "gemini:gemini-flash-latest"
     assert llm_client.get_llm(Settings(_env_file=None, llm_provider="auto", gemini_api_key="")) is None
     assert llm_client.get_llm(Settings(_env_file=None, llm_provider="extractive", gemini_api_key="g-key")) is None
+
+
+def test_a_hanging_answer_model_ends_in_a_quoted_answer(services, monkeypatch):
+    import asyncio
+
+    from rag.llm.answer import AnswerService
+
+    class Hanging:
+        name = "hanging"
+
+        async def generate(self, system, messages):
+            await asyncio.sleep(3600)
+
+    monkeypatch.setattr(services.settings, "llm_timeout_seconds", -4.9)  # gives up after 0.1 s
+    answers = AnswerService(services.retriever, Hanging())
+    result = asyncio.run(answers.answer("What is the hostel fee?"))
+    assert result.mode == "extractive" and "temporarily unavailable" in result.notice

@@ -166,7 +166,9 @@ flowchart LR
 * **Answer model:** Claude (`ANTHROPIC_API_KEY`) or Google Gemini (`GEMINI_API_KEY`, free tier for the Flash models).
   With `LLM_PROVIDER=auto` (the default) a Claude key wins, then a Gemini key; one Gemini key in `.env` is enough
   to switch. Both get the same grounded prompt, citations, translations and follow-up questions; a Gemini answer
-  stopped for repeating its sources word for word ("recitation") falls back to quoting the website.
+  stopped for repeating its sources word for word ("recitation") falls back to quoting the website. Every model call
+  is limited to `LLM_TIMEOUT_SECONDS` (45 s, under the browser's 90 s): a slow or hanging model ends in the quoted
+  answer, never in a page that keeps "Searching the official website…". The log shows how long each answer took.
 * Questions about the college's strengths ("Why should I choose this college?", "what is special about AAACET")
   search for its "About College" sections (youngest NAAC 'A' college, ISO 21001, research centre, 400+ papers).
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
@@ -374,6 +376,7 @@ make test-frontend    # tsc + Vitest: chat submission, Enter/Shift+Enter, loadin
                       # broken-image fallback, no-answer, network error + retry, new chat, embed mode
 python -m rag.cli eval-answers   # answer quality: does each answer contain the fact a student needs?
 python -m rag.cli eval-facts --verbose   # complete answers: which facts each answer misses, and where they are lost
+python -m rag.cli check-llm      # does the answer model (Gemini / Claude) answer, and how fast?
 make e2e              # Playwright against the real API (demo data): desktop 1366px, tablet 820px,
                       # mobile 390px; checks no horizontal scrolling, real image loading, keyboard use,
                       # mobile menu; writes docs/screenshots/*

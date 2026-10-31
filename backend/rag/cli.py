@@ -8,6 +8,7 @@
     python -m rag.cli all [--full] [--skip-crawl]
     python -m rag.cli status
     python -m rag.cli check-qdrant          # is Qdrant Cloud / a Qdrant server set up and filled?
+    python -m rag.cli check-llm             # does the answer model (Gemini / Claude) answer, and how fast?
     python -m rag.cli search "hostel facilities"
     python -m rag.cli ask "What is the admission process?"
     python -m rag.cli eval [--questions eval/questions.jsonl] [--k 5]
@@ -149,6 +150,30 @@ def cmd_search(args, settings) -> int:
     return 0
 
 
+def cmd_check_llm(args, settings) -> int:
+    """Send one short request to the configured answer model and report the time it took, or why it failed."""
+    import time
+
+    from rag.llm.client import LLMUnavailable, get_llm
+
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    llm = get_llm(settings)
+    if llm is None:
+        print("No answer model: answers quote the website. Set GEMINI_API_KEY (or ANTHROPIC_API_KEY) in .env.")
+        return 1
+    print(f"Answer model: {llm.name} (timeout {settings.llm_timeout_seconds:.0f} s)")
+    start = time.perf_counter()
+    try:
+        answer = asyncio.run(asyncio.wait_for(
+            llm.generate("Reply in one short sentence.", [{"role": "user", "content": "Say hello to a student."}]),
+            settings.llm_timeout_seconds + 5))
+    except (LLMUnavailable, TimeoutError, asyncio.TimeoutError) as exc:
+        print(f"[!!] failed after {time.perf_counter() - start:.1f} s: {exc or type(exc).__name__}")
+        return 1
+    print(f"[OK] answered in {time.perf_counter() - start:.1f} s: {answer.text[:200]}")
+    return 0
+
+
 def cmd_ask(args, settings) -> int:
     services = _services(settings)
     result = asyncio.run(services.answers.answer(args.question))
@@ -233,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--skip-crawl", action="store_true")
     sub.add_parser("status")
     sub.add_parser("check-qdrant")
+    sub.add_parser("check-llm")
     p = sub.add_parser("search")
     p.add_argument("query")
     p.add_argument("--k", type=int, default=6)
@@ -253,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     handlers = {"status": cmd_status, "search": cmd_search, "ask": cmd_ask, "eval": cmd_eval,
-                "eval-answers": cmd_eval_answers, "eval-facts": cmd_eval_facts, "check-qdrant": cmd_check_qdrant, "demo": cmd_demo}
+                "eval-answers": cmd_eval_answers, "eval-facts": cmd_eval_facts, "check-qdrant": cmd_check_qdrant, "check-llm": cmd_check_llm, "demo": cmd_demo}
     return handlers.get(args.command, cmd_stage)(args, settings)
 
 

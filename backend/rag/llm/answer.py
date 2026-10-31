@@ -7,6 +7,7 @@ return answer + cited official sources + relevant images.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -159,6 +160,15 @@ class AnswerService:
         self.top_k = top_k
         self.image_top_k = image_top_k
 
+    async def _generate(self, system: str, messages: list[dict]):
+        """One call to the answer model, never longer than its timeout (plus a margin): a model or
+        network that hangs ends in the extractive answer, never in a page waiting forever."""
+        limit = getattr(self.retriever.settings, "llm_timeout_seconds", 45.0) + 5
+        try:
+            return await asyncio.wait_for(self.llm.generate(system, messages), limit)
+        except (asyncio.TimeoutError, TimeoutError) as exc:
+            raise LLMUnavailable(f"No answer from the AI model within {limit:.0f} s") from exc
+
     def retrieval_query(self, question: str, history: list[ChatTurn]) -> str:
         """What to search for a question that may lean on the previous one (without an LLM):
         "what about its labs?" after a CSE question searches CSE labs, "and ECE?" after "faculty of
@@ -214,7 +224,7 @@ class AnswerService:
         else:
             prompt, content = TRANSLATE_PROMPT, f"<question>{escape(query)}</question>"
         try:
-            result = await self.llm.generate(prompt, [{"role": "user", "content": content}])
+            result = await self._generate(prompt, [{"role": "user", "content": content}])
         except LLMUnavailable as exc:
             log.warning("Could not rewrite the question for searching: %s", exc)
             return query
@@ -225,7 +235,7 @@ class AnswerService:
         """An answer in another language (for the "Show in English" button); links stay official."""
         if self.llm is None:
             raise LLMUnavailable("No AI answer service is configured")
-        result = await self.llm.generate(ANSWER_TRANSLATE_PROMPT.format(language=language),
+        result = await self._generate(ANSWER_TRANSLATE_PROMPT.format(language=language),
                                          [{"role": "user", "content": f"<answer>\n{text}\n</answer>"}])
         if result.refused or not result.text.strip():
             raise LLMUnavailable("The translation was not returned")
@@ -265,7 +275,8 @@ class AnswerService:
         t1 = time.perf_counter()
         if self.llm is not None:
             try:
-                result = await self.llm.generate(SYSTEM_PROMPT, self._messages(question, build_context(text.chunks, images), history))
+                result = await self._generate(SYSTEM_PROMPT, self._messages(question, build_context(text.chunks, images), history))
+                log.info("%s answered in %.1f s", getattr(self.llm, "name", "LLM"), time.perf_counter() - t1)
                 model = result.model
                 if result.refused:
                     return ChatResult(answer="I can't help with that request. Please ask about AAACET's admissions, courses, "

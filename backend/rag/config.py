@@ -143,7 +143,8 @@ class Settings(BaseSettings):
     llm_model: str = "claude-opus-5-5"
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
     llm_max_tokens: int = 16000
-    llm_timeout_seconds: float = 90.0
+    # under the browser's 90 s limit (VITE_CHAT_TIMEOUT_MS), so a slow model still ends in an answer quoting the website
+    llm_timeout_seconds: float = 45.0
     llm_server_fallbacks: bool = True
     llm_history_turns: int = 6
 
