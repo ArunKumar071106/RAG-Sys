@@ -59,7 +59,7 @@ def test_chat_input_validation(client, payload, status):
 
 
 def test_body_size_limit(client):
-    response = client.post("/api/chat", content=b"{" + b" " * 200_000 + b"}", headers={"content-type": "application/json"})
+    response = client.post("/api/chat", content=b"{" + b" " * 400_000 + b"}", headers={"content-type": "application/json"})
     assert response.status_code == 413
 
 
@@ -329,3 +329,11 @@ def test_updated_knowledge_base_is_reindexed_incrementally(pipeline, tmp_path):
     finally:
         store.close()
 
+
+
+def test_long_earlier_answers_do_not_block_the_next_question(client):
+    """An earlier answer can be a long table; the next question must still be answered, not rejected."""
+    long_answer = "| Name | Designation |\n" + "| Dr. A. Example | Professor |\n" * 400  # ~12,000 characters
+    history = [{"role": "user", "content": "faculty list"}, {"role": "assistant", "content": long_answer}] * 6
+    response = client.post("/api/chat", json={"message": "hostel facilities", "history": history})
+    assert response.status_code == 200, response.text

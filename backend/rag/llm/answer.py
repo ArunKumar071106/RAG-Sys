@@ -14,7 +14,7 @@ import time
 from html import escape
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from rag.index.bm25 import tokenize
 from rag.llm.client import AnthropicLLM, ExtractiveAnswerer, LLMUnavailable
@@ -46,9 +46,18 @@ _FOLLOWUP_RE = re.compile(
 )
 
 
+HISTORY_TURN_CHARS = 2000  # what a prompt uses of each earlier turn
+
+
 class ChatTurn(BaseModel):
     role: Literal["user", "assistant"]
-    content: str = Field(max_length=8000)
+    content: str
+
+    @field_validator("content")
+    @classmethod
+    def _trim(cls, value: str) -> str:
+        # an earlier answer can be a long table: keep its start rather than rejecting every later question
+        return value[:HISTORY_TURN_CHARS]
 
 
 class SourceOut(BaseModel):
@@ -202,9 +211,9 @@ class AnswerService:
         messages: list[dict] = []
         for turn in turns:
             if messages and messages[-1]["role"] == turn.role:
-                messages[-1]["content"] += "\n\n" + turn.content[:2000]
+                messages[-1]["content"] += "\n\n" + turn.content[:HISTORY_TURN_CHARS]
             else:
-                messages.append({"role": turn.role, "content": turn.content[:2000]})
+                messages.append({"role": turn.role, "content": turn.content[:HISTORY_TURN_CHARS]})
         if messages and messages[-1]["role"] == "user":
             messages.append({"role": "assistant", "content": "(previous question noted)"})
         messages.append({"role": "user", "content": build_user_message(question, context)})

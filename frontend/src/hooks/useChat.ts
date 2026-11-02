@@ -13,6 +13,8 @@ export interface Message {
 }
 
 const HISTORY_LIMIT = 12;
+/** The API uses the first 2,000 characters of each earlier turn; a long table answer is cut, not sent whole. */
+const HISTORY_TURN_CHARS = 2000;
 let counter = 0;
 const nextId = () => `m${Date.now().toString(36)}${(counter++).toString(36)}`;
 
@@ -20,7 +22,7 @@ const nextId = () => `m${Date.now().toString(36)}${(counter++).toString(36)}`;
 export function historyFrom(messages: Message[]): ChatTurn[] {
   return messages
     .filter((m) => !m.error && m.content.trim())
-    .map((m) => ({ role: m.role, content: m.content }))
+    .map((m) => ({ role: m.role, content: m.content.slice(0, HISTORY_TURN_CHARS) }))
     .slice(-HISTORY_LIMIT);
 }
 

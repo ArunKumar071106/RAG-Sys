@@ -153,7 +153,7 @@ class Settings(BaseSettings):
     admin_token: str = ""
     rate_limit_per_minute: int = 30
     max_question_chars: int = 1000
-    max_request_bytes: int = 64 * 1024
+    max_request_bytes: int = 256 * 1024  # a page loaded before history trimming sends whole earlier answers
     log_level: str = "INFO"
     auto_index_on_startup: bool = True  # build the index at API start when only processed chunks exist
 
