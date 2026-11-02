@@ -163,10 +163,10 @@ flowchart LR
   and emails (enquiry@, admissions@). For admission, scholarship and fee questions, and when the website has no answer,
   the card also lists the admission & scholarship staff from the admission page. These come from
   `frontend/src/brand/contacts.json` (kept by hand, with sources) merged with the footer's contacts in `brand.json`.
-* **Answer model:** Claude (`ANTHROPIC_API_KEY`) or Google Gemini (`GEMINI_API_KEY`, free tier for the Flash models).
-  With `LLM_PROVIDER=auto` (the default) a Claude key wins, then a Gemini key; one Gemini key in `.env` is enough
-  to switch. Both get the same grounded prompt, citations, translations and follow-up questions; a Gemini answer
-  stopped for repeating its sources word for word ("recitation") falls back to quoting the website. Every model call
+* **Answer model: Claude only** (`ANTHROPIC_API_KEY` in `.env`, model `LLM_MODEL`, default `claude-opus-5-5` at
+  `LLM_EFFORT=low`, with server-side refusal fallbacks). The key is read from `.env` (or the environment / an
+  `ant auth login` profile) and also used for image descriptions. Without a key, or when Claude fails, answers
+  quote the website. Every model call
   is limited to `LLM_TIMEOUT_SECONDS` (45 s, under the browser's 90 s): a slow or hanging model ends in the quoted
   answer, never in a page that keeps "Searching the official website…". The log shows how long each answer took.
 * Questions about the college's strengths ("Why should I choose this college?", "what is special about AAACET")
@@ -376,7 +376,7 @@ make test-frontend    # tsc + Vitest: chat submission, Enter/Shift+Enter, loadin
                       # broken-image fallback, no-answer, network error + retry, new chat, embed mode
 python -m rag.cli eval-answers   # answer quality: does each answer contain the fact a student needs?
 python -m rag.cli eval-facts --verbose   # complete answers: which facts each answer misses, and where they are lost
-python -m rag.cli check-llm      # does the answer model (Gemini / Claude) answer, and how fast?
+python -m rag.cli check-llm      # does Claude answer, and how fast?
 make e2e              # Playwright against the real API (demo data): desktop 1366px, tablet 820px,
                       # mobile 390px; checks no horizontal scrolling, real image loading, keyboard use,
                       # mobile menu; writes docs/screenshots/*
@@ -392,7 +392,6 @@ All configuration lives in environment variables (see `.env.example`). The exter
 | Variable | Needed for | Without it |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Claude answers, vision descriptions | extractive answers, no AI image descriptions |
-| `GEMINI_API_KEY` | Gemini answers (`LLM_PROVIDER=auto` or `gemini`; `GEMINI_MODEL`, default `gemini-flash-latest`, the Flash models are on Google's free tier). Used when no Anthropic key is set | extractive answers |
 | `ADMIN_TOKEN` | `/api/admin/*` | admin endpoints return 503 |
 | `QDRANT_API_KEY` | secured Qdrant server / cloud | not needed for local or embedded Qdrant |
 | Hugging Face access | first download of `BAAI/bge-m3` | set `EMBEDDING_MODEL` to a local path, or use `hashing` |

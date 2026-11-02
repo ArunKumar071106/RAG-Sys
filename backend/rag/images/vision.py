@@ -23,10 +23,10 @@ VISION_PROMPT = (
 
 
 class VisionDescriber:
-    def __init__(self, model: str, max_tokens: int = 1024):
+    def __init__(self, model: str, max_tokens: int = 1024, api_key: str | None = None):
         import anthropic
 
-        self.client = anthropic.Anthropic()
+        self.client = anthropic.Anthropic(api_key=api_key or None)
         self.model = model
         self.max_tokens = max_tokens
 
@@ -61,11 +61,11 @@ class VisionDescriber:
         return " ".join(b.text for b in response.content if b.type == "text").strip()
 
 
-def get_vision_describer(enabled: bool, model: str) -> VisionDescriber | None:
+def get_vision_describer(enabled: bool, model: str, api_key: str | None = None) -> VisionDescriber | None:
     if not enabled:
         return None
     try:
-        return VisionDescriber(model)
+        return VisionDescriber(model, api_key=api_key)
     except Exception as exc:  # missing credentials etc.
         log.warning("Vision descriptions disabled: %s", exc)
         return None

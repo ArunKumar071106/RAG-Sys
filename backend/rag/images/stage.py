@@ -73,7 +73,7 @@ def run_image_stage(settings: Settings, downloader: ImageDownloader | None = Non
         settings.image_download_timeout, settings.crawl_user_agent,
     )
     ocr = get_ocr_engine(settings.ocr_engine, settings.ocr_min_confidence)
-    vision = get_vision_describer(settings.vision_enabled, settings.vision_model)
+    vision = get_vision_describer(settings.vision_enabled, settings.vision_model, settings.anthropic_api_key)
     described = 0
 
     def reusable(prev: ImageRecord | None) -> bool:
