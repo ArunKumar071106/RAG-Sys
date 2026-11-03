@@ -37,3 +37,10 @@
 {"question": "Cyber security faculty", "expected_url_patterns": ["/cyber-dept/faculty-list/"]}
 {"question": "Science and Humanities faculty", "expected_url_patterns": ["/science-dept/faculty-list/"]}
 {"question": "What is the weather on the moon today?", "answerable": false}
+{"question": "What is the eligibility for B.E. / B.Tech admission?", "expected_url_patterns": ["re:/admission/$"]}
+{"question": "How many seats are there in each department?", "expected_url_patterns": ["re:/admission/$|/aaa/products-and-services/|/about-college/"]}
+{"question": "How do I apply for admission online?", "expected_url_patterns": ["/admission/online-admission/"]}
+{"question": "What documents are needed for admission?", "expected_url_patterns": ["re:/admission/$"]}
+{"question": "What scholarships are available based on +2 cut-off marks?", "expected_url_patterns": ["re:/admission/$"]}
+{"question": "Are hostels available for boys and girls?", "expected_url_patterns": ["/aaa-hostels/"]}
+{"question": "Whom should I contact for admission?", "expected_url_patterns": ["re:/admission/$|/admission-officer/"]}

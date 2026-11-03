@@ -505,6 +505,54 @@ def test_a_count_question_about_one_department_gets_its_row():
     assert "CIVIL" in faculty  # not a count question: tables stay whole
 
 
+def test_extractive_answers_quote_each_fact_once_and_only_sections_about_the_question():
+    from rag.llm.client import ExtractiveAnswerer
+
+    def section(cid, url, title, path, text):
+        return RetrievedChunk(chunk_id=cid, doc_id=url, url=url, page_title=title, heading_path=path, text=text, score=1)
+
+    # the same intake table on two pages, with department links on one: quoted once
+    about = section("ab", "https://c.example/about-college/", "About college", ["B.E.COURSES"],
+                    "Department: CIVIL ENGINEERING | INTAKE: 60\nDepartment: MECHANICAL ENGINEERING | INTAKE: 60")
+    admission = section("ad", "https://c.example/admission/", "Admission", ["B.E.COURSES"],
+                        "Department: [CIVIL ENGINEERING](https://c.example/civil/) | INTAKE: 60\n"
+                        "Department: [MECHANICAL ENGINEERING](https://c.example/mech/) | INTAKE: 60")
+    # a page that shares the question's other words ("seats" for seating) without its table's words
+    hostel = section("h", "https://c.example/hostels/", "AAA Hostels", [],
+                     "Each room has seats and tables for every student staying in the hostel.")
+    seats = ExtractiveAnswerer().answer("How many seats are there in each department? intake", [about, admission, hostel])
+    assert seats.count("CIVIL ENGINEERING") == 1 and "Hostels" not in seats
+
+    # a section of another page titled after none of the question's words is left out...
+    documents = section("d", "https://c.example/admission/", "Admission", ["Required Documents"],
+                        "- Transfer Certificate\n- Community Certificate")
+    grievances = section("g", "https://c.example/grievances/", "Grievances Redressal", ["Complaints"],
+                         "- Refusing admission or withholding a document deposited for admission")
+    calendar = section("p", "https://c.example/up/26-27-ODD.pdf", "26 27 ODD", [],
+                       "Every admission document is verified in the first week")
+    answer = ExtractiveAnswerer().answer("What documents are needed for admission?", [documents, grievances, calendar])
+    assert "Transfer Certificate" in answer and "Refusing admission" not in answer
+    assert "first week" in answer  # ... but a PDF's title is its file name, so it is judged on its text
+
+    # a list repeated run together on one line is quoted once
+    merit = section("m", "https://c.example/admission/", "Admission", ["Scholarship"],
+                    "- Scholarships for Meritorious students\n- Scholarships for children of single parent\n"
+                    "- Scholarships for school toppers\n"
+                    "- Scholarships for Meritorious students - Scholarships for children of single parent - "
+                    "Scholarships for school toppers")
+    assert ExtractiveAnswerer().answer("What scholarships are available?", [merit]).count("school toppers") == 1
+
+
+def test_the_site_header_and_footer_facts_give_only_the_line_asked_about():
+    from rag.llm.client import SITE_CHROME_TITLE, ExtractiveAnswerer
+
+    chrome = RetrievedChunk(chunk_id="c", doc_id="home", url="https://c.example/", score=1, heading_path=[],
+                            page_title=f"{SITE_CHROME_TITLE} (official website header and footer)",
+                            text="COUNSELLING CODE : 4680\nPhone: 04562-251111\n[APPROVALS](https://c.example/approvals/)")
+    answer = ExtractiveAnswerer().answer("What is the TNEA counselling code of AAACET?", [chrome])
+    assert "4680" in answer and "04562" not in answer and "APPROVALS" not in answer
+
+
 def test_photo_questions_show_the_photos_a_section_links_to(services):
     import asyncio
 

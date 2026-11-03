@@ -28,7 +28,7 @@ test("welcome screen", async ({ page }, info) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Arivazhai" })).toBeVisible();
   await expect(page.getByText(/Vanakkam! I'm Arivazhai, the AAACET admission assistant/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "How do I apply for admission?" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "How do I apply for admission online?" })).toBeVisible();
   await expectNoHorizontalScroll(page);
   await momentGone(page);
   await page.screenshot({ path: join(SHOTS, `${info.project.name}-welcome.png`), fullPage: true });

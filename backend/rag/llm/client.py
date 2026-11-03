@@ -7,11 +7,13 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Protocol
+from urllib.parse import urlsplit
 
 from rag.chunking.tokens import count_tokens
 from rag.index.bm25 import tokenize
 from rag.llm.prompts import SYSTEM_PROMPT
 from rag.models import RetrievedChunk
+from rag.utils import strip_md_links
 
 log = logging.getLogger(__name__)
 
@@ -290,14 +292,33 @@ class ExtractiveAnswerer:
         if not items:
             return ""
         first = share(items[0])
+
+        def title_words(parts: list[tuple[int, RetrievedChunk]]) -> set[str]:
+            return q & set(tokenize(chunk_title_text(parts[0][1])))
+
+        # "documents needed for admission" leads with "Required Documents", titled after most of the
+        # question (not one lucky word, as "department statistics" for a PhD question): a section of
+        # another page titled after none of its words ("Grievances ...") only shares a word in passing
+        by_title = sum(self.term_weight(t) for t in title_words(items[0])) >= 0.5 * total
+        lead = items[0][0][1].url
+
+        def words_of(parts: list[tuple[int, RetrievedChunk]]) -> set[str]:
+            return set(tokenize(chunk_title_text(parts[0][1]))).union(*(set(tokenize(p.text)) for _, p in parts))
+
+        # "how many seats in each department" is answered by the intake table: a later section must name
+        # most of what made the first one match, not only the question's other words ("seats" in a hostel)
+        counted = q & words_of(items[0]) if q & _COUNT_WORDS else set()
+        counted_weight = sum(self.term_weight(t) for t in counted)
         keep_row = self._row_filter(q, [part for parts in items[:max_sections + 2] for _, part in parts])
         blocks: list[str] = []
         seen: set[str] = set()
         for n, parts in enumerate(items):
             if len(blocks) >= max_sections:
                 break
-            if n and share(parts) < 0.75 * first:  # as relevant as the best one, however little that is
-                continue
+            if n and (share(parts) < 0.75 * first or by_title and parts[0][1].url != lead and not title_words(parts)
+                      and _titled_page(parts[0][1])
+                      or counted and sum(self.term_weight(t) for t in counted & words_of(parts)) < 0.5 * counted_weight):
+                continue  # as relevant as the best one, however little that is
             budget = budgets[min(len(blocks), len(budgets) - 1)]
             lines = self._section_quote(parts, q, budget, max_table_rows if not blocks else 15, seen, keep_row)
             if lines and keep_row is not None and blocks and not any(line.startswith("|") for line in lines) \
@@ -358,10 +379,14 @@ class ExtractiveAnswerer:
             out.append("")
             rows = []
 
+        # the site's header and footer are a list of unrelated facts: only the lines the question is about
+        order: list[str] = []
+        facts_only = anchor.page_title.startswith(SITE_CHROME_TITLE)
+        asked = q - {"aaacet", "aaa", "college"}  # every line there is about the college
         for _, part in parts:
             for raw in part.text.splitlines():
                 line = raw.strip()
-                if not line:
+                if not line or facts_only and not asked & set(tokenize(strip_md_links(line))) and not line.startswith("#"):
                     continue
                 heading = re.match(r"^#{1,6}\s+(.+)$", line)
                 if heading:
@@ -369,17 +394,20 @@ class ExtractiveAnswerer:
                     text = heading.group(1).strip()
                     label = "" if text in anchor.heading_path else text
                     continue
-                key = re.sub(r"\W+", "", line.lower())  # "PhD" and "Ph.D." copies of one paragraph are one
-                if key in seen:  # overlap between the pieces of a split section, or the same text on two pages
-                    continue
-                seen.add(key)
+                # "PhD" and "Ph.D." copies of one paragraph are one, and so are a table with links and without
+                key = re.sub(r"\W+", "", strip_md_links(line).lower())
+                if key in seen or len(key) > 60 and key in "".join(order):
+                    continue  # overlap between pieces of a split section, the same text on two pages, a list run together
                 if " | " in line:
+                    seen.add(key)
                     rows.append(line)
                     continue
                 flush()
                 if sum(1 for x in out if x.startswith("- ")) >= budget:
-                    more = True
+                    more = True  # not shown here, so still free to be shown by a later section
                     continue
+                seen.add(key)
+                order.append(key)
                 line = re.sub(r"^[-*•]\s+", "", line)
                 if len(line) > max_chars:
                     cut = line.rfind(". ", 0, max_chars)
@@ -450,6 +478,13 @@ def source_label(chunk: RetrievedChunk, q: set[str] | None = None) -> str:
     return label
 
 
+SITE_CHROME_TITLE = "College contact details"  # the document holding the website's header and footer facts
+
+
+def _titled_page(chunk: RetrievedChunk) -> bool:
+    """A web page whose title says what it is about: not a PDF ("26 27 ODD", a file name) and not the
+    list of header and footer facts."""
+    return not urlsplit(chunk.url).path.lower().endswith(".pdf") and not chunk.page_title.startswith(SITE_CHROME_TITLE)
 # words of a question asking for one value of a row: "how many seats in CSE", "intake of IT"
 _COUNT_WORDS = {"intake", "many", "number", "count", "total", "strength"}
 _CELL_LABEL_RE = re.compile(r"^\s*[^:|]{1,60}:\s")

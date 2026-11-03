@@ -41,3 +41,11 @@
 {"question": "Who are the faculty of the Civil Engineering department?", "expect": ["Krishnapriya"]}
 {"question": "When was the CSE department established?", "expect": ["2013"]}
 {"question": "What is the vision of the ECE department?", "expect": ["premier engineering department"]}
+{"question": "What is the eligibility for B.E. / B.Tech admission?", "expect": ["45%"]}
+{"question": "What is the TNEA counselling code of AAACET?", "expect": ["4680"]}
+{"question": "How many seats are there in each department?", "expect": ["180"]}
+{"question": "How do I apply for admission online?", "expect": ["online-admission"]}
+{"question": "What documents are needed for admission?", "expect": ["Transfer Certificate"]}
+{"question": "What scholarships are available based on +2 cut-off marks?", "expect": ["cut-off of 180"]}
+{"question": "Are hostels available for boys and girls?", "expect": ["Separate Hostels for Boys and Girls"]}
+{"question": "Whom should I contact for admission?", "expect": ["7373527252"]}

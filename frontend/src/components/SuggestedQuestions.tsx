@@ -1,14 +1,16 @@
 import { useId } from "react";
 
-// Worded the way the website words things; each is in backend/eval/questions_aaacet.jsonl,
-// so `make eval` checks it against the real knowledge base.
+// What parents ask most before admission, worded the way the website words things. Each is in
+// backend/eval/questions_aaacet.jsonl, so `make eval` checks it against the real knowledge base.
 export const DEFAULT_SUGGESTIONS = [
-  "What is the intake for each B.E. and B.Tech course?",
-  "How do I apply for admission?",
-  "Tell me about placements and recruiters",
-  "What hostel facilities are available?",
-  "Show me photos of the campus library",
-  "What is the contact phone number and email of the college?",
+  "What is the eligibility for B.E. / B.Tech admission?",
+  "What is the TNEA counselling code of AAACET?",
+  "How many seats are there in each department?",
+  "How do I apply for admission online?",
+  "What documents are needed for admission?",
+  "What scholarships are available based on +2 cut-off marks?",
+  "Are hostels available for boys and girls?",
+  "Whom should I contact for admission?",
 ];
 
 interface Props {
