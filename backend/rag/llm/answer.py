@@ -23,6 +23,7 @@ from rag.llm.prompts import (ANSWER_TRANSLATE_PROMPT, CONTEXT_PROMPT, NO_ANSWER_
                              build_context, build_user_message)
 from rag.models import RetrievedChunk, RetrievedImage
 from rag.retrieval.hybrid import HybridRetriever, expand_query
+from rag.utils import MD_LINK_RE, short_id, strip_md_links
 from rag.retrieval.suggest import department_in
 
 log = logging.getLogger(__name__)
@@ -47,6 +48,8 @@ _FOLLOWUP_RE = re.compile(
 
 
 HISTORY_TURN_CHARS = 2000  # what a prompt uses of each earlier turn
+REWRITE_SECONDS = 15.0  # rewriting a follow-up for searching; skipped when slower
+ANSWER_BUDGET_SECONDS = 80.0  # a whole answer, under the browser's 90 s (VITE_CHAT_TIMEOUT_MS)
 
 
 class ChatTurn(BaseModel):
@@ -114,6 +117,32 @@ def source_out(index: int, chunk: RetrievedChunk) -> SourceOut:
                      heading=" > ".join(chunk.heading_path), snippet=_snippet(chunk.text), score=chunk.score)
 
 
+_IMAGE_FILE_RE = re.compile(r"\.(jpe?g|png|webp|gif)$", re.I)
+
+
+def linked_images(chunks: list[RetrievedChunk], limit: int) -> list[ImageOut]:
+    """Photos a section links to, as image cards labelled with their row: "Department: CSE"."""
+    out: list[ImageOut] = []
+    seen: set[str] = set()
+    for chunk in chunks:
+        for line in chunk.text.splitlines():
+            for match in MD_LINK_RE.finditer(line):
+                url = match.group(2)
+                if not _IMAGE_FILE_RE.search(url) or url in seen:
+                    continue
+                seen.add(url)
+                cells = [c for c in line.split(" | ") if match.group(0) not in c]
+                label = strip_md_links(" | ".join(cells) if " | " in line else line).strip(" -")[:120]
+                out.append(ImageOut(id=f"L{len(out) + 1}", image_id="link-" + short_id(url), src=url, original_url=url,
+                                    source_page=chunk.url, page_title=chunk.page_title,
+                                    heading=chunk.heading_path[-1] if chunk.heading_path else chunk.page_title,
+                                    alt=label, caption=label, ocr_text="", description="",
+                                    description_is_ai_generated=False, width=0, height=0))
+                if len(out) >= limit:
+                    return out
+    return out
+
+
 def image_out(index: int, image: RetrievedImage) -> ImageOut:
     return ImageOut(id=f"I{index}", image_id=image.image_id, src=f"/api/images/{image.image_id}/file",
                     original_url=image.url, source_page=image.source_page, page_title=image.page_title,
@@ -169,10 +198,16 @@ class AnswerService:
         self.top_k = top_k
         self.image_top_k = image_top_k
 
-    async def _generate(self, system: str, messages: list[dict]):
-        """One call to the answer model, never longer than its timeout (plus a margin): a model or
-        network that hangs ends in the extractive answer, never in a page waiting forever."""
-        limit = getattr(self.retriever.settings, "llm_timeout_seconds", 45.0) + 5
+    def _search(self, query: str):
+        text = self.retriever.search_text(query, self.top_k)
+        images = self.retriever.search_images(query, self.image_top_k, text.chunks) if text.chunks else []
+        return text, images
+
+    async def _generate(self, system: str, messages: list[dict], limit: float | None = None):
+        """One call to the answer model, never longer than its timeout (plus a margin) or the given limit:
+        a model or network that hangs ends in the extractive answer, never in a page waiting forever."""
+        default = getattr(self.retriever.settings, "llm_timeout_seconds", 45.0) + 5
+        limit = default if limit is None else max(1.0, min(limit, default))
         try:
             return await asyncio.wait_for(self.llm.generate(system, messages), limit)
         except (asyncio.TimeoutError, TimeoutError) as exc:
@@ -243,7 +278,8 @@ class AnswerService:
         else:
             prompt, content = TRANSLATE_PROMPT, f"<question>{escape(query)}</question>"
         try:
-            result = await self._generate(prompt, [{"role": "user", "content": content}])
+            # a quick step: when the model is slow, search with the question as asked instead
+            result = await self._generate(prompt, [{"role": "user", "content": content}], limit=REWRITE_SECONDS)
         except LLMUnavailable as exc:
             log.warning("Could not rewrite the question for searching: %s", exc)
             return query
@@ -275,8 +311,9 @@ class AnswerService:
         timings: dict[str, int] = {}
         t0 = time.perf_counter()
         query = await self.search_query(question, history)
-        text = self.retriever.search_text(query, self.top_k)
-        images = self.retriever.search_images(query, self.image_top_k, text.chunks) if text.chunks else []
+        # the search (embedding, Qdrant over the network) runs in a worker thread: a slow call must not stop
+        # the server from answering anything else meanwhile
+        text, images = await asyncio.to_thread(self._search, query)
         timings["retrieval"] = int((time.perf_counter() - t0) * 1000)
 
         language_notice = "" if self.llm is not None or is_english(question) else (
@@ -290,7 +327,9 @@ class AnswerService:
 
         sources_all = [source_out(i, c) for i, c in enumerate(text.chunks, start=1)]
         images_all = [image_out(i, im) for i, im in enumerate(images, start=1)]
-        allowed_urls = {c.url for c in text.chunks} | {im.url for im in images} | {im.source_page for im in images}
+        allowed_urls = ({c.url for c in text.chunks} | {im.url for im in images} | {im.source_page for im in images}
+                        # links the website gives in the text: the online application form, a brochure, a photo
+                        | {m.group(2) for c in text.chunks for m in MD_LINK_RE.finditer(c.text)})
 
         notice = ""
         model = ""
@@ -299,7 +338,10 @@ class AnswerService:
         t1 = time.perf_counter()
         if self.llm is not None:
             try:
-                result = await self._generate(SYSTEM_PROMPT, self._messages(question, build_context(text.chunks, images), history))
+                # what is left of the question's budget, so the answer arrives before the browser gives up
+                left = ANSWER_BUDGET_SECONDS - (time.perf_counter() - t0)
+                result = await self._generate(SYSTEM_PROMPT, self._messages(question, build_context(text.chunks, images), history),
+                                              limit=left)
                 log.info("%s answered in %.1f s", getattr(self.llm, "name", "LLM"), time.perf_counter() - t1)
                 model = result.model
                 if result.refused:
@@ -342,10 +384,15 @@ class AnswerService:
         # only when the question asks for pictures ("show me photos of ...").
         wants_images = bool(_WANTS_IMAGES_RE.search(question))
         chosen_images = [images_all[i - 1] for i in cited_i]
+        if wants_images:
+            # photos the cited sections link to ("Library photo: CLICK HERE TO VIEW" per department) are the
+            # ones asked for: before the images found by search, which are often thumbnails
+            linked = linked_images([c for c in text.chunks if c.url in cited_pages], self.image_top_k + 2)
+            chosen_images = [*linked, *[im for im in chosen_images if im.original_url not in {x.original_url for x in linked}]]
         from_cited_pages = [im for im in images_all if im.source_page in cited_pages]
         others = [im for im in images_all if im.source_page not in cited_pages] if wants_images else []
         for image in from_cited_pages + others:
-            if len(chosen_images) >= self.image_top_k:
+            if len(chosen_images) >= self.image_top_k + (2 if wants_images else 0):
                 break
             if image not in chosen_images:
                 chosen_images.append(image)

@@ -283,3 +283,26 @@ def test_accordion_titles_survive_chrome_removal():
     doc = extract_html(html, BASE, ALLOWED)
     text = next(b for b in doc.blocks if "Nadar School" in b.text)
     assert text.heading_path[-1] == "Kovilpatti BUS ROUTE TN 84 Z 9849"
+
+
+def test_links_stay_in_the_text_and_table_cells_as_markdown():
+    html = """<html><body><main><h2>Admission</h2><p>Ready? <a href="/admission/online-admission/">APPLY NOW</a></p>
+    <table><tr><th>Department</th><th>Library photo</th></tr>
+    <tr><td>CSE</td><td><a href="https://college.example/up/CSE-LIBRARY.jpg">CLICK HERE TO VIEW</a></td></tr>
+    <tr><td>ECE</td><td><a href="https://college.example/up/ECE.jpg">CLICK HERE TO VIEW</a></td></tr></table>
+    <p>Write to <a href="mailto:a@b.c">a@b.c</a> or go <a href="#top">up</a></p></main></body></html>"""
+    doc = extract_html(html, BASE, ALLOWED)
+    texts = [b.text for b in doc.blocks]
+    assert "Ready? [APPLY NOW](https://college.example/admission/online-admission/)" in texts
+    assert any("Library photo: [CLICK HERE TO VIEW](https://college.example/up/CSE-LIBRARY.jpg)" in t for t in texts)
+    assert "Write to a@b.c or go up" in texts  # mail and same-page anchors stay plain text
+
+
+def test_search_sees_link_words_without_addresses():
+    from rag.chunking.tokens import count_tokens
+    from rag.models import TextChunk
+
+    chunk = TextChunk(chunk_id="c", doc_id="d", url="u", page_title="Admission", text="[APPLY NOW](https://x.example/a/b/c/)",
+                      token_count=2, chunk_index=0, content_hash="h")
+    assert chunk.embedding_text() == "Admission\nAPPLY NOW"
+    assert count_tokens(chunk.text) == count_tokens("APPLY NOW")

@@ -246,3 +246,9 @@ def test_tables_beside_the_best_one_with_the_same_columns_follow_it():
     top = RetrievedChunk(chunk_id="be", doc_id="adm", url=chunks["be"].url, page_title="Admission",
                          heading_path=parts["be"][0], text=be, score=1)
     assert [c.chunk_id for c in retriever.with_sibling_tables([top])] == ["be", "bt"]  # not the Ph.D. text
+
+
+def test_apply_questions_mean_admission_unless_about_a_job(services):
+    norm = services.retriever.normalize_query
+    assert "online admission" in norm("how to apply online")
+    assert "admission" not in norm("faculty job application").lower()

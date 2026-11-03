@@ -483,3 +483,56 @@ def test_a_question_that_stands_on_its_own_makes_one_model_call(services):
     llm.calls.clear()
     asyncio.run(answers.answer("what about its fees?", history))
     assert len(llm.calls) == 2  # a follow-up is rewritten with the conversation, then answered
+
+
+def test_a_count_question_about_one_department_gets_its_row():
+    from rag.llm.client import ExtractiveAnswerer
+
+    def table(cid, path, rows):
+        return RetrievedChunk(chunk_id=cid, doc_id="adm", url="https://c.example/admission/", page_title="Admission",
+                              heading_path=path, text="\n".join(rows), score=1)
+
+    be = table("be", ["Courses offered", "B.E.COURSES"], ["Department: CIVIL ENGINEERING | INTAKE: 60",
+                                                         "Department: COMPUTER SCIENCE AND ENGINEERING | INTAKE: 180",
+                                                         "Department: MECHANICAL ENGINEERING | INTAKE: 60"])
+    btech = table("bt", ["Courses offered", "B.Tech COURSES"], ["DEPARTMENT: INFORMATION TECHNOLOGY | INTAKE: 60",
+                                                               "DEPARTMENT: ARTIFICIAL INTELLIGENCE & DATA SCIENCE | INTAKE: 120"])
+    one = ExtractiveAnswerer().answer("how many seats in Computer Science and Engineering intake", [be, btech])
+    assert "| COMPUTER SCIENCE AND ENGINEERING | 180 |" in one and "CIVIL" not in one and "INFORMATION" not in one
+    every = ExtractiveAnswerer().answer("how many seats for each department intake", [be, btech])
+    assert "CIVIL" in every and "INFORMATION TECHNOLOGY" in every  # no department named: every row
+    faculty = ExtractiveAnswerer().answer("Computer Science and Engineering faculty list", [be, btech])
+    assert "CIVIL" in faculty  # not a count question: tables stay whole
+
+
+def test_photo_questions_show_the_photos_a_section_links_to(services):
+    import asyncio
+
+    from rag.llm.answer import linked_images
+
+    chunk = RetrievedChunk(chunk_id="lib", doc_id="lib", url="https://c.example/library/", page_title="Library",
+                           heading_path=["Department Library"], score=1,
+                           text="Department: CSE | Library photo: [CLICK HERE TO VIEW](https://c.example/up/CSE-LIB.jpg)\n"
+                                "Department: ECE | Library photo: [CLICK HERE TO VIEW](https://c.example/up/ECE-LIB.jpg)\n"
+                                "[Online journals](https://journals.example/)")
+    images = linked_images([chunk], 6)
+    assert [im.original_url for im in images] == ["https://c.example/up/CSE-LIB.jpg", "https://c.example/up/ECE-LIB.jpg"]
+    assert images[0].caption == "Department: CSE" and images[0].src == images[0].original_url
+
+
+def test_a_slow_follow_up_rewrite_is_skipped_and_the_answer_still_comes(services, monkeypatch):
+    import asyncio
+
+    from rag.llm import answer as answer_module
+
+    class SlowRewrite(FakeLLM):
+        async def generate(self, system, messages):
+            if system != SYSTEM_PROMPT:  # the rewrite of the follow-up
+                await asyncio.sleep(3600)
+            return await super().generate(system, messages)
+
+    monkeypatch.setattr(answer_module, "REWRITE_SECONDS", 0.1)
+    llm = SlowRewrite("Hostel fees are listed under Fees [S1].")
+    history = [ChatTurn(role="user", content="Tell me about the hostel"), ChatTurn(role="assistant", content="...")]
+    result = asyncio.run(AnswerService(services.retriever, llm).answer("what about its fees?", history))
+    assert result.mode == "llm" and "Hostel fees" in result.answer

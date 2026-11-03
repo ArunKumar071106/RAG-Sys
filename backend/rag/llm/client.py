@@ -290,6 +290,7 @@ class ExtractiveAnswerer:
         if not items:
             return ""
         first = share(items[0])
+        keep_row = self._row_filter(q, [part for parts in items[:max_sections + 2] for _, part in parts])
         blocks: list[str] = []
         seen: set[str] = set()
         for n, parts in enumerate(items):
@@ -298,13 +299,41 @@ class ExtractiveAnswerer:
             if n and share(parts) < 0.75 * first:  # as relevant as the best one, however little that is
                 continue
             budget = budgets[min(len(blocks), len(budgets) - 1)]
-            lines = self._section_quote(parts, q, budget, max_table_rows if not blocks else 15, seen)
+            lines = self._section_quote(parts, q, budget, max_table_rows if not blocks else 15, seen, keep_row)
+            if lines and keep_row is not None and blocks and not any(line.startswith("|") for line in lines) \
+                    and len(q) <= 8:
+                continue  # a short "how many seats in CSE" is answered by its rows; longer questions ask more
             if lines:
                 blocks.append("\n".join(lines))
         return "\n\n".join(blocks)
 
+    @staticmethod
+    def _row_filter(q: set[str], chunks: list[RetrievedChunk]):
+        """For "seats in CSE": the table rows naming what the question names, or None to keep every row.
+        Question words found in fewer than half of the rows (not "engineering", not a column name) pick
+        the rows; the rows matching most of them are kept ("Computer Science" over "Data Science")."""
+        from rag.utils import strip_md_links
+
+        if not q & _COUNT_WORDS:
+            return None  # only "how many seats in CSE": a faculty list keeps every row
+        rows = [strip_md_links(line) for c in chunks for line in c.text.splitlines() if " | " in line]
+        if len(rows) < 2:
+            return None
+        labels = {t for row in rows for cell in row.split(" | ") if ": " in cell for t in tokenize(cell.split(": ", 1)[0])}
+        row_tokens = [set(tokenize(" ".join(cell.split(": ", 1)[-1] for cell in row.split(" | ")))) for row in rows]
+        distinctive = {t for t in q - labels if 0 < sum(t in toks for toks in row_tokens) < len(rows) / 2}
+        if not distinctive:
+            return None
+        best = max(len(distinctive & toks) for toks in row_tokens)
+
+        def keep(row: str) -> bool:
+            values = strip_md_links(" ".join(cell.split(": ", 1)[-1] for cell in row.split(" | ")))
+            return len(distinctive & set(tokenize(values))) == best
+
+        return keep
+
     def _section_quote(self, parts: list[tuple[int, RetrievedChunk]], q: set[str], budget: int, max_rows: int,
-                       seen: set[str], max_chars: int = 700) -> list[str]:
+                       seen: set[str], keep_row=None, max_chars: int = 700) -> list[str]:
         anchor = parts[0][1]
         out: list[str] = []
         rows: list[str] = []
@@ -318,6 +347,10 @@ class ExtractiveAnswerer:
             labelled = [r for r in rows if all(_CELL_LABEL_RE.match(cell) for cell in r.split(" | "))]
             if len(labelled) * 2 >= len(rows):
                 rows = labelled
+            if keep_row is not None:
+                rows = [r for r in rows if keep_row(r)]
+                if not rows:
+                    return
             table = markdown_table(rows[:max_rows], q)
             out.extend(([""] if out else []) + (table if table else [f"- {r}" for r in rows[:max_rows]]))
             if len(rows) > max_rows:
@@ -417,6 +450,8 @@ def source_label(chunk: RetrievedChunk, q: set[str] | None = None) -> str:
     return label
 
 
+# words of a question asking for one value of a row: "how many seats in CSE", "intake of IT"
+_COUNT_WORDS = {"intake", "many", "number", "count", "total", "strength"}
 _CELL_LABEL_RE = re.compile(r"^\s*[^:|]{1,60}:\s")
 _SERIAL_RE = re.compile(r"^(s|sl|sr|emp)\.?\s*n(o|r)?\.?$|^(s\.?\s*)?no\.?$", re.I)
 _BLANK_VALUES = {"", "-", "–", "—", "na", "n/a", "nil.", "--"}

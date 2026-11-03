@@ -423,7 +423,14 @@ class HybridRetriever:
         if self.semantic_enabled:
             with self._lock:
                 future = self._image_hits.pop(query, None)
-            semantic = future.result() if future is not None else self._image_semantic(query, self._query_vector(query))
+            semantic: list[tuple[str, float]] = []
+            if future is not None:
+                try:
+                    semantic = future.result(timeout=self.settings.qdrant_timeout)
+                except Exception as exc:  # a slow or failed image search leaves the images to keyword search
+                    log.warning("Image search failed: %s", exc)
+            else:
+                semantic = self._image_semantic(query, self._query_vector(query))
         keyword = [(cid, score) for cid, score in self.bm25_images.search(query, s.bm25_candidates) if cid in self.corpus.image_chunks]
 
         page_linked: list[str] = []

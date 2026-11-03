@@ -27,7 +27,10 @@ _counter: Callable[[str], int] = approx_token_count
 
 
 def count_tokens(text: str) -> int:
-    return _counter(text)
+    """Tokens of the text as search sees it: a link counts as its words, not its address."""
+    from rag.utils import strip_md_links
+
+    return _counter(strip_md_links(text) if "](" in text else text)
 
 
 def set_token_counter(counter: Callable[[str], int]) -> None:

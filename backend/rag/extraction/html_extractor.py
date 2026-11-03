@@ -14,6 +14,7 @@ corpus level (see ``boilerplate.py``).
 
 from __future__ import annotations
 
+import copy
 import re
 from pathlib import PurePosixPath
 from urllib.parse import unquote, urlsplit
@@ -194,6 +195,31 @@ class _Walker:
                 image.context_after = text[:300]
         self._pending_images = still_pending
 
+    def _link_url(self, tag: Tag) -> str:
+        """The absolute http(s) address an <a> points to, or "" (anchors, mail, phone, scripts, this page)."""
+        href = (tag.get("href") or "").strip()
+        if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
+            return ""
+        url = normalize_url(href, self.page_url)
+        return url if url.startswith(("http://", "https://")) and url != self.page_url else ""
+
+    def _linked_text(self, tag: Tag) -> str:
+        """The text of an element with its links kept as Markdown: "[APPLY NOW](https://.../online-admission/)",
+        "[CLICK HERE TO VIEW](https://.../CSE-LIBRARY.jpg)". Search strips the addresses again."""
+        def markdown(a: Tag) -> str:
+            text = clean_text(a.get_text(" ", strip=True)).replace("[", "(").replace("]", ")")
+            url = self._link_url(a).replace("(", "%28").replace(")", "%29").replace(" ", "%20")
+            return f"[{text}]({url})" if text and url and not text.lower().startswith(("http", "www.")) else text
+
+        if tag.name == "a":
+            return markdown(tag)
+        if not tag.find("a", href=True):
+            return tag.get_text(" ", strip=True)
+        clone = copy.copy(tag)  # the page itself is walked on afterwards, with its links
+        for a in clone.find_all("a", href=True):
+            a.replace_with(NavigableString(f" {markdown(a)} "))
+        return clone.get_text(" ", strip=True)
+
     def _add_link(self, tag: Tag) -> None:
         href = (tag.get("href") or "").strip()
         if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
@@ -276,7 +302,7 @@ class _Walker:
             if tr.find_parent("table") is not table:
                 continue  # nested table rows are handled with the nested table
             cells = tr.find_all(["th", "td"], recursive=False)
-            values = [clean_text(c.get_text(" ", strip=True)) for c in cells]
+            values = [clean_text(self._linked_text(c)) for c in cells]
             if not any(values):
                 continue
             is_header = all(c.name == "th" for c in cells) or (tr.find_parent("thead") is not None)
@@ -401,7 +427,7 @@ class _Walker:
                     self._add_link(child)
                 for img in child.find_all("img"):
                     self._image_from_tag(img)
-                buffer.append(child.get_text(" ", strip=True))
+                buffer.append(self._linked_text(child))
             elif name in HEADING_TAGS:
                 flush()
                 self._heading(child)
@@ -419,7 +445,7 @@ class _Walker:
                 flush()
                 self._collect_inline(child)
                 prefix = "- " if name == "li" else ""
-                self._emit_text(prefix + child.get_text(" ", strip=True))
+                self._emit_text(prefix + self._linked_text(child))
             else:
                 flush()
                 self.walk(child)

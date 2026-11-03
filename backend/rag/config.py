@@ -113,6 +113,9 @@ class Settings(BaseSettings):
         r"\b(where|located|location|situated|how to reach)\b": "address",
         r"\b(phone|mobile|call|contact number)\b": "phone",
         r"\bseats?\b": "intake",
+        # "how to apply online": admission, unless the question is about a job
+        r"^(?!.*\b(jobs?|faculty|vacanc\w*|careers?|recruit\w*|posts?|staff)\b).*\b(apply|applying|application)\b":
+            "admission online admission apply now",
         r"\b(bus|buses|transport)\b": "transport facilities",
         r"\bwi-?fi\b": "Wi-Fi internet",
         r"\bplacement (officer|cell|head)|\btpo\b": "training placement cell",

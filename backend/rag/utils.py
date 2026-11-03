@@ -70,6 +70,14 @@ def is_allowed_host(url: str, allowed_domains: Iterable[str]) -> bool:
     return False
 
 
+MD_LINK_RE = re.compile(r"\[([^\]\n]*)\]\((https?://[^\s)]+)\)")
+
+
+def strip_md_links(text: str) -> str:
+    """ "[APPLY NOW](https://...)" -> "APPLY NOW": what search sees of a link kept in the text."""
+    return MD_LINK_RE.sub(r"\1", text)
+
+
 def clean_text(text: str) -> str:
     """Normalise unicode and whitespace while keeping paragraph breaks."""
     text = unicodedata.normalize("NFKC", text)

@@ -75,6 +75,9 @@ flowchart LR
    **Tab panels and accordions** (89 of the site's pages, e.g. the admission page's "Courses offered", "Management
    Quota", "TNEA B.E./B.Tech. Eligibility" tabs) are sections of their own, titled with their tab's name: one tab's
    headings never become the parents of the next tab's content.
+   Links in the text and in table cells stay as Markdown (`[APPLY NOW](https://…/online-admission/)`,
+   `Library photo: [CLICK HERE TO VIEW](https://…/CSE-LIBRARY.jpg)`), so answers can link the application form and
+   show the photos a table links to; search (embeddings, BM25, chunk sizes) sees the link words without addresses.
    Accordion titles are kept although Elementor wraps them in a `…-title-header` class (it removed every bus route's
    name). Cards drawn as a run of headings with nothing under them (a department's labs, the college's mission
    points) become a bullet list of their section instead of being dropped as empty.
@@ -168,7 +171,10 @@ flowchart LR
   `ant auth login` profile) and also used for image descriptions. Without a key, or when Claude fails, answers
   quote the website. Every model call
   is limited to `LLM_TIMEOUT_SECONDS` (45 s, under the browser's 90 s): a slow or hanging model ends in the quoted
-  answer, never in a page that keeps "Searching the official website…". The log shows how long each answer took.
+  answer, never in a page that keeps "Searching the official website…". A follow-up's rewrite for searching gets
+  15 s (then the question is searched as asked) and the whole answer 80 s; a stand-alone question makes one model
+  call. The search itself runs in a worker thread, so a slow Qdrant call never stalls other requests. The log shows
+  how long each answer took.
 * Questions about the college's strengths ("Why should I choose this college?", "what is special about AAACET")
   search for its "About College" sections (youngest NAAC 'A' college, ISO 21001, research centre, 400+ papers).
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and
@@ -176,7 +182,14 @@ flowchart LR
   table up to 40 rows), up to two more shorter, and only while they share most of the question's weight with the
   first, so "what documents should I bring" lists every certificate instead of one matching line. When the best
   results are subsections of one section (each bus route of the transport page), that section's own overview goes
-  first. `EXTRACTIVE_WHOLE_SECTIONS=false` restores the older composer described next: a short section whose title names the question ("TNEA B.E./B.Tech. Eligibility", "Fees",
+  first.
+  When the best result is a table, the tables beside it with the same columns follow it ("seats for each department":
+  the B.E. and the B.Tech intake tables). A count question about some rows ("how many seats in CSE", "AI&DS intake")
+  keeps just those rows: question words found in fewer than half of the rows pick them. A question naming only a
+  department ("ECE dept details", "mechanical department") searches its "About the Department" page; "details",
+  "info" and "dept" are request words; "apply" means admission unless the question is about a job. Photo questions
+  show the images first: the photos the quoted section links to, then those found by search (thumbnails last).
+  `EXTRACTIVE_WHOLE_SECTIONS=false` restores the older composer described next: a short section whose title names the question ("TNEA B.E./B.Tech. Eligibility", "Fees",
   "Required Documents") is quoted whole, with its sub-headings as labels ("**Tuition Fee:** …"), so the line with the
   answer is never dropped; equally named sections of one page are all quoted ("Eligibility" gives B.E., M.E. and
   Ph.D.). Extractive answers are formatted too: a table answer becomes one compact Markdown table

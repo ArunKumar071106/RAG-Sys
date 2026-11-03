@@ -82,8 +82,12 @@ class TextChunk(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
     def embedding_text(self) -> str:
+        """Title, headings and text, links without their addresses (they are for the reader, not search)."""
+        from rag.utils import strip_md_links
+
         crumbs = " > ".join([self.page_title, *self.heading_path]).strip(" >")
-        return f"{crumbs}\n{self.text}" if crumbs else self.text
+        text = strip_md_links(self.text)
+        return f"{crumbs}\n{text}" if crumbs else text
 
 
 ImageStatus = Literal[
