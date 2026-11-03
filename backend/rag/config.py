@@ -112,7 +112,7 @@ class Settings(BaseSettings):
     query_synonyms: dict[str, str] = {
         r"\b(where|located|location|situated|how to reach)\b": "address",
         r"\b(phone|mobile|call|contact number)\b": "phone",
-        r"\bseats?\b": "intake",
+        r"^(?!.*\b(apply|applying|application|book|booking|reserve)\b).*\bseats?\b": "intake",  # not "apply for a seat"
         # "how to apply online": admission, unless the question is about a job
         r"^(?!.*\b(jobs?|faculty|vacanc\w*|careers?|recruit\w*|posts?|staff)\b).*\b(apply|applying|application)\b":
             "admission online admission apply now",
@@ -123,6 +123,11 @@ class Settings(BaseSettings):
         # website's "About AAACET" / "About College" sections state them
         r"\bwhy\b.*\b(choose|join|select|prefer|study|apply)\b|\b(special|unique|advantages?|highlights?|strengths?)\b"
         r"|\b(best|good|top)\s+(engineering\s+)?college\b": "About AAACET college youngest NAAC A grade ISO 21001 accredited",
+    }
+    # Pages of another intent, ranked lower when the search matches the pattern (search pattern -> page pattern,
+    # matched against the page's address, title and headings).
+    query_demotions: dict[str, str] = {
+        r"\badmission\b": r"career|vacanc|faculty[- ]application|recruit",
     }
     # Department names as the website writes them; type-ahead suggests questions about each.
     departments: CsvList = [

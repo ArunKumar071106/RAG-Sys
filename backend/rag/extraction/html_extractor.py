@@ -201,7 +201,9 @@ class _Walker:
         if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
             return ""
         url = normalize_url(href, self.page_url)
-        return url if url.startswith(("http://", "https://")) and url != self.page_url else ""
+        if not url.startswith(("http://", "https://")) or (url == self.page_url and not tag.get("data-form")):
+            return ""
+        return url
 
     def _linked_text(self, tag: Tag) -> str:
         """The text of an element with its links kept as Markdown: "[APPLY NOW](https://.../online-admission/)",
@@ -475,6 +477,19 @@ def _decode_cf_emails(soup: BeautifulSoup) -> None:
             a["href"] = f"mailto:{email}"
 
 
+def _link_forms(root: Tag, soup: BeautifulSoup, page_url: str) -> None:
+    """A form (online admission, enquiry) cannot be quoted, and "Please fill the form below" without it
+    leaves the student nowhere to go: the form becomes a link to the page that has it."""
+    for form in root.find_all("form"):
+        if len(form.find_all(["input", "textarea", "select"])) - len(form.find_all("input", type="hidden")) < 2:
+            continue  # a search box, not a form to fill in
+        paragraph = soup.new_tag("p")
+        link = soup.new_tag("a", href=page_url, attrs={"data-form": "1"})
+        link.string = "Fill in the form on the official website"
+        paragraph.append(link)
+        form.replace_with(paragraph)
+
+
 def _strip_chrome(root: Tag) -> None:
     for tag in root.find_all(REMOVE_TAGS):
         tag.decompose()
@@ -522,6 +537,7 @@ def extract_html(html: str, url: str, allowed_domains: list[str], fetched_at: st
 
     main = soup.find("main") or soup.find(attrs={"role": "main"}) or soup.find("article")
     root = main if main is not None else body
+    _link_forms(root, soup, url)
     _strip_chrome(root)
     walker.walk(root)
     # Images left without following context keep context_after empty.

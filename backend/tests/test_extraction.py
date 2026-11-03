@@ -306,3 +306,13 @@ def test_search_sees_link_words_without_addresses():
                       token_count=2, chunk_index=0, content_hash="h")
     assert chunk.embedding_text() == "Admission\nAPPLY NOW"
     assert count_tokens(chunk.text) == count_tokens("APPLY NOW")
+
+
+def test_a_form_to_fill_becomes_a_link_to_its_page():
+    html = """<html><body><main><h2>Online Admission</h2><p>Please fill the form below.</p>
+    <form><input name="name"><input name="phone"><select name="course"><option>CSE</option></select></form>
+    <form role="search"><input name="s"></form></main></body></html>"""
+    doc = extract_html(html, "https://college.example/admission/online-admission/", ALLOWED)
+    texts = [b.text for b in doc.blocks]
+    assert "[Fill in the form on the official website](https://college.example/admission/online-admission/)" in texts
+    assert sum("Fill in the form" in t for t in texts) == 1  # a search box is not a form to fill in

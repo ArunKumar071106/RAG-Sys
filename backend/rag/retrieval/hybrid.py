@@ -278,8 +278,17 @@ class HybridRetriever:
         # Tie-breakers, not ranking lists: a mild prior by page type (official pages over news
         # posts) and a small boost when the question's terms appear in the page title/headings.
         weights = s.kind_weights
+        # pages of another intent rank lower: an admission question is not about job vacancies
+        demote = [re.compile(pages, re.I) for asked, pages in s.query_demotions.items() if re.search(asked, query, re.I)]
+
+        def off_topic(cid: str) -> float:
+            chunk = self.corpus.chunks[cid]
+            where = f"{chunk.url} {chunk.page_title} {' '.join(chunk.heading_path)}"
+            return 0.4 if any(p.search(where) for p in demote) else 1.0
+
         fused = sorted(((cid, score * weights.get(self.corpus.chunks[cid].metadata.get("kind", "page"), 1.0)
-                         * (1.0 + s.title_boost * title_match[cid])) for cid, score in fused), key=lambda x: -x[1])
+                         * (1.0 + s.title_boost * title_match[cid]) * off_topic(cid)) for cid, score in fused),
+                       key=lambda x: -x[1])
 
         results: list[RetrievedChunk] = []
         seen_hashes: set[str] = set()
