@@ -66,7 +66,8 @@ class Reranker:
 
 # Words that ask for a kind of answer ("show me photos of ...") rather than describing the topic.
 _REQUEST_WORDS_RE = re.compile(
-    r"\b(show( me)?|display|photos?|pictures?|pics?|images?|gallery|look(s)? like|view of|available|availability)\b", re.I
+    r"\b(show( me)?|display|photos?|pictures?|pics?|images?|gallery|look(s)? like|view of|available|availability"
+    r"|details?|info|information)\b", re.I
 )
 # Words too common to make a phrase: "counselling code" and "required documents" are phrases,
 # "is the" is not.
@@ -123,6 +124,14 @@ def chunk_title_text(chunk) -> str:
     return " ".join([chunk.page_title.split(" – ")[0].split(" | ")[0], path_words, *chunk.heading_path, *inner])
 
 
+def _table_labels(text: str) -> frozenset[str]:
+    """The column labels of a "Label: value | Label: value" table, case-insensitive."""
+    for line in text.splitlines():
+        if " | " in line and ": " in line:
+            return frozenset(cell.split(": ", 1)[0].strip().lower() for cell in line.split(" | ") if ": " in cell)
+    return frozenset()
+
+
 def expand_query(query: str, expansions: dict[str, str]) -> str:
     """Replace short forms in the question with the names the website uses: "AI&DS faculty"
     searches "Artificial Intelligence and Data Science faculty". Replacing (not appending)
@@ -177,7 +186,8 @@ class HybridRetriever:
         "department" dropped when a department is named (it is implied, and "About Department"
         pages would otherwise outrank the department's "Faculty List"), and words the website uses
         for the question's intent added ("where is the college" -> "address")."""
-        text = expand_query(content_query(query), self.settings.query_expansions)
+        text = re.sub(r"\bdepts?\b", "department", content_query(query), flags=re.I)
+        text = expand_query(text, self.settings.query_expansions)
         lowered = text.lower()
         named = [d for d in self.settings.departments if d.lower() in lowered]
         if named:
@@ -187,6 +197,9 @@ class HybridRetriever:
             rest = re.sub(r"\bdepartments?\b", " ", lowered.replace(max(named, key=len).lower(), " "))
             if any(w not in _PHRASE_STOP for w in re.findall(r"[a-z]{3,}", rest)):
                 text = re.sub(r"\bdepartments?\b", " ", text, flags=re.I)
+            elif "about the department" not in lowered:
+                # only the department is named ("ECE dept details"): its "About the Department" page
+                text += " About the Department"
         extra = [words for pattern, words in self.settings.query_synonyms.items() if re.search(pattern, text, re.I)
                  and words.lower() not in lowered]
         return re.sub(r"\s+", " ", " ".join([text, *extra])).strip()
@@ -297,6 +310,42 @@ class HybridRetriever:
             best_bm25=max((s_ for _, s_ in keyword), default=0.0),
         )
 
+    def with_sibling_tables(self, chunks: list[RetrievedChunk], max_siblings: int = 4) -> list[RetrievedChunk]:
+        """When the best result is a table, the tables beside it with the same columns follow it: "seats
+        for each department" is answered by the B.E. intake table *and* the B.Tech one under "Courses
+        offered", though only the first ranks high."""
+        if not chunks or " | " not in chunks[0].text or len(chunks[0].heading_path) < 2:
+            return chunks
+        top = chunks[0]
+        labels = _table_labels(top.text)
+        if not labels:
+            return chunks
+        have = {c.chunk_id for c in chunks}
+        extra: list[RetrievedChunk] = []
+        siblings = 0
+        for key, ids in self._sections_under(top.doc_id, tuple(top.heading_path[:-1])):
+            if key[1] == tuple(top.heading_path) or siblings >= max_siblings:
+                continue
+            if _table_labels(self.corpus.chunks[ids[0]].text) != labels:
+                continue
+            siblings += 1
+            for cid in ids:
+                if cid not in have:
+                    part = self.corpus.chunks[cid]
+                    extra.append(RetrievedChunk(chunk_id=cid, doc_id=part.doc_id, url=part.url, page_title=part.page_title,
+                                                heading_path=part.heading_path, text=part.text, score=top.score))
+        return [top, *extra, *chunks[1:]] if extra else chunks
+
+    def _sections_under(self, doc_id: str, parent: tuple) -> list[tuple[tuple, list[str]]]:
+        """The direct subsections of a section, in page order."""
+        if not hasattr(self, "_children"):
+            children: dict[tuple, list[tuple[tuple, list[str]]]] = {}
+            for key, ids in self.corpus.sections.items():
+                if key[1] and ids:
+                    children.setdefault((key[0], key[1][:-1]), []).append((key, ids))
+            self._children = children
+        return self._children.get((doc_id, parent), [])
+
     def with_parent_overview(self, chunks: list[RetrievedChunk], min_children: int = 2) -> list[RetrievedChunk]:
         """When the best results are subsections of one section ("Is there college bus?": a page of
         bus routes, each its own accordion item), that section's own text is the overview the
@@ -387,9 +436,15 @@ class HybridRetriever:
         bm_score = dict(keyword)
         fused = reciprocal_rank_fusion([[c for c, _ in semantic], [c for c, _ in keyword], page_linked], k=s.rrf_k,
                                        weights=[1.0, 1.0, 0.5])
-        # same page-type prior as text: photos on official pages before news-post photos
+        # same page-type prior as text: photos on official pages before news-post photos; thumbnails and
+        # staff headshots (150x150) after real photos
+        def thumbnail(iid: str) -> bool:
+            meta = self.corpus.image_chunks[iid].metadata
+            return 0 < max(meta.get("width", 0) or 0, meta.get("height", 0) or 0) < 300
+
         fused = sorted(((iid, score * s.kind_weights.get(self.corpus.page_kinds.get(
-            self.corpus.image_chunks[iid].source_page, "page"), 1.0)) for iid, score in fused), key=lambda x: -x[1])
+            self.corpus.image_chunks[iid].source_page, "page"), 1.0) * (0.5 if thumbnail(iid) else 1.0))
+                        for iid, score in fused), key=lambda x: -x[1])
         images: list[RetrievedImage] = []
         for image_id, score in fused:
             lexical = image_id in bm_score

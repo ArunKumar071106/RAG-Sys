@@ -178,6 +178,12 @@ class AnswerService:
         except (asyncio.TimeoutError, TimeoutError) as exc:
             raise LLMUnavailable(f"No answer from the AI model within {limit:.0f} s") from exc
 
+    def _leans_on_earlier(self, question: str) -> bool:
+        """A follow-up that needs the conversation to be searched: "what about its labs?", "and ECE?",
+        "fees?" - a reference word, or too few words of its own."""
+        asked = tokenize(self.retriever.normalize_query(question))
+        return bool(_FOLLOWUP_RE.search(question)) or len(asked) <= 2
+
     def retrieval_query(self, question: str, history: list[ChatTurn]) -> str:
         """What to search for a question that may lean on the previous one (without an LLM):
         "what about its labs?" after a CSE question searches CSE labs, "and ECE?" after "faculty of
@@ -227,6 +233,10 @@ class AnswerService:
         earlier = [t.content[:300] for t in history if t.role == "user" and t.content.strip()][-3:]
         if self.llm is None or (is_english(question) and not earlier):
             return query
+        if is_english(question) and not self._leans_on_earlier(question):
+            # "What is the hostel fee?" after other questions stands on its own: no second model call
+            # (which would double the wait) before the answer
+            return query
         if earlier:
             listed = "\n".join(f"- {escape(q)}" for q in earlier)
             prompt, content = CONTEXT_PROMPT, f"<conversation>\n{listed}\n</conversation>\n<question>{escape(question)}</question>"
@@ -252,7 +262,11 @@ class AnswerService:
         return sanitize_links(result.text.strip(), allowed)
 
     async def answer(self, question: str, history: list[ChatTurn] | None = None) -> ChatResult:
+        started = time.perf_counter()
         result = await self._answer(question, history or [])
+        timings = result.timings_ms or {}
+        log.info("Answered in %.1f s (search %.1f s, %s %.1f s)", time.perf_counter() - started,
+                 timings.get("retrieval", 0) / 1000, result.mode, timings.get("generation", 0) / 1000)
         # an AI answer in the question's language can be shown in English on request
         result.translatable = self.llm is not None and result.mode != "extractive" and not is_english(result.answer)
         return result
@@ -271,7 +285,8 @@ class AnswerService:
         if not text.chunks:
             return ChatResult(answer=NO_ANSWER_TEXT, mode="no_answer", insufficient_evidence=True, notice=language_notice,
                               timings_ms=timings)
-        text.chunks = self.retriever.expand_section(self.retriever.with_parent_overview(text.chunks))
+        text.chunks = self.retriever.expand_section(
+            self.retriever.with_sibling_tables(self.retriever.with_parent_overview(text.chunks)))
 
         sources_all = [source_out(i, c) for i, c in enumerate(text.chunks, start=1)]
         images_all = [image_out(i, im) for i, im in enumerate(images, start=1)]
@@ -301,7 +316,9 @@ class AnswerService:
             notice = " ".join(filter(None, ["Answers quote the official website directly (AI answer generation is not configured).",
                                             language_notice]))
         if mode == "extractive":
-            raw = self.extractive.answer(self.retriever.normalize_query(query), text.chunks)
+            # a photo question is answered by the images: one short section of text with them
+            raw = self.extractive.answer(self.retriever.normalize_query(query), text.chunks,
+                                         **({"max_sources": 1, "budget": 4} if _WANTS_IMAGES_RE.search(question) and images else {}))
         timings["generation"] = int((time.perf_counter() - t1) * 1000)
 
         if not raw.strip() or raw.lstrip().startswith(NO_ANSWER_MARKER):

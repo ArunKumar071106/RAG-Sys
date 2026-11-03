@@ -12,6 +12,9 @@ import { SourceList } from "./SourceList";
 import { SuggestedQuestions } from "./SuggestedQuestions";
 import { TranslateToggle } from "./TranslateToggle";
 
+/** Questions asking to see pictures (the same words the API looks for). */
+export const PHOTO_QUESTION = /\b(photos?|pictures?|pics?|images?|gallery|posters?|show me|look(s)? like|view of)\b/i;
+
 function textOf(children: ReactNode): string {
   if (typeof children === "string" || typeof children === "number") return String(children);
   if (Array.isArray(children)) return children.map(textOf).join("");
@@ -91,12 +94,26 @@ export function MessageBubble({ message, onRetry, busy, onAsk }: Props) {
   // the admission and scholarship staff, when that is who can help
   const showStaff = noAnswer || ADMISSION_QUESTION.test(message.question ?? "");
   const followUps = onAsk ? result?.follow_ups ?? [] : [];
+  // "show me photos of the hostel": the photos are the answer, so they come before the text
+  const photoQuestion = PHOTO_QUESTION.test(message.question ?? "");
+  const gallery =
+    result && result.images.length > 0 ? (
+      <section className="images" aria-label="Related images from the official website">
+        <h4 className="images__title">Images from the official website</h4>
+        <div className="images__grid">
+          {result.images.map((image, i) => (
+            <ImageCard key={image.image_id} image={image} index={i + 1} anchorId={`${message.id}-${image.id}`} />
+          ))}
+        </div>
+      </section>
+    ) : null;
 
   return (
     <div className="message message--assistant">
       <AssistantLabel />
       <div className={`bubble bubble--assistant${noAnswer ? " bubble--no-answer" : ""}`}>
         <span className="visually-hidden">Assistant: </span>
+        {photoQuestion && gallery}
         <div className="markdown" dir="auto" lang={english ? "en" : undefined}>
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} skipHtml>
             {markdown}
@@ -107,16 +124,7 @@ export function MessageBubble({ message, onRetry, busy, onAsk }: Props) {
 
         {result?.notice && <p className="notice">{result.notice}</p>}
 
-        {result && result.images.length > 0 && (
-          <section className="images" aria-label="Related images from the official website">
-            <h4 className="images__title">Images from the official website</h4>
-            <div className="images__grid">
-              {result.images.map((image, i) => (
-                <ImageCard key={image.image_id} image={image} index={i + 1} anchorId={`${message.id}-${image.id}`} />
-              ))}
-            </div>
-          </section>
-        )}
+        {!photoQuestion && gallery}
 
         {result && <SourceList sources={result.sources} />}
         {result && noAnswer && result.related_sources.length > 0 && (

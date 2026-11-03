@@ -145,3 +145,24 @@ describe("down arrow to the chat", () => {
     expect(screen.getByRole("button", { name: "Go to the chat below" })).toBeInTheDocument();
   });
 });
+
+describe("photo questions", () => {
+  it("show the images before the text, other questions after it", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(answerResult))));
+    const user = userEvent.setup();
+    render(<ChatWindow />);
+    const order = () => {
+      const bubble = document.querySelectorAll(".bubble--assistant");
+      const last = bubble[bubble.length - 1];
+      const images = last.querySelector(".images");
+      const text = last.querySelector(".markdown");
+      return images && text ? images.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING : null;
+    };
+    await user.type(box(), "show me photos of the hostel{Enter}");
+    await screen.findAllByRole("region", { name: "Related images from the official website" });
+    expect(order()).toBeTruthy(); // images, then text
+    await user.type(box(), "What is the admission process?{Enter}");
+    await vi.waitFor(() => expect(document.querySelectorAll(".bubble--assistant .images").length).toBe(2));
+    expect(order()).toBeFalsy(); // text, then images
+  });
+});

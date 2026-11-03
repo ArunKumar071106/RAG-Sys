@@ -219,3 +219,30 @@ def test_why_choose_questions_search_for_the_colleges_strengths(services):
     for question in ("Why should I choose this college?", "why join AAACET", "what is special about this college"):
         assert "NAAC" in services.retriever.normalize_query(question)
     assert "NAAC" not in services.retriever.normalize_query("Which hostel rooms are available?")
+
+
+def test_department_only_questions_search_the_about_page_and_details_is_a_request_word(services):
+    norm = services.retriever.normalize_query
+    assert norm("ECE dept details") == "Electronics and Communication Engineering department About the Department"
+    assert "About the Department" in norm("mechanical department")  # "mechanical" is the department's name
+    assert "About the Department" not in norm("ECE faculty list")  # a question about something in it
+
+
+def test_tables_beside_the_best_one_with_the_same_columns_follow_it():
+    from types import SimpleNamespace
+
+    from rag.models import RetrievedChunk
+    from rag.retrieval.hybrid import HybridRetriever
+
+    be = "### B.E.COURSES\n\nDepartment: CIVIL ENGINEERING | INTAKE: 60"
+    btech = "### B.Tech COURSES\n\nDEPARTMENT: INFORMATION TECHNOLOGY | INTAKE: 60"
+    phd = "### Ph.D\n\nCOMPUTER SCIENCE AND ENGINEERING"
+    parts = {"be": (["Courses offered", "B.E.COURSES"], be), "bt": (["Courses offered", "B.Tech COURSES"], btech),
+             "phd": (["Courses offered", "Ph.D"], phd)}
+    chunks = {cid: SimpleNamespace(chunk_id=cid, doc_id="adm", url="https://c.example/admission/", page_title="Admission",
+                                   heading_path=path, text=text) for cid, (path, text) in parts.items()}
+    retriever = HybridRetriever.__new__(HybridRetriever)
+    retriever.corpus = SimpleNamespace(chunks=chunks, sections={("adm", tuple(p)): [cid] for cid, (p, _) in parts.items()})
+    top = RetrievedChunk(chunk_id="be", doc_id="adm", url=chunks["be"].url, page_title="Admission",
+                         heading_path=parts["be"][0], text=be, score=1)
+    assert [c.chunk_id for c in retriever.with_sibling_tables([top])] == ["be", "bt"]  # not the Ph.D. text

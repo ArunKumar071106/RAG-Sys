@@ -470,3 +470,16 @@ def test_claude_key_from_dotenv_reaches_the_client(monkeypatch, tmp_path):
     assert llm_client.get_llm(settings) is not None and made["key"] == "sk-ant-from-dotenv"
     assert llm_client.get_llm(Settings(_env_file=None, anthropic_api_key="")) is None  # no key: quote the website
     assert llm_client.get_llm(Settings(_env_file=None, anthropic_api_key="k", llm_provider="extractive")) is None
+
+
+def test_a_question_that_stands_on_its_own_makes_one_model_call(services):
+    import asyncio
+
+    llm = FakeLLM("Separate hostels for boys and girls [S1].")
+    answers = AnswerService(services.retriever, llm)
+    history = [ChatTurn(role="user", content="What is the admission process?"), ChatTurn(role="assistant", content="...")]
+    asyncio.run(answers.answer("What hostel facilities are there for students?", history))
+    assert len(llm.calls) == 1  # the answer only: no rewrite of the question first
+    llm.calls.clear()
+    asyncio.run(answers.answer("what about its fees?", history))
+    assert len(llm.calls) == 2  # a follow-up is rewritten with the conversation, then answered

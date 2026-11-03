@@ -116,7 +116,7 @@ class ExtractiveAnswerer:
         self.whole_sections = whole_sections
 
     def answer(self, question: str, chunks: list[RetrievedChunk], max_sources: int = 3, per_source: int = 3,
-               max_lines: int = 6, max_table_rows: int = 40, relevance: float = 0.5) -> str:
+               max_lines: int = 6, max_table_rows: int = 40, relevance: float = 0.5, budget: int = 24) -> str:
         """Markdown that quotes the website: one table, or short bullet lists grouped by page.
 
         Only sentences scoring at least ``relevance`` x the best one are quoted, so a question
@@ -126,7 +126,8 @@ class ExtractiveAnswerer:
 
         q = set(tokenize(question))
         if self.whole_sections:
-            return self._quote_sections(q, chunks, max_sections=max_sources, max_table_rows=max_table_rows)
+            return self._quote_sections(q, chunks, max_sections=max_sources, max_table_rows=max_table_rows,
+                                        budgets=(budget, 10, 8))
         section = self._section_answer(q, chunks[:max_sources])
         if section:
             return section
@@ -294,7 +295,7 @@ class ExtractiveAnswerer:
         for n, parts in enumerate(items):
             if len(blocks) >= max_sections:
                 break
-            if n and share(parts) < max(0.34, 0.75 * first):
+            if n and share(parts) < 0.75 * first:  # as relevant as the best one, however little that is
                 continue
             budget = budgets[min(len(blocks), len(budgets) - 1)]
             lines = self._section_quote(parts, q, budget, max_table_rows if not blocks else 15, seen)
@@ -360,7 +361,11 @@ class ExtractiveAnswerer:
         cites = "".join(f"[S{i}]" for i, _ in parts)
         if more:
             out.append("- … more on the source page.")
-        return [f"**{source_label(anchor, q)}** {cites}", *out]
+        label = source_label(anchor, q)
+        last = anchor.heading_path[-1].strip() if len(anchor.heading_path) > 1 else ""
+        if last and last.lower() not in label.lower():
+            label = f"{label} – {last}"  # "Courses offered – B.Tech COURSES" beside "– B.E.COURSES"
+        return [f"**{label}** {cites}", *out]
 
     def _quote_table(self, chunks: list[RetrievedChunk], anchor: RetrievedChunk, q: set[str], max_rows: int) -> list[str]:
         """The anchor's whole table, across the sources holding its parts, as a compact Markdown table."""
