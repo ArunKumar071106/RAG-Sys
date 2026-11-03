@@ -9,18 +9,18 @@
     "http_errors": 0
   },
   "extract": {
-    "documents": 2030,
+    "documents": 2031,
     "duplicates": 0,
     "errors": 0,
     "images_referenced": 5484,
-    "updated_at": "2026-11-03T08:26:50+00:00"
+    "updated_at": "2026-11-03T08:34:45+00:00"
   },
   "chunk": {
-    "documents": 2030,
-    "chunks": 3617,
+    "documents": 2031,
+    "chunks": 3618,
     "duplicate_chunks": 59,
-    "avg_tokens": 291.3,
-    "updated_at": "2026-11-03T08:26:54+00:00"
+    "avg_tokens": 291.2,
+    "updated_at": "2026-11-03T08:34:48+00:00"
   },
   "index": {
     "state": "finished",
