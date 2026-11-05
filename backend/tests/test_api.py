@@ -337,3 +337,29 @@ def test_long_earlier_answers_do_not_block_the_next_question(client):
     history = [{"role": "user", "content": "faculty list"}, {"role": "assistant", "content": long_answer}] * 6
     response = client.post("/api/chat", json={"message": "hostel facilities", "history": history})
     assert response.status_code == 200, response.text
+
+
+def test_the_api_serves_the_chat_page(client):
+    page = client.get("/")
+    assert page.status_code == 200 and "text/html" in page.headers["content-type"]
+    assert "Arivazhai" in page.text and 'src="js/chat.js"' in page.text
+    assert "frame-ancestors 'self' https://aaaenggcoll.ac.in" in page.headers["content-security-policy"]
+    assert page.headers["x-content-type-options"] == "nosniff"
+    script = client.get("/js/chat.js")
+    assert script.status_code == 200 and "javascript" in script.headers["content-type"]
+    assert script.headers["cache-control"] == "no-cache"  # a new version shows on the next visit
+    assert client.get("/api/health").status_code == 200
+    assert "content-security-policy" not in client.get("/api/health").headers
+    assert client.get("/../.env").status_code == 404
+    assert client.get("/nothing-here.js").status_code == 404
+
+
+def test_without_a_page_the_api_serves_only_the_api(pipeline, services, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from rag.api.app import create_app
+
+    app = create_app(pipeline.settings.model_copy(update={"frontend_dir": tmp_path}), services=services)
+    with TestClient(app) as api_only:
+        assert api_only.get("/").status_code == 404
+        assert api_only.get("/api/health").status_code == 200

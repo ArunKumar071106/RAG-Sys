@@ -1,14 +1,297 @@
 <!doctype html>
+<!--
+  Arivazhai, the AAACET admission assistant: plain HTML, CSS and JavaScript, no framework and no build step.
+  The backend serves this folder at http://127.0.0.1:8000/ . To host it elsewhere (the college website, Netlify),
+  copy this folder and set the backend's address in js/config.js.
+  ?embed=1 shows only the chat, for an iframe on the official website.
+-->
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Arivazhai, the AAACET admission assistant - answers from the official AAA College of Engineering and Technology website." />
-    <link rel="icon" href="/brand/favicon.png" />
-    <title>Arivazhai | AAA College of Engineering and Technology</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Arivazhai, the AAACET admission assistant - answers from the official AAA College of Engineering and Technology website.">
+  <title>Arivazhai | AAA College of Engineering and Technology</title>
+  <link rel="icon" href="brand/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;family=League+Spartan:wght@400;500;600;700&amp;display=swap">
+  <link rel="stylesheet" href="css/brand.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/robot.css">
+  <script>if (new URLSearchParams(location.search).get("embed") === "1") document.documentElement.classList.add("is-embed");</script>
+</head>
+<body>
+  <a class="skip-link" href="#chat-message">Skip to the question box</a>
+  <header class="site-header">
+    <p class="header-note header-note--mobile"><span>COUNSELLING CODE : 4680</span></p>
+    <div class="brandbar">
+      <div class="container brandbar__inner">
+        <a aria-label="AAA College of Engineering and Technology - official website home" class="brandbar__home" href="https://aaaenggcoll.ac.in/"><img alt="AAA College of Engineering and Technology logo" class="brand-logo" src="brand/logo.png"/></a>
+        <div class="brandbar__aside">
+          <p class="header-note">COUNSELLING CODE : 4680</p>
+          <ul aria-label="Quick links" class="header-buttons">
+            <li><a class="pill" href="https://aaaenggcoll.ac.in/aaacet-approvals/">APPROVALS</a></li>
+            <li><a class="pill" href="https://aaaenggcoll.ac.in/naac/">NAAC</a></li>
+            <li><a class="pill" href="https://aaaenggcoll.ac.in/aaa-login/">LOGIN</a></li>
+            <li><a class="pill" href="https://aaaenggcollege.org/studentlogin/login.php">ONLINE FEE PAYMENT</a></li>
+          </ul>
+        </div>
+        <button aria-controls="main-menu" aria-expanded="false" class="menu-toggle" type="button"><span aria-hidden="true" class="menu-toggle__bars"></span><span class="visually-hidden">Open menu</span></button>
+      </div>
+    </div>
+    <nav aria-label="Main" class="mainnav">
+      <ul class="container mainnav__list" id="main-menu">
+        <li><a href="https://aaaenggcoll.ac.in/">HOME</a></li>
+        <li class="has-submenu">
+          <button aria-controls="submenu-1" aria-expanded="false" type="button">ADMINISTRATION<span aria-hidden="true" class="submenu-icon"></span></button>
+          <ul class="submenu" id="submenu-1">
+            <li><a href="https://aaaenggcoll.ac.in/organogram-2">Organogram</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/wp-content/uploads/2024/07/HR-Manual-V2-2022-23.pdf">HR Manual</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/aaacet-approvals/">Approvals</a></li>
+          </ul>
+        </li>
+        <li><a href="https://aaaenggcoll.ac.in/admission/">ADMISSIONS</a></li>
+        <li class="has-submenu">
+          <button aria-controls="submenu-2" aria-expanded="false" type="button">ACADEMICS<span aria-hidden="true" class="submenu-icon"></span></button>
+          <ul class="submenu" id="submenu-2">
+            <li><a href="https://aaaenggcoll.ac.in/civil/about-department/">Civil Engineering</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/cse/about-department/">Computer Science and Engineering</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/ece/about-department/">Electronics &amp; Communication Engineering</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/eee/about-department/">Electrical &amp; Electronics Engineering</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/mech/about-department/">Mechanical Engineering</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/ai-dept/about-department/">Artificial Intelligence and Data Science</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/cyber-dept/about-department/">Computer Science and Engineering (Cyber Security)</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/it-dept/about-department/">Information Technology</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/science-dept/about-department/">Science &amp; Humanities</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/vlsi/about-department/">Electronics Engineering (VLSI Design &amp; Technology)</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/regulations/">Regulations</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/exam-portal/">COE OFFICE</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/wp-content/uploads/2026/10/AAA-CET-Faculty.pdf">AAACET Faculty</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/toppers-list/">Toppers List</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/online-feedback/">Feedback</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/nba-2/">NBA</a></li>
+          </ul>
+        </li>
+        <li class="has-submenu">
+          <button aria-controls="submenu-3" aria-expanded="false" type="button">CAMPUS<span aria-hidden="true" class="submenu-icon"></span></button>
+          <ul class="submenu" id="submenu-3">
+            <li><a href="https://aaaenggcoll.ac.in/administrative-office/">Administrative Office</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/auditorium-seminar-halls/">Auditorium &amp; Seminar Halls</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/aaa-hostels/">Hostel Facilities</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/aaa-transport/">Transport Facilities</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/blocks-classrooms/">Blocks &amp; Classrooms</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/aaacet-central-library/">Library Facilites</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/aaa-sports/">Sports</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/amenities/">Amenities</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/campus-gallery/">Campus Gallery</a></li>
+            <li><a href="https://youtu.be/fxUX3T6rtqc?si=KDXhU5MSUXvlJtyi">College Virtual Tour</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/latest-updates/">Latest Updates</a></li>
+          </ul>
+        </li>
+        <li class="has-submenu">
+          <button aria-controls="submenu-4" aria-expanded="false" type="button">STUDENT’S CORNER<span aria-hidden="true" class="submenu-icon"></span></button>
+          <ul class="submenu" id="submenu-4">
+            <li><a href="https://aaaenggcoll.ac.in/students-life-aaacet/">Life@AAACET</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/institution-industry-interaction-cell-iiic/">Institution-Industry Interaction Cell (IIIC)</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/institutions-innovation-council-iic/">Institution Innovation Council</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/fine-arts-and-literature-club/">Fine Arts &amp; Literature Club</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/nss-rotaract-activities/">NSS &amp; Rotaract Club</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/unnat-bharth-abhiyan/">UNNAT BHARAT ABHIYAN (UBA)</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/nptel-swayam-local-chapter/">NPTEL - SWAYAM</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/society-of-automotive-engineers-sae/">Society of Automotive Engineers</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/professional-chapter-2/">Professional chapter</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/centre-of-excellence/">Centre of excellence</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/entrepreneurship-development-cell/">Entrepreneurship Development Cell</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/nan-mudhalvan-tnsdc/">Naan Mudhalvan - TNSDC</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/alumni-association/">Alumni Association</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/youth-empowerment-program/">Youth empowerment program</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/women-empowernment-cell/">Women empowerment Cell</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/eco-nature-club/">Eco Nature Club</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/careme-health/">Careme Health</a></li>
+          </ul>
+        </li>
+        <li class="has-submenu">
+          <button aria-controls="submenu-5" aria-expanded="false" type="button">PLACEMENTS<span aria-hidden="true" class="submenu-icon"></span></button>
+          <ul class="submenu" id="submenu-5">
+            <li><a href="https://aaaenggcoll.ac.in/placement/">Placement Training</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/aaa-hostels/#">Placement Records</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/placement/placement-2022-2026/">2022-2026</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/placement/placement-2021-2025/">2021-2025</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/placement/2020-2024/">2020-2024</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/placement/2019-2023/">2019-2023</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/aaa-hostels/#">Industry Interaction</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/industry-institute-partnership-cell-iipc/">Industry Institute Partnership Cell</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/placement/announcements/">Announcements</a></li>
+          </ul>
+        </li>
+        <li class="has-submenu">
+          <button aria-controls="submenu-6" aria-expanded="false" type="button">RESEARCH<span aria-hidden="true" class="submenu-icon"></span></button>
+          <ul class="submenu" id="submenu-6">
+            <li><a href="https://aaaenggcoll.ac.in/research-and-innovations/">Research and Innovations</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/sci-publications/">SCI Publications</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/journal-publications/">Journal Publications</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/books-published/">Books Published</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/patents/">Patents</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/faculty-with-anna-university-guideship/">Faculty with Anna University Guideship</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/etmpcsl-2026-2/">NEXTGEN’26</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/2nd-icmist-2024/">2nd ICMIST 2024</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/icecs-2024/">ICECS 2024</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/icriccm-2023/">ICRICCM 2023</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/tnscst-sponsored-conference/">TNSCST Sponsered Conference</a></li>
+          </ul>
+        </li>
+        <li class="has-submenu">
+          <button aria-controls="submenu-7" aria-expanded="false" type="button">IQAC<span aria-hidden="true" class="submenu-icon"></span></button>
+          <ul class="submenu" id="submenu-7">
+            <li><a href="https://aaaenggcoll.ac.in/iqac-members/">IQAC MEMBERS</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/iqac/">IQAC Report</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/wp-content/uploads/2024/11/IQAC_Quality_Initiatives.pdf">IQAC Initiatives</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/governing-council-members/">Governing Council Members</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/academic-council-members/">Academic Council Members</a></li>
+            <li><a href="https://aaaenggcoll.ac.in/capability-enhancement-schemes/">capability enhancement schemes</a></li>
+          </ul>
+        </li>
+        <li><a href="https://aaaenggcoll.ac.in/careers/">CAREERS</a></li>
+        <li><a aria-current="page" href="#assistant">Arivazhai</a></li>
+        <li class="mainnav__mobile-only"><a href="https://aaaenggcoll.ac.in/aaacet-approvals/">APPROVALS</a></li>
+        <li class="mainnav__mobile-only"><a href="https://aaaenggcoll.ac.in/naac/">NAAC</a></li>
+        <li class="mainnav__mobile-only"><a href="https://aaaenggcoll.ac.in/aaa-login/">LOGIN</a></li>
+        <li class="mainnav__mobile-only"><a href="https://aaaenggcollege.org/studentlogin/login.php">ONLINE FEE PAYMENT</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="page-banner page-banner--image" style='background-image: url("brand/banner.jpg");'>
+    <div class="container">
+      <div class="page-banner__box">
+        <h1 class="page-banner__title">Arivazhai</h1>
+        <p class="page-banner__lead">Ask about admissions, departments, placements and campus life - answered from the official website.</p>
+        <nav aria-label="Breadcrumb">
+          <ol class="breadcrumb">
+            <li><a href="https://aaaenggcoll.ac.in/">Home</a></li>
+            <li aria-current="page">Arivazhai</li>
+          </ol>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <main class="container page-main">
+    <section class="chat" id="assistant" aria-labelledby="chat-title">
+      <div class="chat__header">
+        <div class="chat__brand">
+          <span class="profile profile--large" aria-hidden="true" data-robot="head"></span>
+          <div class="chat__heading">
+            <h2 id="chat-title" class="chat__title">Arivazhai</h2>
+            <p class="chat__subtitle">AAACET admission help desk · answers from the official website</p>
+          </div>
+        </div>
+        <button type="button" class="chat__new" disabled>New chat</button>
+      </div>
+
+      <div class="chat__log" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation">
+        <div class="message message--assistant">
+          <span class="message__sender" aria-hidden="true"><span class="profile profile--small" data-robot="head"></span>Arivazhai</span>
+          <div class="bubble bubble--assistant">
+            <p>Vanakkam! I'm Arivazhai, the AAACET admission assistant. Ask me about eligibility, TNEA counselling, courses, fees,
+              scholarships, hostel or placements. I answer from the official website and link every source.</p>
+            <!-- The questions parents ask most before admission. Each is in backend/eval/questions_aaacet.jsonl,
+                 so `make eval` checks it against the real knowledge base. -->
+            <div class="suggestions" id="welcome-suggestions">
+              <h3 class="suggestions__title" id="welcome-suggestions-title">Try asking</h3>
+              <ul class="suggestions__list" aria-labelledby="welcome-suggestions-title">
+                  <li><button type="button" class="chip">What is the eligibility for B.E. / B.Tech admission?</button></li>
+                  <li><button type="button" class="chip">What is the TNEA counselling code of AAACET?</button></li>
+                  <li><button type="button" class="chip">How many seats are there in each department?</button></li>
+                  <li><button type="button" class="chip">How do I apply for admission online?</button></li>
+                  <li><button type="button" class="chip">What documents are needed for admission?</button></li>
+                  <li><button type="button" class="chip">What scholarships are available based on +2 cut-off marks?</button></li>
+                  <li><button type="button" class="chip">Are hostels available for boys and girls?</button></li>
+                  <li><button type="button" class="chip">Whom should I contact for admission?</button></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat__footer">
+        <form class="chat-input" novalidate>
+          <label for="chat-message" class="visually-hidden">Ask a question about AAACET</label>
+          <ul id="chat-suggestions" class="chat-suggestions" role="listbox" aria-label="Suggested questions" hidden></ul>
+          <textarea id="chat-message" class="chat-input__field" dir="auto" rows="1" placeholder="Ask about admissions, courses, facilities…"
+            maxlength="1000" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-describedby="chat-input-hint"></textarea>
+          <button type="submit" class="btn btn--primary chat-input__send" disabled aria-label="Send message">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            <span class="chat-input__send-label">Send</span>
+          </button>
+          <p id="chat-input-hint" class="chat-input__hint">Press Enter to send, Shift + Enter for a new line. Use ↑ ↓ to pick a suggestion.<span class="chat-input__count" hidden></span></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container site-footer__grid">
+      <section aria-labelledby="footer-about">
+        <h2 class="site-footer__heading" id="footer-about">About Arivazhai</h2>
+        <p>Arivazhai, the AAACET admission assistant, answers from content published on the official AAA College of Engineering and Technology website. Please confirm important details such as fees and deadlines with the college office.</p>
+      </section>
+      <section aria-labelledby="footer-col-0">
+        <h2 class="site-footer__heading" id="footer-col-0">Quick Links</h2>
+        <ul class="site-footer__links">
+          <li><a href="https://aaaenggcoll.ac.in/about-us/">About Us</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/wp-content/uploads/2024/07/College_Prospectus.pdf">Prospectus</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/contact-us/">Contact Us</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/toppers-list/">Toppers List</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/grievances-redressal/">Grievances Redressal</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/faculty-application/">Faculty Application Form</a></li>
+        </ul>
+      </section>
+      <section aria-labelledby="footer-col-1">
+        <h2 class="site-footer__heading" id="footer-col-1">External Links</h2>
+        <ul class="site-footer__links">
+          <li><a href="https://www.annauniv.edu/">Anna University</a></li>
+          <li><a href="https://www.nbaind.org/">NBA</a></li>
+          <li><a href="http://naac.gov.in/index.php/en/">NAAC</a></li>
+          <li><a href="https://nptel.ac.in/">NPTEL</a></li>
+          <li><a href="https://www.aicte-india.org/">AICTE</a></li>
+          <li><a href="https://www.aicte-india.org/feedback/index.php">AICTE (FEEDBACK)</a></li>
+        </ul>
+      </section>
+      <section aria-labelledby="footer-contact">
+        <h2 class="site-footer__heading" id="footer-contact">Contact</h2>
+        <ul class="site-footer__contact">
+          <li><svg aria-hidden="true" class="site-footer__icon" focusable="false" height="18" viewBox="0 0 24 24" width="18"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"></path></svg><address>Kamarajar Educational Road, Amathur - 626 005</address></li>
+          <li><svg aria-hidden="true" class="site-footer__icon" focusable="false" height="18" viewBox="0 0 24 24" width="18"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5z" fill="currentColor"></path></svg><a href="mailto:enquiry@aaacet.ac.in">enquiry@aaacet.ac.in</a></li>
+          <li><svg aria-hidden="true" class="site-footer__icon" focusable="false" height="18" viewBox="0 0 24 24" width="18"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z" fill="currentColor"></path></svg><span><span><a href="tel:04562251111">04562-251111</a></span><span>, <a href="tel:18004258807">18004258807</a></span></span></li>
+        </ul>
+        <ul aria-label="Social media" class="site-footer__social">
+          <li><a href="https://www.facebook.com/aaaengineeringcollege" rel="noopener noreferrer" target="_blank">Facebook</a></li>
+          <li><a href="https://www.instagram.com/aaa_engg_coll/" rel="noopener noreferrer" target="_blank">Instagram</a></li>
+          <li><a href="https://www.linkedin.com/school/aaa-college-of-engineering-and-technology/" rel="noopener noreferrer" target="_blank">Linkedin</a></li>
+          <li><a href="https://www.youtube.com/channel/UCqIwszGCwgfYEAffiLn0XYQ" rel="noopener noreferrer" target="_blank">Youtube</a></li>
+        </ul>
+      </section>
+    </div>
+    <div class="site-footer__bottom">
+      <div class="container">Official website: <a href="https://aaaenggcoll.ac.in/">aaaenggcoll.ac.in</a></div>
+    </div>
+  </footer>
+
+  <button type="button" class="scroll-to-chat" aria-label="Go to the chat below" title="The chat is below">
+    <span class="scroll-to-chat__label" aria-hidden="true">Chat below</span>
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9.5l6 6 6-6"/></svg>
+  </button>
+
+  <!-- the robot's moments: it pops up over the page for a moment, then floats away -->
+  <div class="moment" aria-live="polite"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/site-data.js"></script>
+  <script src="js/markdown.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/robot.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/page.js"></script>
+</body>
 </html>

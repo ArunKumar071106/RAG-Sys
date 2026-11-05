@@ -1,4 +1,4 @@
-# Production-style stack: Qdrant server + FastAPI backend + nginx-served frontend.
+# Production-style stack: Qdrant server + FastAPI backend + nginx serving the chat page (plain HTML/CSS/JS).
 #   cp .env.example .env   # fill in ANTHROPIC_API_KEY, ADMIN_TOKEN
 #   docker compose up -d --build
 #   docker compose run --rm backend python -m rag.cli all     # crawl + index (first time)
@@ -31,8 +31,6 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        VITE_API_BASE_URL: ""
     restart: unless-stopped
     ports:
       - "8080:80"

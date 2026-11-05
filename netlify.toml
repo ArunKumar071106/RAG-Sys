@@ -1,13 +1,11 @@
-# Netlify builds and serves the frontend only; the backend runs elsewhere (e.g. a Hugging Face Space).
-# Set VITE_API_BASE_URL in Netlify (Site configuration > Environment variables) to the backend's address,
-# e.g. https://<hf-username>-arivazhai-api.hf.space, then redeploy.
+# Netlify serves the chat page (frontend/: plain HTML, CSS and JavaScript); the backend runs elsewhere
+# (e.g. a Hugging Face Space). Set ARIVAZHAI_API_URL in Netlify (Site configuration > Environment
+# variables) to the backend's address, e.g. https://<hf-username>-arivazhai-api.hf.space, then redeploy:
+# the "build" only writes that address into js/config.js. Without it the page calls /api on Netlify.
 [build]
   base = "frontend"
-  command = "npm run build"
-  publish = "dist"
-
-[build.environment]
-  NODE_VERSION = "22"
+  publish = "."
+  command = "sh ../scripts/frontend_config.sh"
 
 [[headers]]
   for = "/*"
@@ -16,8 +14,9 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     # the chat may be embedded on the official website (?embed=1), nowhere else
     Content-Security-Policy = "frame-ancestors 'self' https://aaaenggcoll.ac.in https://www.aaaenggcoll.ac.in"
+    Cache-Control = "no-cache"
 
 [[headers]]
-  for = "/assets/*"
+  for = "/brand/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=604800"

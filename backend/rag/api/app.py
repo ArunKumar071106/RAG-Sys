@@ -11,6 +11,9 @@ Endpoints (all under /api):
   GET  /status               crawl / extraction / indexing status
   POST /admin/reindex        start a reindex job      (Bearer ADMIN_TOKEN)
   GET  /admin/jobs/{job_id}  reindex job status       (Bearer ADMIN_TOKEN)
+
+Everything else is the chat page from frontend/ (plain HTML, CSS and JavaScript), so
+http://127.0.0.1:8000/ is the whole assistant.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 from rag import __version__
@@ -239,7 +243,25 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(status_code=404, detail="Job not found")
         return job.__dict__
 
+    # ------------------------------------------------------------------ the chat page
+    page = settings.frontend_dir
+    if page and (page / "index.html").is_file():
+        @app.middleware("http")
+        async def page_headers(request: Request, call_next):
+            response = await call_next(request)
+            if not request.url.path.startswith("/api/"):
+                response.headers.setdefault("X-Content-Type-Options", "nosniff")
+                response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+                # the chat may be embedded on the official website (?embed=1), nowhere else
+                response.headers.setdefault("Content-Security-Policy", f"frame-ancestors {FRAME_ANCESTORS}")
+                if request.url.path in ("/", "/index.html") or request.url.path.startswith(("/js/", "/css/")):
+                    response.headers.setdefault("Cache-Control", "no-cache")  # a new version shows on the next visit
+            return response
+
+        app.mount("/", StaticFiles(directory=page, html=True), name="page")
     return app
 
+
+FRAME_ANCESTORS = "'self' https://aaaenggcoll.ac.in https://www.aaaenggcoll.ac.in"
 
 app = create_app()

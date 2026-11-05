@@ -49,7 +49,7 @@ _FOLLOWUP_RE = re.compile(
 
 HISTORY_TURN_CHARS = 2000  # what a prompt uses of each earlier turn
 REWRITE_SECONDS = 15.0  # rewriting a follow-up for searching; skipped when slower
-ANSWER_BUDGET_SECONDS = 80.0  # a whole answer, under the browser's 90 s (VITE_CHAT_TIMEOUT_MS)
+ANSWER_BUDGET_SECONDS = 80.0  # a whole answer, under the browser's 90 s (chatTimeoutMs in frontend/js/config.js)
 
 
 class ChatTurn(BaseModel):

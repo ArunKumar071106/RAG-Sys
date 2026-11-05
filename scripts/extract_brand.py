@@ -11,15 +11,15 @@ and is listed in the report):
   * colours of the top bar, header, navigation (and hover), footer, links,
     headings and buttons, from the site's CSS rules and inline styles
   * body / heading font families and Google Fonts stylesheet links
-  * the header logo (downloaded to frontend/public/brand/), favicon and
+  * the header logo (downloaded to frontend/brand/), favicon and
     accreditation badges found in the header
   * top-level navigation menu items, top-bar quick links, phone numbers,
     e-mail addresses and the postal address from the footer
 
 Outputs:
-  frontend/src/brand/brand.json   (measured: true)
-  frontend/src/brand/brand.css    (CSS custom properties)
-  frontend/public/brand/*         (logo, favicon, badges)
+  frontend/brand/brand.json   (measured: true)
+  frontend/css/brand.css      (CSS custom properties)
+  frontend/brand/*            (logo, favicon, badges)
 """
 
 from __future__ import annotations
@@ -34,8 +34,9 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
-BRAND_DIR = ROOT / "frontend" / "src" / "brand"
-PUBLIC_BRAND_DIR = ROOT / "frontend" / "public" / "brand"
+BRAND_DIR = ROOT / "frontend" / "brand"
+CSS_DIR = ROOT / "frontend" / "css"
+PUBLIC_BRAND_DIR = BRAND_DIR
 DEFAULT_URL = "https://aaaenggcoll.ac.in/"
 USER_AGENT = "AAACET-RAG-BrandExtractor/1.0"
 
@@ -202,7 +203,7 @@ def download_asset(client, url: str, name: str, report: list[str]) -> str | None
         return None
     PUBLIC_BRAND_DIR.mkdir(parents=True, exist_ok=True)
     (PUBLIC_BRAND_DIR / f"{name}{ext}").write_bytes(data)
-    return f"/brand/{name}{ext}"
+    return f"brand/{name}{ext}"
 
 
 # ------------------------------------------------------------------ HTML analysis
@@ -418,7 +419,7 @@ def build(html: str, base: str, css_texts: list[str], client, google_fonts: list
 
 
 def write_outputs(brand: dict, tokens: dict[str, str]) -> None:
-    css_path = BRAND_DIR / "brand.css"
+    css_path = CSS_DIR / "brand.css"
     existing = css_path.read_text(encoding="utf-8")
     current = dict(re.findall(r"(--brand-[\w-]+):\s*([^;]+);", existing))
     current.update(tokens)
@@ -483,7 +484,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- {line}")
     if not args.dry_run:
         write_outputs(brand, tokens)
-        print(f"Wrote {BRAND_DIR / 'brand.json'} and {BRAND_DIR / 'brand.css'}")
+        print(f"Wrote {BRAND_DIR / 'brand.json'} and {CSS_DIR / 'brand.css'}")
     return 0
 
 

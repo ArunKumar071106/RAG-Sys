@@ -8,7 +8,7 @@ images (photos, posters, notices) alongside the answer.
 * **Images:** Caption/OCR-Based Image Chunking
 * **Retrieval:** Hybrid Retrieval, which fuses semantic search (Qdrant) and BM25 with Reciprocal Rank Fusion (RRF)
 * **Answers:** grounded generation with Claude, with citations validated server-side; an extractive no-LLM fallback
-* **Stack:** Python, FastAPI, Scrapy, Qdrant, BM25, BAAI/bge-m3, Claude (text + vision), React + TypeScript + Vite
+* **Stack:** Python, FastAPI, Scrapy, Qdrant, BM25, BAAI/bge-m3, Claude (text + vision); the chat page is plain HTML, CSS and JavaScript (no framework, no build step)
 
 | Answer with real campus photos | Exact intake table from the admission page |
 |---|---|
@@ -29,7 +29,7 @@ images (photos, posters, notices) alongside the answer.
 | Complete answers (no API key) | 60 questions written from the live website by someone who never saw this system, each with every fact a complete answer contains (2–6 per question, 245 facts; `backend/eval/facts_aaacet.jsonl`, `python -m rag.cli eval-facts --verbose`). Each fact is traced to where it is lost. Before: answers held **40%** of their facts; 32% were handed to the answer composer and left out, 22% were found but ranked below the results used, 6% were not in the knowledge base. After the fixes below: **74%** on the 40 questions used while fixing (was 44%; 21 complete answers, was 9) and **47%** on the 20 held-out questions never looked at (was 31%). What is left is mostly ranking (28% of held-out facts are found but ranked too low) and about 4% of facts that are only in scanned PDFs, images or a brochure the crawl never reached. |
 | Answer quality (no API key) | 40 everyday questions, each with the fact a correct answer must contain (`backend/eval/answers_aaacet.jsonl`, `python -m rag.cli eval-answers`): **40/40** (was 18/40 before the tab, chunking and answer fixes below). 20 held-out questions written after tuning and never tuned on (`answers_aaacet_holdout.jsonl`): **19/20** (was 16/20). Measured with hybrid search (all-MiniLM-L6-v2 stand-in) in extractive mode. Page retrieval after these changes: Recall@1 0.71, Recall@3 0.97, MRR 0.84. |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
-| Tests | 110 backend tests, 28 frontend unit tests, 22 Playwright tests on desktop, tablet and mobile |
+| Tests | 184 backend tests, 15 page unit tests (Vitest + jsdom on the real index.html and scripts), 51 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
 | Claude answers / vision descriptions | Implemented and unit-tested with a mocked client. Needs `ANTHROPIC_API_KEY`. Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
 | Off-topic questions | With Claude, the model replies "not covered" via a `[[NO_ANSWER]]` marker. In extractive mode, an off-topic question that shares a word with some page may still get loosely related quotes. |
@@ -60,7 +60,7 @@ flowchart LR
   end
   H --> R
   I --> S
-  W --> X[React UI: answer, sources, image cards]
+  W --> X[Chat page, HTML/CSS/JS: answer, sources, image cards]
 ```
 
 ### Text: Structure-Aware Recursive Chunking (`backend/rag/chunking/text_chunker.py`)
@@ -165,7 +165,7 @@ flowchart LR
   the answer ends with the office's phone numbers (04562-251111, 04562-251112, toll-free 1800 425 8807, tap to call)
   and emails (enquiry@, admissions@). For admission, scholarship and fee questions, and when the website has no answer,
   the card also lists the admission & scholarship staff from the admission page. These come from
-  `frontend/src/brand/contacts.json` (kept by hand, with sources) merged with the footer's contacts in `brand.json`.
+  `frontend/js/site-data.js` (kept by hand, with sources).
 * **Answer model: Claude only** (`ANTHROPIC_API_KEY` in `.env`, model `LLM_MODEL`, default `claude-opus-5-5` at
   `LLM_EFFORT=low`, with server-side refusal fallbacks). The key is read from `.env` (or the environment / an
   `ant auth login` profile) and also used for image descriptions. Without a key, or when Claude fails, answers
@@ -206,7 +206,7 @@ flowchart LR
   "ai&ds fac" suggests "Who are the faculty of the Artificial Intelligence and Data Science department?".
 * The input is an accessible combobox: ↑/↓ to pick, Enter or click to ask, Tab to copy into the box, Esc to close.
 
-### Arivazhai's moments (`frontend/src/robot/`)
+### Arivazhai's moments (`frontend/js/robot.js`, `frontend/css/robot.css`)
 The chat is the **Admission Help Desk** from the design project (navy header with a gold rule, "Arivazhai" message
 labels, quick topics above the question box) in the official website's colours and fonts. Its robot, **Arivazhai**,
 never sits in the chat: it pops up centred over a blurred screen for about 3 seconds (0.35 s in, 2.2 s hold, 0.4 s
@@ -247,19 +247,25 @@ backend/
     cli.py          command-line entry point
   eval/             labelled question sets (demo + AAACET samples)
   tests/            pytest suite
-frontend/
-  src/components/   Header, ChatWindow, MessageBubble, ChatInput, SuggestedQuestions,
-                    SourceList, ImageCard, LoadingIndicator, ErrorMessage, Footer
-  src/robot/        Arivazhai's moments: the design's robot rig, moment timing and the overlay
-  src/brand/        brand.json + brand.css (measured from the official site by scripts/measure_brand.mjs)
-  public/brand/     official logo, banner photo and favicon downloaded by the same script
-  src/__tests__/    Vitest + Testing Library tests
+frontend/           the chat page: plain HTML, CSS and JavaScript, no framework and no build step
+  index.html        the page: the official site's header, menu, banner and footer, the chat, the suggested questions
+  css/              brand.css (measured colours and fonts), style.css (layout and chat), robot.css (the robot's moments)
+  js/config.js      the backend's address (empty when the backend serves the page) - the only file to edit
+  js/site-data.js   the college's phone numbers, emails and admission staff (kept by hand)
+  js/markdown.js    safe Markdown → HTML for answers (tables, lists, links); never runs answer text as HTML
+  js/api.js         /api/chat, /api/translate, /api/suggest, /api/health
+  js/robot.js       Arivazhai's robot rig and its moments
+  js/chat.js        messages, sources, image cards, contact card, translate, follow-ups, the question box
+  js/page.js        menu, "Chat below" arrow, start-up
+  brand/            official logo, banner photo, favicon and brand.json (measured by scripts/measure_brand.mjs)
+  tests/            Vitest + jsdom tests of the real page and scripts (Node is only needed for tests)
   e2e/              Playwright tests (desktop / tablet / mobile) + screenshots
 data/processed/     the AAACET knowledge base snapshot (chunks + image metadata) shipped with the repo
 scripts/
   measure_brand.mjs measure colours, fonts, logo, menu, contacts from the rendered official site
   extract_brand.py  fallback: parse stylesheets / a saved page without a browser
-  e2e_backend.sh    API on the demo dataset for UI tests
+  e2e_backend.sh    API (serving the page) on the demo dataset for UI tests
+  frontend_config.sh writes the backend's address into frontend/js/config.js (Netlify)
 docs/screenshots/   generated by the e2e tests
 ```
 
@@ -267,33 +273,30 @@ docs/screenshots/   generated by the e2e tests
 
 ## Setup
 
-Requirements: Python 3.11+ and Node 20+. Optional: Docker (for a Qdrant server) and a GPU for BGE-M3.
+Requirements: Python 3.11+. Node 20+ only to run the page's tests. Optional: Docker (for a Qdrant server) and a GPU for BGE-M3.
 
 ```bash
 cp .env.example .env            # then fill in ANTHROPIC_API_KEY and ADMIN_TOKEN
-make install                    # venv + backend deps + frontend deps
+make install                    # venv + backend deps (the chat page needs nothing installed)
 make install-ml                 # BGE-M3 (PyTorch, sentence-transformers); skip for the offline demo
-cp frontend/.env.example frontend/.env
 ```
 
 ### 1. Try it offline in two minutes (fictional demo data)
 ```bash
 make demo                                   # builds, serves, crawls and indexes the FICTIONAL demo site into data/
-EMBEDDING_PROVIDER=hashing make serve       # API on http://127.0.0.1:8000
-make dev                                    # UI on http://localhost:5173
+EMBEDDING_PROVIDER=hashing make serve       # open http://127.0.0.1:8000/ (the API serves the chat page)
 ```
 
 ### 2. Use the real AAACET knowledge base (shipped in the repo)
 The repository includes the processed content of the official website in `data/processed/` (text chunks and image
 metadata, crawled from https://aaaenggcoll.ac.in/). On the first start the API builds the Qdrant and BM25 indexes from it
-automatically, so you only need to start the two servers. The keyword (BM25) index is ready within seconds and the
+automatically, so you only need to start the backend, which also serves the chat page. The keyword (BM25) index is ready within seconds and the
 assistant answers with it straight away; the semantic vectors (3,388 text and 4,785 image chunks) are embedded in the
 background, which can take a long time on a laptop CPU, and the API switches to hybrid search when they are done. The
 backend terminal logs `Indexing aaacet_text: 1152/3388 (34%)`-style progress, `/api/health` reports
 `"status": "indexing"` meanwhile, and an interrupted build resumes where it stopped on the next start:
 ```bash
-make serve        # API on http://127.0.0.1:8000  (first start: "Building the search index ...")
-make dev          # UI on http://localhost:5173
+make serve        # open http://127.0.0.1:8000/  (first start: "Building the search index ...")
 ```
 Image cards load the photos from the official website. The downloaded copies are not committed; run the image stage
 locally if you want local copies.
@@ -316,9 +319,11 @@ make eval          # Recall@1/3/5, Hit@K, MRR, image hit rate, unanswerable reje
 ```
 
 ### Matching the official website
-The frontend reads every colour, font, the logo, the banner photo, the menu (with its dropdowns), the header buttons,
-footer links and contact details from `frontend/src/brand/` and `frontend/public/brand/`. These were **measured from
-the rendered official site** and are committed. To re-measure after the website changes:
+The page's colours and fonts (`frontend/css/brand.css`), logo, banner photo and favicon (`frontend/brand/`) were
+**measured from the rendered official site**, and its header, menu (with its dropdowns), header buttons, footer links
+and contact details are written into `frontend/index.html` as plain HTML from the same measurement
+(`frontend/brand/brand.json`). To re-measure after the website changes (then copy any menu or footer changes from
+`brand.json` into `index.html`):
 ```bash
 make brand        # = cd frontend && node ../scripts/measure_brand.mjs --inner /aaa-hostels/
 ```
@@ -334,7 +339,9 @@ The chat is offered two ways:
 * **as a page** that reproduces the site's header, menu, page banner/breadcrumb and footer, at `/`
 * **as an embeddable panel** at `/?embed=1`, for example
   `<iframe src="https://assistant.example/?embed=1" title="Arivazhai" style="width:100%;height:640px;border:0"></iframe>`.
-  `frontend/nginx.conf` already allows framing by `aaaenggcoll.ac.in`.
+  The backend, `frontend/nginx.conf` and `netlify.toml` allow framing by `aaaenggcoll.ac.in` only.
+* **on the college website itself**: copy `frontend/` (index.html, css, js, brand) into the site and set the
+  backend's address in `js/config.js`; add the college site's address to `CORS_ORIGINS` in the backend's `.env`.
 
 ---
 
@@ -385,8 +392,9 @@ make test-backend     # pytest: crawler (real Scrapy run against a local site), 
                       # image validation/dedupe, embeddings, Qdrant, BM25, RRF, incremental indexing,
                       # hybrid retrieval, citations, answer generation, Claude client, API, brand extractor,
                       # Recall@K / MRR thresholds
-make test-frontend    # tsc + Vitest: chat submission, Enter/Shift+Enter, loading, sources, image cards,
-                      # broken-image fallback, no-answer, network error + retry, new chat, embed mode
+make test-frontend    # Vitest + jsdom on the real index.html and scripts: safe Markdown (no HTML from
+                      # answers), Enter/Shift+Enter, loading, citations, sources, image cards, no-answer
+                      # contacts, retry, follow-ups, new chat, translate, suggestions while typing
 python -m rag.cli eval-answers   # answer quality: does each answer contain the fact a student needs?
 python -m rag.cli eval-facts --verbose   # complete answers: which facts each answer misses, and where they are lost
 python -m rag.cli check-llm      # does Claude answer, and how fast?
@@ -464,12 +472,13 @@ and uses the vectors already in Qdrant Cloud.
    ```
    It checks the cluster, creates the Space, stores `QDRANT_URL`, `QDRANT_API_KEY` (and `ANTHROPIC_API_KEY` if set)
    as Space secrets and `CORS_ORIGINS` as a variable, and uploads `deploy/huggingface/` (Dockerfile on port 7860,
-   the search model built into the image), `backend/rag` and the knowledge base. `--dry-run` lists the files.
-   The API is at `https://<hf-username>-arivazhai-api.hf.space` (`/api/health`). A free Space sleeps after 48 hours
+   the search model built into the image), `backend/rag`, the chat page (`frontend/`) and the knowledge base.
+   `--dry-run` lists the files. The whole assistant is then at `https://<hf-username>-arivazhai-api.hf.space/`
+   (the chat page; the API under `/api/`, e.g. `/api/health`), so Netlify is optional. A free Space sleeps after 48 hours
    without visitors and wakes on the next request (about a minute).
-3. Netlify: import the GitHub repository; `netlify.toml` sets the base directory (`frontend`), build command and
-   headers. Set `VITE_API_BASE_URL` to the Space's address under Site configuration → Environment variables, and
-   redeploy. If the Netlify address changes, run the script again with the new `--cors`.
+3. Netlify (optional, to serve the page from a Netlify address): import the GitHub repository; `netlify.toml`
+   publishes `frontend/` as it is, with its headers. Set `ARIVAZHAI_API_URL` to the Space's address under Site
+   configuration → Environment variables, and redeploy: the only build step writes it into `js/config.js`. If the Netlify address changes, run the script again with the new `--cors`.
 
 Tested here by building the Space image from exactly the uploaded files and starting it against a Qdrant server
 holding the vectors: ready in about 12 seconds, the record restored, nothing re-uploaded, hybrid search, CORS allowing
@@ -488,4 +497,4 @@ image skipped the `apt-get` and model steps that run normally on Hugging Face.)
 | Answers say "AI answer generation is not configured" | Set `ANTHROPIC_API_KEY` (or log in with `ant auth login`) and restart |
 | OCR text empty | `OCR_ENGINE=rapidocr` needs `libgl1`/`libglib2.0-0` on slim Linux images; check `/api/status` → `images.ocr_engine` |
 | Images missing in the UI | They fall back to the original URL, then to a placeholder; check `data/processed/images.jsonl` statuses (`http_error`, `too_large`, …) |
-| Frontend can't reach the API | `npm run dev` forwards `/api` to `http://127.0.0.1:8000` when `VITE_API_BASE_URL` is empty (set `VITE_DEV_API_PROXY` for another port). If you set `VITE_API_BASE_URL` in `frontend/.env`, `CORS_ORIGINS` in `.env` must include the frontend's address |
+| The page can't reach the API | Open the page from the backend (http://127.0.0.1:8000/), where `apiBaseUrl` in `frontend/js/config.js` stays `""`. When the page is on another site, set `apiBaseUrl` to the backend's address and add that site's address to `CORS_ORIGINS` in `.env` |

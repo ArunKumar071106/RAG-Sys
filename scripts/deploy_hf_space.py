@@ -1,4 +1,4 @@
-"""Deploy the backend to a Hugging Face Space (Docker), using the vectors already in Qdrant Cloud.
+"""Deploy Arivazhai (the backend and its chat page) to a Hugging Face Space (Docker), using the vectors in Qdrant Cloud.
 
     python scripts/deploy_hf_space.py --space <hf-username>/arivazhai-api --cors https://<site>.netlify.app
     python scripts/deploy_hf_space.py --space <hf-username>/arivazhai-api --dry-run   # list what would be uploaded
@@ -7,8 +7,9 @@ What it does:
 1. checks .env points at a Qdrant server or Qdrant Cloud and the cluster holds the vectors and the index record
    (so the Space starts in seconds instead of embedding and uploading everything again);
 2. creates the Space (Docker SDK, public: the frontend calls it from visitors' browsers) if it does not exist;
-3. uploads deploy/huggingface/{Dockerfile,README.md} to its root, backend/rag, backend/requirements.txt and the
-   knowledge base (data/processed/*.jsonl, data/status.json) in one commit, which makes the Space build;
+3. uploads deploy/huggingface/{Dockerfile,README.md} to its root, backend/rag, backend/requirements.txt, the chat
+   page (frontend/: index.html, css, js, brand) and the knowledge base (data/processed/*.jsonl, data/status.json)
+   in one commit, which makes the Space build; the Space's address then opens the chat;
 4. stores QDRANT_URL, QDRANT_API_KEY (and ANTHROPIC_API_KEY if set) as Space secrets and CORS_ORIGINS as a variable.
    Keys are never written into the uploaded files.
 
@@ -32,6 +33,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 KNOWLEDGE_BASE = ["data/processed/chunks.jsonl", "data/processed/image_chunks.jsonl",
                   "data/processed/images.jsonl", "data/status.json"]
+FRONTEND = ["index.html", "css", "js", "brand"]  # the chat page, served by the backend at /
 
 
 def space_url(space: str) -> str:
@@ -55,6 +57,11 @@ def stage(target: Path) -> list[str]:
     for source in sorted((ROOT / "backend" / "rag").rglob("*")):
         if source.is_file() and "__pycache__" not in source.parts and source.suffix != ".pyc":
             put(source, "backend/" + source.relative_to(ROOT / "backend").as_posix())
+    for part in FRONTEND:
+        source = ROOT / "frontend" / part
+        for path in sorted(source.rglob("*")) if source.is_dir() else [source]:
+            if path.is_file():
+                put(path, "frontend/" + path.relative_to(ROOT / "frontend").as_posix())
     for relative in KNOWLEDGE_BASE:
         source = ROOT / relative
         if not source.exists():
@@ -102,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         files = stage(Path(tmp))
         size = sum((Path(tmp) / f).stat().st_size for f in files) / 1e6
         print(f"{len(files)} files, {size:.1f} MB: Dockerfile, README.md, backend/rag, backend/requirements.txt, "
-              "data/processed, data/status.json")
+              "frontend, data/processed, data/status.json")
         if args.dry_run:
             print("\n".join(f"  {f}" for f in files))
             return 0
@@ -138,10 +145,10 @@ def main(argv: list[str] | None = None) -> int:
 
         _step("uploading the files", lambda: api.upload_folder(
             folder_path=tmp, repo_id=args.space, repo_type="space", commit_message="Deploy the Arivazhai backend",
-            delete_patterns=["backend/**", "data/**"]))
+            delete_patterns=["backend/**", "data/**", "frontend/**"]))
     url = space_url(args.space)
     print(f"\nUploaded. The Space builds now (about 5-10 minutes the first time): https://huggingface.co/spaces/{args.space}")
-    print(f"Then check {url}/api/health  - and set VITE_API_BASE_URL={url} on Netlify.")
+    print(f"Then open {url}/ (the chat) and {url}/api/health. To host the page on Netlify as well, set ARIVAZHAI_API_URL={url} there.")
     return 0
 
 

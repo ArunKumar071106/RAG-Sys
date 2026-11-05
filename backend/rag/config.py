@@ -152,13 +152,16 @@ class Settings(BaseSettings):
     llm_model: str = "claude-opus-5-5"
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
     llm_max_tokens: int = 16000
-    # under the browser's 90 s limit (VITE_CHAT_TIMEOUT_MS), so a slow model still ends in an answer quoting the website
+    # under the browser's 90 s limit (chatTimeoutMs in frontend/js/config.js), so a slow model still ends in an answer quoting the website
     llm_timeout_seconds: float = 45.0
     llm_server_fallbacks: bool = True
     llm_history_turns: int = 6
 
     # ---- API -----------------------------------------------------------
+    # browsers may call the API from these other sites (the page served by this API needs no entry)
     cors_origins: CsvList = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # the chat page (plain HTML, CSS and JavaScript), served at / ; empty or missing: API only
+    frontend_dir: Path | None = PROJECT_DIR / "frontend"
     admin_token: str = ""
     rate_limit_per_minute: int = 30
     max_question_chars: int = 1000
