@@ -1,6 +1,6 @@
 /*
  * Arivazhai the robot, from the design project's Moments.dc.html: one SVG rig whose moment class
- * (greet, think, error, net, unsure) switches its face and motion through css/robot.css.
+ * (greet, think, error, net, unsure) switches its face and motion through css/robot.css (built into css/tailwind.css).
  *
  * Moments: the robot pops up over a blurred screen for about 2.5 s, then floats away. On page load
  * it waves with "Getting ready…" while the assistant is contacted, then says "Vanakkam!" (or that it
@@ -145,14 +145,14 @@
       if (!keep || !mov) {
         root.textContent = "";
         mov = document.createElement("div");
-        mov.className = "mov";
+        mov.className = "mov animate-moment-in [.is-leaving_&]:animate-moment-out";
         const robot = document.createElement("div");
-        robot.className = "moment__robot";
+        robot.className = "moment__robot aspect-[240/260] w-[clamp(170px,22vw,220px)] animate-moment-pop motion-reduce:animate-none [.is-leaving_&]:animate-moment-float motion-reduce:[.is-leaving_&]:animate-none";
         robot.innerHTML = robotSvg(FACE[m.kind]); // our own SVG markup, no outside text
         const title = document.createElement("p");
-        title.className = "moment__title";
+        title.className = "moment__title mt-2 mb-0 text-center font-heading text-[clamp(1.3rem,2.4vw,1.7rem)] font-bold text-white";
         const text = document.createElement("p");
-        text.className = "moment__text";
+        text.className = "moment__text m-0 max-w-[34ch] text-center text-[0.95rem] text-mist";
         mov.append(robot, title, text);
         root.appendChild(mov);
       } else {

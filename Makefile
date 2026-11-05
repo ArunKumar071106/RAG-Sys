@@ -3,7 +3,7 @@ PIP ?= .venv/bin/pip
 CHROMIUM ?= /opt/pw-browsers/chromium
 PLAYWRIGHT_CHROMIUM_PATH ?=
 
-.PHONY: install install-test-ui install-ml test test-backend test-frontend e2e demo crawl index all serve dev brand eval
+.PHONY: css install install-test-ui install-ml test test-backend test-frontend e2e demo crawl index all serve dev brand eval
 
 install:            ## backend dependencies (no ML extras); the chat page needs none
 	python3 -m venv .venv
@@ -48,3 +48,6 @@ dev: serve          ## the backend serves the chat page itself: edit frontend/, 
 
 brand:              ## measure colours/fonts/logo/menu from the rendered official website
 	cd frontend && PLAYWRIGHT_CHROMIUM_PATH=$(PLAYWRIGHT_CHROMIUM_PATH) node ../scripts/measure_brand.mjs --inner /aaa-hostels/
+
+css:                ## rebuild frontend/css/tailwind.css from the Tailwind classes (standalone Tailwind, no npm)
+	sh scripts/build_css.sh

@@ -11,7 +11,8 @@
  * Honours HTTPS_PROXY when set.
  *
  * Writes frontend/brand/brand.json, frontend/css/brand.css and
- * frontend/brand/{logo,banner,favicon}.* (the header and footer in frontend/index.html are kept by hand)  Colours used for text are checked
+ * frontend/brand/{logo,banner,favicon}.* (the header and footer in frontend/index.html are kept by hand;
+ * run scripts/build_css.sh afterwards to rebuild frontend/css/tailwind.css)  Colours used for text are checked
  * against WCAG AA (4.5:1) and nudged lighter/darker only when the measured pair fails;
  * every adjustment is reported.
  */

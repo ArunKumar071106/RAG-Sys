@@ -2,10 +2,11 @@
  * Arivazhai "robot moments": copied verbatim from the design project's Moments.dc.html
  * (Robot moments overlay). Do not edit the rules below by hand. .mov is the blurred
  * overlay; the moment class on <svg class="rb"> (.greet .load .think .error .net .unsure)
- * picks the robot's face and motion.
+ * picks the robot's face and motion. (.mov lists backdrop-filter once: the Tailwind build adds the
+ * -webkit- copy Safari needs; listing both made the build keep only the copy Chrome ignores.)
  */
 
-.mov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:20px;box-sizing:border-box;background:rgba(7,20,48,.42);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.mov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:20px;box-sizing:border-box;background:rgba(7,20,48,.42);backdrop-filter:blur(10px)}
 .rb{display:block;overflow:visible}
 .rb .float,.rb .squash,.rb .head,.rb .hfollow,.rb .antenna,.rb .hand,.rb .look,.rb .eyes,.rb .eye-r,.rb .core-glow,.rb .core-spin,.rb .orb,.rb .bst,.rb .bob,.rb .pad,.rb .spinner{transform-box:fill-box;transform-origin:center}
 .rb .squash,.rb .head,.rb .hfollow,.rb .antenna{transform-origin:50% 100%}

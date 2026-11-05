@@ -1,0 +1,172 @@
+/*
+ * Arivazhai's styles, written with Tailwind CSS (v4). Most of the page is styled by Tailwind classes
+ * in index.html and js/*.js; this file holds the theme (the official website's colours and fonts,
+ * measured into brand.css) and the few pieces classes cannot express: answer text made from
+ * Markdown, the menu icons and the animations.
+ *
+ * The page loads css/tailwind.css, built from this file. After changing classes or this file, run
+ *   sh scripts/build_css.sh            (Linux / macOS)     scripts\build_css.cmd   (Windows)
+ * which uses Tailwind's standalone program: no npm needed.
+ */
+
+/* Tailwind's theme and utilities. Its reset (preflight) is left out on purpose: the page keeps the
+   browser's normal spacing for paragraphs, lists and headings, as the website it matches does. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme) source(none);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "../index.html";
+@source "../js";
+
+@import "./brand.css";
+@import "./robot.css";
+
+@theme inline {
+  /* the official website's colours (measured, css/brand.css) */
+  --color-brand: var(--brand-primary);
+  --color-brand-dark: var(--brand-primary-dark);
+  --color-nav: var(--brand-nav-bg);
+  --color-nav-hover: var(--brand-nav-hover-bg);
+  --color-gold: var(--brand-accent);
+  --color-on-gold: var(--brand-banner-box-fg);
+  --color-navy: var(--brand-secondary);
+  --color-ink: var(--brand-text);
+  --color-heading: var(--brand-heading);
+  --color-muted: var(--brand-muted);
+  --color-edge: var(--brand-border);
+  --color-subtle: var(--brand-subtle);
+  --color-footer: var(--brand-footer-bg);
+  --color-link: var(--brand-link);
+
+  /* the help desk design (Mobile.dc.html) */
+  --color-navy-dark: color-mix(in srgb, var(--brand-secondary) 70%, #000);
+  --color-gold-dark: color-mix(in srgb, var(--brand-accent) 85%, #000);
+  --color-gold-text: #7a5a00; /* the gold, darkened for small text (6:1) */
+  --color-desk: #f4f6fb;
+  --color-line: #e1e7f0;
+  --color-field: #c9d4e4;
+  --color-cream: #fffaf0;
+  --color-mist: #dce6f7;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdf3f2;
+  --color-danger-text: #7a1b14;
+  --color-ai-bg: #fff4d6;
+  --color-ai-text: #6b4e00;
+  --color-ai-line: #e6c766;
+
+  --font-body: var(--brand-font-body);
+  --font-heading: var(--brand-font-heading);
+  --radius-brand: var(--brand-radius);
+  --radius-pill: var(--brand-pill-radius);
+  --shadow-brand: var(--brand-shadow);
+}
+
+@theme {
+  /* the website's own break points: the menu folds at 1024px, the phone layout starts at 760px */
+  --breakpoint-nav: 64.0625rem; /* max-nav: = up to 1024px */
+  --breakpoint-phone: 47.5625rem; /* max-phone: = up to 760px */
+
+  --animate-dot: dot 1.2s infinite ease-in-out;
+  --animate-scroll-hint: scroll-hint 1.8s ease-in-out infinite;
+  --animate-moment-in: moment-in 0.35s ease-out both;
+  --animate-moment-out: moment-out 0.4s ease-in both;
+  --animate-moment-pop: moment-pop 0.35s cubic-bezier(0.3, 0.7, 0.4, 1.3) both;
+  --animate-moment-float: moment-float 0.4s ease-in both;
+
+  @keyframes dot {
+    0%, 80%, 100% { opacity: 0.25; }
+    40% { opacity: 1; }
+  }
+  @keyframes scroll-hint {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(6px); }
+  }
+  @keyframes moment-in {
+    from { opacity: 0; backdrop-filter: blur(0); } /* the build adds -webkit- for Safari */
+  }
+  @keyframes moment-out {
+    to { opacity: 0; backdrop-filter: blur(0); } /* the build adds -webkit- for Safari */
+  }
+  @keyframes moment-pop {
+    from { transform: scale(0.85); }
+  }
+  @keyframes moment-float {
+    to { transform: translateY(-28px); }
+  }
+}
+
+/* ?embed=1 (an iframe on the official website): embed:hidden etc. */
+@custom-variant embed (&:where(.is-embed *));
+/* a desktop with a mouse: the menu's sub-menus open on hover */
+@custom-variant pointer-wide (@media (hover: hover) and (min-width: 1025px));
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--brand-page-bg);
+    color: var(--brand-text);
+    font-family: var(--brand-font-body);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--brand-font-heading);
+    font-weight: var(--brand-heading-weight, 700);
+    color: var(--brand-heading);
+    line-height: 1.2;
+  }
+  a { color: var(--brand-link); }
+  /* buttons and the question box use the page's font, as the website's do */
+  button, input, textarea { font: inherit; }
+  img { max-width: 100%; }
+  :focus-visible { outline: 3px solid var(--brand-secondary); outline-offset: 2px; }
+  /* anything marked hidden stays hidden, whatever its classes set display to */
+  [hidden] { display: none !important; }
+}
+
+@layer components {
+  /* the main menu's top-level links and buttons */
+  .nav-link {
+    @apply flex cursor-pointer items-center gap-2 border-0 bg-transparent px-[clamp(8px,0.9vw,15px)] py-[19px] font-heading leading-[1.2] text-[var(--brand-nav-fg)] no-underline;
+    @apply text-[length:var(--brand-nav-font-size)] font-[var(--brand-nav-font-weight)] [text-transform:var(--brand-nav-transform)];
+    @apply hover:bg-nav-hover aria-[current=page]:bg-nav-hover focus-visible:-outline-offset-3 focus-visible:outline-white;
+    @apply max-nav:w-full max-nav:justify-between max-nav:border-t max-nav:border-white/15 max-nav:px-4 max-nav:py-3.5;
+  }
+
+  /* the hamburger's three bars and the sub-menu's plus / minus */
+  .menu-bars, .menu-bars::before, .menu-bars::after {
+    @apply relative mx-auto block h-0.5 w-5 bg-ink content-[''];
+  }
+  .menu-bars::before { @apply absolute -top-1.5; }
+  .menu-bars::after { @apply absolute top-1.5; }
+  .plus-icon { @apply relative size-2.5; }
+  .plus-icon::before, .plus-icon::after { @apply absolute bg-current opacity-75 content-['']; }
+  .plus-icon::before { @apply inset-x-0 top-1 h-[1.5px]; }
+  .plus-icon::after { @apply inset-y-0 left-1 w-[1.5px]; }
+  .is-open .plus-icon::after { @apply hidden; }
+
+  /* the robot's moment is on screen only while js/robot.js marks it is-shown */
+  .moment:not(.is-shown) { display: none; }
+
+  .breadcrumb li + li::before { content: "›"; margin-right: 6px; }
+
+  /* the robot's face in the profile pictures: a still portrait, only the blink stays */
+  .profile svg { width: 88%; height: 88%; }
+  .profile .rb, .profile .rb * { animation: none !important; }
+  .profile .rb .eyes { animation: rbBlink 5.7s infinite !important; }
+  @media (prefers-reduced-motion: reduce) {
+    .profile .rb .eyes { animation: none !important; }
+  }
+
+  /* text in the chat bubbles, and answers rendered from Markdown */
+  .bubble p:first-child { margin-top: 0; }
+  .bubble p:last-child, .bubble p:has(+ .suggestions[hidden]) { margin-bottom: 0; }
+  .markdown table { @apply my-2.5 block w-full border-collapse overflow-x-auto; }
+  /* never split a name or a date mid-word: a wide table scrolls sideways in its own box */
+  .markdown th, .markdown td { @apply min-w-[7.5rem] border border-edge px-2.5 py-1.5 text-left align-top wrap-normal; }
+  .markdown th:first-child, .markdown td:first-child { @apply min-w-40; }
+  .markdown th { @apply bg-white; }
+  .markdown ul, .markdown ol { padding-left: 1.3em; }
+  .citation { @apply inline-block px-px align-super text-[0.75em] leading-none font-bold no-underline hover:underline; }
+}

@@ -31,3 +31,4 @@ frontend/playwright-report/
 # misc
 .DS_Store
 *.log
+.tools/

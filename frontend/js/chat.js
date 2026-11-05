@@ -23,6 +23,75 @@
   /** Questions the admission and scholarship staff answer. */
   const ADMISSION_QUESTION = /\b(admission|admit|apply|application|counsell?ing|scholarship|fees?|quota|seat|eligib|join)/i;
 
+
+  /**
+   * Tailwind classes of the elements the chat creates (css/tailwind.input.css has the theme:
+   * brand, navy, gold, line, field, muted ...). A plain name first (message--user, chip, markdown)
+   * is a hook for the scripts and tests, not a style.
+   */
+  const C = {
+    sender: "inline-flex items-center gap-2 text-[0.72rem] font-extrabold tracking-[0.04em] text-gold-text uppercase",
+    profileSmall: "profile grid size-[26px] shrink-0 place-items-center overflow-hidden rounded-full border-[1.5px] border-gold bg-navy-dark",
+    userMessage: "message--user flex items-start justify-end gap-2.5",
+    assistantMessage: "message--assistant flex flex-col items-start gap-1.5",
+    // an answer bubble; one of the colour sets below goes with it (two colour classes on one element would clash)
+    bubble: "bubble w-[min(880px,100%)] max-w-[min(780px,100%)] min-w-0 rounded-[4px_16px_16px_16px] border px-4 py-3 wrap-anywhere",
+    plain: "border-line bg-white",
+    userBubble: "bubble max-w-[min(620px,85%)] rounded-[16px_4px_16px_16px] bg-navy px-4 py-3 whitespace-pre-wrap text-white wrap-anywhere max-phone:max-w-[90%]",
+    noAnswer: "border-y-line border-r-line border-l-4 border-l-gold bg-white",
+    errorBubble: "border-danger bg-danger-bg",
+    loadingBubble: "flex flex-[0_1_auto] items-center gap-2.5",
+    dots: "inline-flex gap-1 [&>span]:size-[7px] [&>span]:animate-dot [&>span]:rounded-full [&>span]:bg-brand [&>span:nth-child(2)]:[animation-delay:0.2s] [&>span:nth-child(3)]:[animation-delay:0.4s] motion-reduce:[&>span]:animate-none motion-reduce:[&>span]:opacity-70",
+    muted: "text-[0.9rem] text-muted",
+    suggestions: "suggestions mt-3.5",
+    followUps: "suggestions mt-1 w-[min(880px,100%)]",
+    sectionTitle: "mt-0 mb-2 text-[0.9rem] tracking-[0.04em] text-muted uppercase",
+    suggestionsTitle: "mt-0 mb-2 text-[0.95rem] tracking-[0.04em] text-muted uppercase",
+    chipList: "m-0 flex list-none flex-wrap gap-2 p-0",
+    chip: "chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white",
+    sources: "sources mt-3.5 border-t border-edge pt-3",
+    sourceList: "m-0 grid list-none gap-2 p-0",
+    sourceItem: "flex gap-2.5",
+    sourceNum: "mt-0.5 grid size-[22px] shrink-0 place-items-center rounded-full bg-brand text-[0.75rem] font-bold text-white",
+    sourceLink: "font-semibold",
+    sourceHeading: "font-normal text-muted",
+    sourceSnippet: "mt-0.5 mb-0 text-[0.85rem] text-muted",
+    images: "images mt-3.5",
+    imageGrid: "grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3",
+    imageCard: "image-card m-0 flex flex-col overflow-hidden rounded-brand border border-edge bg-white",
+    imageFrame: "relative aspect-[4/3] max-h-[260px] w-full bg-subtle",
+    // contain, not cover: posters and notices must never be cropped
+    image: "block size-full object-contain",
+    imageMissing: "flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 text-[0.85rem] text-muted",
+    imageBadge: "absolute right-2 bottom-2 rounded-full bg-black/70 px-2 py-0.5 text-[0.72rem] text-white",
+    imageCaption: "flex flex-col gap-1 px-3 pt-2.5 pb-3 text-[0.85rem]",
+    imageTitle: "font-semibold",
+    imageMeta: "text-muted",
+    imageSummary: "cursor-pointer text-link",
+    imageOcr: "mt-1.5 mb-0 font-mono text-[0.8rem] whitespace-pre-wrap",
+    imageAi: "m-0 text-muted",
+    aiTag: "tag--ai inline-block rounded-[3px] border border-ai-line bg-ai-bg px-1.5 py-px text-[0.7rem] font-bold tracking-[0.03em] text-ai-text uppercase",
+    imageLinks: "mt-0.5 flex flex-wrap gap-x-3.5 gap-y-1",
+    contactCard: "contact-card mt-3.5 rounded-[10px] border border-l-4 border-line border-l-gold bg-cream px-3.5 py-3",
+    contactTitle: "mt-0 mb-1.5 text-[0.9rem] text-navy",
+    contactList: "m-0 flex list-none flex-wrap gap-x-[18px] gap-y-1.5 p-0 [&_a]:font-bold [&_a]:text-navy",
+    contactNote: "text-[0.85rem] text-muted",
+    contactSubtitle: "mt-2.5 mb-1 text-[0.85rem] text-navy",
+    contactPeople: "m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-x-[18px] gap-y-1 p-0",
+    contactPerson: "flex flex-wrap justify-between gap-x-2.5 gap-y-0.5 [&_a]:font-bold [&_a]:whitespace-nowrap [&_a]:text-navy",
+    contactRole: "block text-[0.8rem] text-muted",
+    translate: "mt-2.5 flex flex-wrap items-center gap-2",
+    translateButton: "translate__button cursor-pointer rounded-full border border-field bg-white px-3.5 py-1.5 text-[0.85rem] font-semibold text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white aria-pressed:border-navy aria-pressed:bg-navy aria-pressed:text-white",
+    translateError: "translate__error text-[0.85rem] text-danger",
+    notice: "mt-2.5 mb-0 text-[0.85rem] text-muted italic",
+    error: "flex flex-wrap items-center gap-2.5",
+    errorIcon: "grid size-6 shrink-0 place-items-center rounded-full bg-danger font-extrabold text-white",
+    errorText: "m-0 min-w-[180px] flex-1 text-danger-text",
+    retry: "inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-pill border border-brand bg-white px-3.5 py-1 text-[0.85rem] font-medium whitespace-nowrap text-brand enabled:hover:bg-brand enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-55",
+    option: "cursor-pointer px-4 py-[9px] leading-[1.35] text-ink [&_strong]:font-semibold [&_strong]:text-brand",
+    optionActive: "bg-subtle",
+  };
+
   // ------------------------------------------------------------------ small helpers
   function el(tag, attrs, children) {
     const node = document.createElement(tag);
@@ -40,7 +109,7 @@
   }
 
   const safeHref = (href) => A.markdown.safeHref(href);
-  const hidden = (text) => el("span", { class: "visually-hidden", text: text });
+  const hidden = (text) => el("span", { class: "sr-only", text: text });
 
   /** "18004258807" -> "1800 425 8807"; other numbers as the website writes them. */
   function formatPhone(phone) {
@@ -82,43 +151,43 @@
 
   // ------------------------------------------------------------------ pieces of an answer
   function sender() {
-    const profile = el("span", { class: "profile profile--small", "data-robot": "head" });
+    const profile = el("span", { class: C.profileSmall, "data-robot": "head" });
     robot.drawProfiles(el("div", null, [profile]));
-    return el("span", { class: "message__sender", "aria-hidden": "true" }, [profile, "Arivazhai"]);
+    return el("span", { class: C.sender, "aria-hidden": "true" }, [profile, "Arivazhai"]);
   }
 
   /** Clickable questions: the welcome's "Try asking" and the "You can also ask" under an answer. */
-  function suggestionList(questions, title, onSelect) {
+  function suggestionList(questions, title, onSelect, classes) {
     const titleId = nextId();
-    return el("div", { class: "suggestions" }, [
-      el("h3", { class: "suggestions__title", id: titleId, text: title }),
+    return el("div", { class: classes || C.suggestions }, [
+      el("h3", { class: C.suggestionsTitle, id: titleId, text: title }),
       el(
         "ul",
-        { class: "suggestions__list", "aria-labelledby": titleId },
-        questions.map((q) => el("li", null, [el("button", { type: "button", class: "chip", "data-busy": true, text: q, onclick: () => onSelect(q) })])),
+        { class: C.chipList, "aria-labelledby": titleId },
+        questions.map((q) => el("li", null, [el("button", { type: "button", class: C.chip, "data-busy": true, text: q, onclick: () => onSelect(q) })])),
       ),
     ]);
   }
 
   function sourceList(sources, title, variant) {
     if (!sources.length) return null;
-    return el("section", { class: "sources sources--" + variant, "aria-label": title }, [
-      el("h4", { class: "sources__title", text: title }),
+    return el("section", { class: C.sources, "aria-label": title }, [
+      el("h4", { class: C.sectionTitle, text: title }),
       el(
         "ol",
-        { class: "sources__list" },
+        { class: C.sourceList },
         sources.map((source, index) => {
           const href = safeHref(source.url);
           const label = href
-            ? el("a", { href: href, target: "_blank", rel: "noopener noreferrer", class: "sources__link" }, [
+            ? el("a", { href: href, target: "_blank", rel: "noopener noreferrer", class: C.sourceLink }, [
                 source.title,
-                source.heading ? el("span", { class: "sources__heading", text: " - " + source.heading }) : null,
+                source.heading ? el("span", { class: C.sourceHeading, text: " - " + source.heading }) : null,
                 hidden(" (opens official page in a new tab)"),
               ])
-            : el("span", { class: "sources__link", text: source.title });
-          return el("li", { class: "sources__item" }, [
-            variant === "cited" ? el("span", { class: "sources__num", "aria-hidden": "true", text: String(index + 1) }) : null,
-            el("div", { class: "sources__body" }, [label, source.snippet ? el("p", { class: "sources__snippet", text: source.snippet }) : null]),
+            : el("span", { class: C.sourceLink, text: source.title });
+          return el("li", { class: C.sourceItem }, [
+            variant === "cited" ? el("span", { class: C.sourceNum, "aria-hidden": "true", text: String(index + 1) }) : null,
+            el("div", null, [label, source.snippet ? el("p", { class: C.sourceSnippet, text: source.snippet }) : null]),
           ]);
         }),
       ),
@@ -133,9 +202,9 @@
     const pageHref = safeHref(image.source_page);
     const originalHref = safeHref(image.original_url);
 
-    const frame = el("div", { class: "image-card__frame" });
+    const frame = el("div", { class: C.imageFrame });
     if (image.width && image.height) frame.style.aspectRatio = image.width + " / " + image.height;
-    const img = el("img", { src: api.apiUrl(image.src), alt: alt, loading: "lazy", decoding: "async" });
+    const img = el("img", { class: C.image, src: api.apiUrl(image.src), alt: alt, loading: "lazy", decoding: "async" });
     let triedOriginal = false;
     img.addEventListener("error", () => {
       if (!triedOriginal && originalHref) {
@@ -143,31 +212,31 @@
         img.src = originalHref;
         return;
       }
-      const missing = el("div", { class: "image-card__missing", role: "img", "aria-label": "Image unavailable: " + alt }, [el("span", { text: "Image unavailable" })]);
+      const missing = el("div", { class: C.imageMissing, role: "img", "aria-label": "Image unavailable: " + alt }, [el("span", { text: "Image unavailable" })]);
       missing.insertAdjacentHTML(
         "afterbegin",
         '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 5v14H3V5h18m0-2H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7.5 9.5-3 3.9-2-2.6L5.5 17h13l-5-4.5z"/></svg>',
       );
       img.replaceWith(missing);
     });
-    frame.append(img, el("span", { class: "image-card__badge", text: "Image " + index }));
+    frame.append(img, el("span", { class: C.imageBadge, text: "Image " + index }));
 
-    const links = el("span", { class: "image-card__links" }, [
+    const links = el("span", { class: C.imageLinks }, [
       pageHref ? el("a", { href: pageHref, target: "_blank", rel: "noopener noreferrer" }, ["View source page", hidden(" (opens in a new tab)")]) : null,
       originalHref ? el("a", { href: originalHref, target: "_blank", rel: "noopener noreferrer" }, ["Open image", hidden(" (opens in a new tab)")]) : null,
     ]);
-    const caption = el("figcaption", { class: "image-card__caption" }, [
-      el("span", { class: "image-card__title", text: title }),
-      meta ? el("span", { class: "image-card__meta", text: meta }) : null,
+    const caption = el("figcaption", { class: C.imageCaption }, [
+      el("span", { class: C.imageTitle, text: title }),
+      meta ? el("span", { class: C.imageMeta, text: meta }) : null,
       image.ocr_text
-        ? el("details", { class: "image-card__details" }, [el("summary", { text: "Text in image (OCR)" }), el("p", { class: "image-card__ocr", text: image.ocr_text })])
+        ? el("details", null, [el("summary", { class: C.imageSummary, text: "Text in image (OCR)" }), el("p", { class: C.imageOcr, text: image.ocr_text })])
         : null,
       image.description_is_ai_generated && image.description
-        ? el("p", { class: "image-card__ai" }, [el("span", { class: "tag tag--ai", text: "AI-generated description" }), " " + image.description])
+        ? el("p", { class: C.imageAi }, [el("span", { class: C.aiTag, text: "AI-generated description" }), " " + image.description])
         : null,
       links,
     ]);
-    return el("figure", { class: "image-card", id: anchorId }, [frame, caption]);
+    return el("figure", { class: C.imageCard, id: anchorId }, [frame, caption]);
   }
 
   /** How to reach the college, as tap-to-call and email links; for admission questions also the admission staff. */
@@ -179,23 +248,23 @@
           el("span", { "aria-hidden": "true", text: "📞" }),
           " ",
           el("a", { href: telHref(phone), text: formatPhone(phone) }),
-          /^1800/.test(phone.replace(/\D/g, "")) ? el("span", { class: "contact-card__note", text: " (toll-free)" }) : null,
+          /^1800/.test(phone.replace(/\D/g, "")) ? el("span", { class: C.contactNote, text: " (toll-free)" }) : null,
         ]),
       );
     }
     for (const email of site.emails) {
       items.push(el("li", null, [el("span", { "aria-hidden": "true", text: "✉️" }), " ", el("a", { href: "mailto:" + email, text: email })]));
     }
-    const card = el("section", { class: "contact-card", "aria-label": title }, [el("h4", { class: "contact-card__title", text: title }), el("ul", { class: "contact-card__list" }, items)]);
+    const card = el("section", { class: C.contactCard, "aria-label": title }, [el("h4", { class: C.contactTitle, text: title }), el("ul", { class: C.contactList }, items)]);
     if (staff && site.admissionStaff.length) {
       card.append(
-        el("h5", { class: "contact-card__subtitle", text: "Admission & scholarship" }),
+        el("h5", { class: C.contactSubtitle, text: "Admission & scholarship" }),
         el(
           "ul",
-          { class: "contact-card__people" },
+          { class: C.contactPeople },
           site.admissionStaff.map((person) =>
-            el("li", null, [
-              el("span", { class: "contact-card__name" }, [person.name, person.role ? el("span", { class: "contact-card__role", text: person.role }) : null]),
+            el("li", { class: C.contactPerson }, [
+              el("span", null, [person.name, person.role ? el("span", { class: C.contactRole, text: person.role }) : null]),
               " ",
               el("a", { href: telHref(person.phone), text: person.phone }),
             ]),
@@ -210,13 +279,13 @@
   function translateToggle(text, show) {
     let english = null;
     let showing = false;
-    const button = el("button", { type: "button", class: "translate__button", "aria-pressed": "false" });
+    const button = el("button", { type: "button", class: C.translateButton, "aria-pressed": "false" });
     const label = (words) => {
       button.textContent = "";
       button.append(el("span", { "aria-hidden": "true", text: "🌐" }), " " + words);
     };
     label("Show in English");
-    const box = el("div", { class: "translate" }, [button]);
+    const box = el("div", { class: C.translate }, [button]);
     button.addEventListener("click", async () => {
       const error = box.querySelector(".translate__error");
       if (error) error.remove();
@@ -237,7 +306,7 @@
         label("Show original");
       } catch (err) {
         label("Show in English");
-        box.append(el("span", { class: "translate__error", role: "alert", text: err instanceof api.ApiError ? err.message : "The English version is not available right now." }));
+        box.append(el("span", { class: C.translateError, role: "alert", text: err instanceof api.ApiError ? err.message : "The English version is not available right now." }));
       } finally {
         button.disabled = false;
       }
@@ -247,19 +316,19 @@
 
   // ------------------------------------------------------------------ messages
   function renderUser(message) {
-    return el("div", { class: "message message--user" }, [
-      el("div", { class: "bubble bubble--user" }, [hidden("You said: "), el("span", { dir: "auto", text: message.content })]),
+    return el("div", { class: C.userMessage }, [
+      el("div", { class: C.userBubble }, [hidden("You said: "), el("span", { dir: "auto", text: message.content })]),
     ]);
   }
 
   function renderError(message, onRetry) {
-    const retry = el("button", { type: "button", class: "btn btn--outline btn--small", "data-busy": true, text: "Try again", onclick: () => onRetry(message.id) });
-    return el("div", { class: "message message--assistant" }, [
+    const retry = el("button", { type: "button", class: C.retry, "data-busy": true, text: "Try again", onclick: () => onRetry(message.id) });
+    return el("div", { class: C.assistantMessage }, [
       sender(),
-      el("div", { class: "bubble bubble--assistant bubble--error" }, [
-        el("div", { class: "error-message", role: "alert" }, [
-          el("span", { class: "error-message__icon", "aria-hidden": "true", text: "!" }),
-          el("p", { class: "error-message__text", text: message.error.message }),
+      el("div", { class: C.bubble + " " + C.errorBubble }, [
+        el("div", { class: C.error, role: "alert" }, [
+          el("span", { class: C.errorIcon, "aria-hidden": "true", text: "!" }),
+          el("p", { class: C.errorText, text: message.error.message }),
           retry,
         ]),
       ]),
@@ -286,9 +355,9 @@
     // "show me photos of the hostel": the photos are the answer, so they come before the text
     const photoQuestion = PHOTO_QUESTION.test(question);
     const gallery = images.length
-      ? el("section", { class: "images", "aria-label": "Related images from the official website" }, [
-          el("h4", { class: "images__title", text: "Images from the official website" }),
-          el("div", { class: "images__grid" }, images.map((image, i) => imageCard(image, i + 1, message.id + "-" + image.id))),
+      ? el("section", { class: C.images, "aria-label": "Related images from the official website" }, [
+          el("h4", { class: C.sectionTitle, text: "Images from the official website" }),
+          el("div", { class: C.imageGrid }, images.map((image, i) => imageCard(image, i + 1, message.id + "-" + image.id))),
         ])
       : null;
     // "not on the website" and contact questions end with how to reach the college
@@ -296,14 +365,14 @@
     const showStaff = noAnswer || ADMISSION_QUESTION.test(question);
     const related = result.related_sources || [];
 
-    return el("div", { class: "message message--assistant" }, [
+    return el("div", { class: C.assistantMessage }, [
       sender(),
-      el("div", { class: "bubble bubble--assistant" + (noAnswer ? " bubble--no-answer" : "") }, [
+      el("div", { class: C.bubble + " " + (noAnswer ? C.noAnswer : C.plain) }, [
         hidden("Assistant: "),
         photoQuestion ? gallery : null,
         markdown,
         result.translatable ? translateToggle(message.content, showText) : null,
-        result.notice ? el("p", { class: "notice", text: result.notice }) : null,
+        result.notice ? el("p", { class: C.notice, text: result.notice }) : null,
         photoQuestion ? null : gallery,
         sourceList(sources, "Sources from the official website", "cited"),
         noAnswer && related.length ? sourceList(related, "These official pages may be related", "related") : null,
@@ -313,11 +382,11 @@
   }
 
   function renderLoading() {
-    return el("div", { class: "message message--assistant", role: "status", "aria-live": "polite" }, [
+    return el("div", { class: C.assistantMessage, role: "status", "aria-live": "polite" }, [
       sender(),
-      el("div", { class: "bubble bubble--assistant bubble--loading" }, [
-        el("span", { class: "dots", "aria-hidden": "true" }, [el("span"), el("span"), el("span")]),
-        el("span", { class: "loading-label", text: "Searching the official website…" }),
+      el("div", { class: C.bubble + " " + C.plain + " " + C.loadingBubble }, [
+        el("span", { class: C.dots, "aria-hidden": "true" }, [el("span"), el("span"), el("span")]),
+        el("span", { class: C.muted, text: "Searching the official website…" }),
       ]),
     ]);
   }
@@ -363,7 +432,7 @@
       else field.removeAttribute("aria-controls");
       field.removeAttribute("aria-activedescendant");
       suggestions.forEach((s, i) => {
-        const item = el("li", { id: list.id + "-" + i, role: "option", "aria-selected": String(i === active), class: "chat-suggestions__item" + (i === active ? " is-active" : "") }, highlighted(s, field.value));
+        const item = el("li", { id: list.id + "-" + i, role: "option", "aria-selected": String(i === active), class: C.option + (i === active ? " is-active " + C.optionActive : "") }, highlighted(s, field.value));
         item.addEventListener("mousedown", (e) => e.preventDefault()); // keep the focus in the box
         item.addEventListener("click", () => send(s));
         item.addEventListener("mouseenter", () => {
@@ -537,7 +606,7 @@
       const latest = [...state.messages].reverse().find((m) => m.role === "assistant");
       const questions = latest && latest.result && latest.result.follow_ups;
       if (state.loading || !questions || !questions.length) return;
-      followUps = suggestionList(questions, "You can also ask", ask);
+      followUps = suggestionList(questions, "You can also ask", ask, C.followUps);
       nodes.get(latest.id).appendChild(followUps);
     }
 

@@ -9,7 +9,7 @@
     const toggle = document.querySelector(".menu-toggle");
     const nav = document.querySelector(".mainnav");
     if (toggle && nav) {
-      const label = toggle.querySelector(".visually-hidden");
+      const label = toggle.querySelector(".sr-only");
       const setOpen = (open) => {
         nav.classList.toggle("mainnav--open", open);
         toggle.setAttribute("aria-expanded", String(open));

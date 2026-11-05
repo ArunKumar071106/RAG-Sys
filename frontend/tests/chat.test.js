@@ -122,8 +122,9 @@ describe("the chat", () => {
     await flush();
     await flush();
     const bubble = $(".message--assistant:last-of-type .bubble");
-    const order = [...bubble.children].map((c) => c.className);
-    expect(order.indexOf("images")).toBeLessThan(order.indexOf("markdown"));
+    const position = (hook) => [...bubble.children].findIndex((c) => c.classList.contains(hook));
+    expect(position("images")).toBeGreaterThan(-1);
+    expect(position("images")).toBeLessThan(position("markdown"));
   });
 
   it("shows an answer in another language in English on request", async () => {
