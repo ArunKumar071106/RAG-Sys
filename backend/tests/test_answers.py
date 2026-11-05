@@ -584,3 +584,12 @@ def test_a_slow_follow_up_rewrite_is_skipped_and_the_answer_still_comes(services
     history = [ChatTurn(role="user", content="Tell me about the hostel"), ChatTurn(role="assistant", content="...")]
     result = asyncio.run(AnswerService(services.retriever, llm).answer("what about its fees?", history))
     assert result.mode == "llm" and "Hostel fees" in result.answer
+
+
+def test_source_previews_are_plain_text():
+    from rag.llm.answer import source_out
+
+    chunk = RetrievedChunk(chunk_id="c", doc_id="d", url="https://c.example/admission/online-admission/", page_title="Online Admission",
+                           heading_path=["Online Admission"], score=1,
+                           text="### Online Admission\nPlease fill the form below.\n[Fill in the form on the official website](https://c.example/admission/online-admission/)")
+    assert source_out(1, chunk).snippet == "Online Admission Please fill the form below. Fill in the form on the official website"

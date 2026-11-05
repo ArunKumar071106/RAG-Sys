@@ -107,7 +107,9 @@ class ChatResult(BaseModel):
 
 
 def _snippet(text: str, limit: int = 240) -> str:
-    text = re.sub(r"^#+\s*", "", text, flags=re.M)
+    """A plain-text preview of a source: no heading marks, and links as their words only (the page shows
+    it as text, so "[Fill in the form](https://...)" would appear as written)."""
+    text = re.sub(r"^#+\s*", "", strip_md_links(text), flags=re.M)
     text = re.sub(r"\s+", " ", text).strip()
     return text if len(text) <= limit else text[: limit - 1].rsplit(" ", 1)[0] + "…"
 
