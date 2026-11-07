@@ -557,6 +557,7 @@ class GeminiLLM:
         self.client = client
         self.model = model
         self.max_tokens = max_tokens
+        self.timeout = timeout
         self.name = f"gemini:{model}"
 
     async def generate(self, system: str, messages: list[dict]) -> LLMAnswer:
@@ -575,7 +576,10 @@ class GeminiLLM:
                       401: "Gemini authentication failed - check GEMINI_API_KEY in .env",
                       403: "Gemini API key lacks permission (or the API is not enabled for it)",
                       404: f"Gemini model {self.model!r} not found - set GEMINI_MODEL in .env",
-                      429: "Gemini rate limit or free-tier quota reached - wait a minute"}.get(code, f"Gemini API error (HTTP {code})")
+                      429: "Gemini rate limit or free-tier quota reached - wait a minute",
+                      503: "Gemini is overloaded right now - try again, or set GEMINI_MODEL=gemini-flash-lite-latest in .env",
+                      504: f"Gemini took too long (over {self.timeout:.0f} s) - try again, or set GEMINI_MODEL=gemini-flash-lite-latest"
+                           " in .env (a faster model)"}.get(code, f"Gemini API error (HTTP {code})")
             raise LLMUnavailable(reason) from exc
         except Exception as exc:  # network errors from the HTTP client
             raise LLMUnavailable(f"Could not reach the Gemini API ({type(exc).__name__})") from exc

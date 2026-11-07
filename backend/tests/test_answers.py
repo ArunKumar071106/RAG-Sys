@@ -522,6 +522,7 @@ def test_gemini_failures_fall_back_and_blocked_answers_are_refusals():
     for fake, words in [(_FakeGemini(_gemini_response("", finish="RECITATION")), "no text"),
                         (_FakeGemini(error=errors.ClientError(429, {"error": {"message": "quota"}})), "quota"),
                         (_FakeGemini(error=errors.ClientError(404, {"error": {"message": "nope"}})), "GEMINI_MODEL"),
+                        (_FakeGemini(error=errors.ServerError(504, {"error": {"message": "Deadline expired"}})), "too long.*flash-lite"),
                         (_FakeGemini(error=OSError("getaddrinfo failed")), "reach")]:
         with pytest.raises(LLMUnavailable, match=words):
             asyncio.run(GeminiLLM("m", "k", client=fake).generate("S", [{"role": "user", "content": "q"}]))
