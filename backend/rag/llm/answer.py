@@ -320,7 +320,7 @@ class AnswerService:
 
         language_notice = "" if self.llm is not None or is_english(question) else (
             "Questions in other languages are answered in English quotes; set up the AI answer service"
-            " (ANTHROPIC_API_KEY) to ask and get answers in any language.")
+            " (GEMINI_API_KEY) to ask and get answers in any language.")
         if not text.chunks:
             return ChatResult(answer=NO_ANSWER_TEXT, mode="no_answer", insufficient_evidence=True, notice=language_notice,
                               timings_ms=timings)

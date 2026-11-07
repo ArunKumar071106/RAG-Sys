@@ -460,16 +460,92 @@ def test_claude_key_from_dotenv_reaches_the_client(monkeypatch, tmp_path):
     from rag.llm import client as llm_client
 
     monkeypatch.setattr(llm_client, "anthropic_credentials_present", lambda: False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)  # the environment would win over .env
+    for name in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(name, raising=False)  # the environment would win over .env
     made = {}
     monkeypatch.setattr(llm_client, "AnthropicLLM", lambda *a, api_key=None: made.setdefault("key", api_key) or "claude")
     env = tmp_path / ".env"
-    env.write_text("ANTHROPIC_API_KEY=sk-ant-from-dotenv\nLLM_PROVIDER=gemini\n", encoding="utf-8")
+    env.write_text("ANTHROPIC_API_KEY=sk-ant-from-dotenv\nLLM_PROVIDER=claude\n", encoding="utf-8")
     settings = Settings(_env_file=str(env))
-    assert settings.llm_provider == "anthropic"  # an old .env saying gemini or auto means Claude
+    assert settings.llm_provider == "anthropic"
     assert llm_client.get_llm(settings) is not None and made["key"] == "sk-ant-from-dotenv"
+    # Gemini is the default, but with only a Claude key Claude answers
+    assert llm_client.get_llm(Settings(_env_file=None, anthropic_api_key="k")) is not None
     assert llm_client.get_llm(Settings(_env_file=None, anthropic_api_key="")) is None  # no key: quote the website
     assert llm_client.get_llm(Settings(_env_file=None, anthropic_api_key="k", llm_provider="extractive")) is None
+
+
+class _FakeGemini:
+    """google-genai's client.aio.models.generate_content, recording the request."""
+
+    def __init__(self, response=None, error=None):
+        self.calls, self.response, self.error = [], response, error
+        self.aio = SimpleNamespace(models=SimpleNamespace(generate_content=self._generate))
+
+    async def _generate(self, model, contents, config):
+        self.calls.append(SimpleNamespace(model=model, contents=contents, config=config))
+        if self.error:
+            raise self.error
+        return self.response
+
+
+def _gemini_response(text, finish="STOP", blocked=None):
+    candidate = SimpleNamespace(finish_reason=f"FinishReason.{finish}")
+    return SimpleNamespace(text=text, candidates=[candidate], prompt_feedback=SimpleNamespace(block_reason=blocked),
+                           model_version="gemini-x-flash")
+
+
+def test_gemini_answers_with_the_system_prompt_and_the_conversation():
+    import asyncio
+
+    from rag.llm.client import GeminiLLM
+
+    fake = _FakeGemini(_gemini_response("Accredited by NAAC with A grade [S1]."))
+    llm = GeminiLLM("gemini-flash-latest", "key", client=fake)
+    answer = asyncio.run(llm.generate("SYSTEM", [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"},
+                                                 {"role": "user", "content": "Why choose AAACET?"}]))
+    assert answer.text == "Accredited by NAAC with A grade [S1]." and answer.model == "gemini-x-flash"
+    call = fake.calls[0]
+    assert call.config.system_instruction == "SYSTEM" and [c.role for c in call.contents] == ["user", "model", "user"]
+    assert call.config.automatic_function_calling.disable is True
+
+
+def test_gemini_failures_fall_back_and_blocked_answers_are_refusals():
+    import asyncio
+
+    from google.genai import errors
+
+    from rag.llm.client import GeminiLLM
+
+    blocked = GeminiLLM("m", "k", client=_FakeGemini(_gemini_response("", finish="SAFETY")))
+    assert asyncio.run(blocked.generate("S", [{"role": "user", "content": "q"}])).refused
+    for fake, words in [(_FakeGemini(_gemini_response("", finish="RECITATION")), "no text"),
+                        (_FakeGemini(error=errors.ClientError(429, {"error": {"message": "quota"}})), "quota"),
+                        (_FakeGemini(error=errors.ClientError(404, {"error": {"message": "nope"}})), "GEMINI_MODEL"),
+                        (_FakeGemini(error=OSError("getaddrinfo failed")), "reach")]:
+        with pytest.raises(LLMUnavailable, match=words):
+            asyncio.run(GeminiLLM("m", "k", client=fake).generate("S", [{"role": "user", "content": "q"}]))
+
+
+def test_gemini_is_the_default_and_its_key_comes_from_dotenv(monkeypatch, tmp_path):
+    from rag.config import Settings
+    from rag.llm import client as llm_client
+
+    monkeypatch.setattr(llm_client, "anthropic_credentials_present", lambda: False)
+    for name in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(llm_client, "GeminiLLM", lambda model, key, *a: SimpleNamespace(name=f"gemini:{model}", key=key))
+    env = tmp_path / ".env"
+    env.write_text("GEMINI_API_KEY=g-from-dotenv\n", encoding="utf-8")
+    llm = llm_client.get_llm(Settings(_env_file=str(env)))
+    assert llm.name == "gemini:gemini-flash-latest" and llm.key == "g-from-dotenv"
+    for provider in ("auto", "gemini", "anthropic"):  # "anthropic" without a Claude key: the Gemini key is used
+        assert llm_client.get_llm(Settings(_env_file=None, llm_provider=provider, gemini_api_key="g")).name.startswith("gemini:")
+    # both keys: LLM_PROVIDER decides
+    monkeypatch.setattr(llm_client, "AnthropicLLM", lambda *a, api_key=None: SimpleNamespace(name="claude"))
+    assert llm_client.get_llm(Settings(_env_file=None, gemini_api_key="g", anthropic_api_key="k")).name.startswith("gemini:")
+    assert llm_client.get_llm(Settings(_env_file=None, llm_provider="claude", gemini_api_key="g", anthropic_api_key="k")).name == "claude"
+    assert llm_client.get_llm(Settings(_env_file=None, llm_provider="extractive", gemini_api_key="g")) is None
 
 
 def test_a_question_that_stands_on_its_own_makes_one_model_call(services):

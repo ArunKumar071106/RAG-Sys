@@ -14,5 +14,6 @@ numpy==2.4.6; python_version < "3.12"
 qdrant-client==1.19.1
 rank-bm25==0.2.2
 rapidocr-onnxruntime==1.2.3
+google-genai==2.34.0
 anthropic==1.15.0
 fastembed==0.9.0

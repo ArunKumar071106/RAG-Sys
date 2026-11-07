@@ -545,21 +545,86 @@ def anthropic_credentials_present() -> bool:
     return (config_home / "anthropic").is_dir()
 
 
-def get_llm(settings) -> AnthropicLLM | None:
-    """Claude, when an Anthropic key is in .env (ANTHROPIC_API_KEY), the environment or an `ant auth login`
-    profile; None (answers quote the website) otherwise or with LLM_PROVIDER=extractive."""
-    if settings.llm_provider != "anthropic":
+class GeminiLLM:
+    """Google Gemini (an AI Studio API key; the free tier covers the Flash models)."""
+
+    def __init__(self, model: str, api_key: str, max_tokens: int = 8192, timeout: float = 90.0, client=None):
+        if client is None:
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout * 1000)))
+        self.client = client
+        self.model = model
+        self.max_tokens = max_tokens
+        self.name = f"gemini:{model}"
+
+    async def generate(self, system: str, messages: list[dict]) -> LLMAnswer:
+        from google.genai import errors, types
+
+        contents = [types.Content(role="model" if m["role"] == "assistant" else "user", parts=[types.Part(text=m["content"])])
+                    for m in messages]
+        config = types.GenerateContentConfig(
+            system_instruction=system, max_output_tokens=self.max_tokens, temperature=0.2,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
+        try:
+            response = await self.client.aio.models.generate_content(model=self.model, contents=contents, config=config)
+        except errors.APIError as exc:
+            code = getattr(exc, "code", 0)
+            reason = {400: f"Gemini rejected the request: {exc.message}",
+                      401: "Gemini authentication failed - check GEMINI_API_KEY in .env",
+                      403: "Gemini API key lacks permission (or the API is not enabled for it)",
+                      404: f"Gemini model {self.model!r} not found - set GEMINI_MODEL in .env",
+                      429: "Gemini rate limit or free-tier quota reached - wait a minute"}.get(code, f"Gemini API error (HTTP {code})")
+            raise LLMUnavailable(reason) from exc
+        except Exception as exc:  # network errors from the HTTP client
+            raise LLMUnavailable(f"Could not reach the Gemini API ({type(exc).__name__})") from exc
+
+        blocked = getattr(getattr(response, "prompt_feedback", None), "block_reason", None)
+        candidate = (response.candidates or [None])[0]
+        finish = str(getattr(candidate, "finish_reason", "") or "")
+        if blocked or finish.endswith(("SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII")):
+            return LLMAnswer(text="", model=self.model, refused=True)
+        text = (response.text or "").strip()
+        if not text:
+            # e.g. RECITATION: Gemini stops when an answer repeats its sources word for word
+            raise LLMUnavailable(f"Gemini returned no text ({finish or 'no candidates'})")
+        if finish.endswith("MAX_TOKENS"):
+            log.warning("LLM answer truncated at max_tokens=%s", self.max_tokens)
+        return LLMAnswer(text=text, model=getattr(response, "model_version", None) or self.model)
+
+
+def gemini_api_key(settings) -> str:
+    import os
+
+    return settings.gemini_api_key or os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+
+
+def get_llm(settings) -> LLMClient | None:
+    """The AI that writes answers: LLM_PROVIDER's (Gemini by default), or the other one when only its key is set;
+    None (answers quote the website) without a key or with LLM_PROVIDER=extractive."""
+    provider = settings.llm_provider
+    if provider == "extractive":
         return None
-    api_key = settings.anthropic_api_key
-    if not (api_key or anthropic_credentials_present()):
-        log.warning("No ANTHROPIC_API_KEY in .env or the environment; using extractive answers")
+    gemini_key = gemini_api_key(settings)
+    claude_key = settings.anthropic_api_key or anthropic_credentials_present()
+    if provider == "gemini" and not gemini_key and claude_key:
+        log.info("No GEMINI_API_KEY but an Anthropic key is set: answering with Claude")
+        provider = "anthropic"
+    elif provider == "anthropic" and not claude_key and gemini_key:
+        log.info("No ANTHROPIC_API_KEY but GEMINI_API_KEY is set: answering with Gemini")
+        provider = "gemini"
+    if provider == "gemini" and not gemini_key or provider == "anthropic" and not claude_key:
+        log.warning("No GEMINI_API_KEY (or ANTHROPIC_API_KEY) in .env; answers quote the website")
         return None
     try:
-        return AnthropicLLM(settings.llm_model, settings.llm_effort, settings.llm_max_tokens,
-                            settings.llm_timeout_seconds, settings.llm_server_fallbacks, api_key=api_key or None)
+        if provider == "gemini":
+            return GeminiLLM(settings.gemini_model, gemini_key, min(settings.llm_max_tokens, 8192), settings.llm_timeout_seconds)
+        return AnthropicLLM(settings.llm_model, settings.llm_effort, settings.llm_max_tokens, settings.llm_timeout_seconds,
+                            settings.llm_server_fallbacks, api_key=settings.anthropic_api_key or None)
     except Exception as exc:
         log.warning("Hosted LLM disabled: %s", exc)
         return None
 
 
-__all__ = ["AnthropicLLM", "ExtractiveAnswerer", "LLMAnswer", "LLMClient", "LLMUnavailable", "SYSTEM_PROMPT", "get_llm"]
+__all__ = ["AnthropicLLM", "ExtractiveAnswerer", "GeminiLLM", "LLMAnswer", "LLMClient", "LLMUnavailable", "SYSTEM_PROMPT", "get_llm"]

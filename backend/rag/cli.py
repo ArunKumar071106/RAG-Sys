@@ -8,7 +8,7 @@
     python -m rag.cli all [--full] [--skip-crawl]
     python -m rag.cli status
     python -m rag.cli check-qdrant          # is Qdrant Cloud / a Qdrant server set up and filled?
-    python -m rag.cli check-llm             # does Claude answer, and how fast?
+    python -m rag.cli check-llm             # does the AI (Gemini or Claude) answer, and how fast?
     python -m rag.cli search "hostel facilities"
     python -m rag.cli ask "What is the admission process?"
     python -m rag.cli eval [--questions eval/questions.jsonl] [--k 5]
@@ -159,7 +159,7 @@ def cmd_check_llm(args, settings) -> int:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     llm = get_llm(settings)
     if llm is None:
-        print("No answer model: answers quote the website. Set ANTHROPIC_API_KEY in .env.")
+        print("No answer model: answers quote the website. Set GEMINI_API_KEY in .env (or ANTHROPIC_API_KEY for Claude).")
         return 1
     print(f"Answer model: {llm.name} (timeout {settings.llm_timeout_seconds:.0f} s)")
     start = time.perf_counter()

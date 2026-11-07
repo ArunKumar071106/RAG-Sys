@@ -63,4 +63,4 @@ def test_chat_offers_follow_ups_and_translate_needs_the_ai_service(services):
         body = client.post("/api/chat", json={"message": "What is the fee for B.Tech Data Science?"}).json()
         assert len(body["follow_ups"]) == 3 and body["translatable"] is False
         reply = client.post("/api/translate", json={"text": "கட்டணம்"})
-        assert reply.status_code == 503 and "ANTHROPIC_API_KEY" in reply.json()["detail"]
+        assert reply.status_code == 503 and "GEMINI_API_KEY" in reply.json()["detail"]

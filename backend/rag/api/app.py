@@ -142,7 +142,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         try:
             return TranslateResponse(text=await services.answers.translate(body.text, body.target))
         except LLMUnavailable as exc:
-            raise HTTPException(status_code=503, detail="Translation needs the AI answer service (ANTHROPIC_API_KEY).") from exc
+            raise HTTPException(status_code=503, detail="Translation needs the AI answer service (GEMINI_API_KEY).") from exc
 
     # Type-ahead: cheap and called as people type, so it has its own, more generous limit.
     suggest_limited = Depends(make_rate_limit_dependency(RateLimiter(max(120, settings.rate_limit_per_minute * 6))))

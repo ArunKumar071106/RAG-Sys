@@ -143,9 +143,12 @@ class Settings(BaseSettings):
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
 
     # ---- LLM -----------------------------------------------------------
-    # anthropic: answers written by Claude when ANTHROPIC_API_KEY is set, else (and on any failure) quoted from the
-    # website; extractive: always quote. ("auto" and "gemini" from older .env files mean anthropic.)
-    llm_provider: Literal["anthropic", "extractive"] = "anthropic"
+    # Which AI writes the answers: gemini (Google Gemini, GEMINI_API_KEY), anthropic (Claude, ANTHROPIC_API_KEY) or
+    # extractive (none: always quote the website). Without the chosen one's key the other is used if its key is set;
+    # without either, and whenever the AI fails or is slow, answers quote the website.
+    llm_provider: Literal["gemini", "anthropic", "extractive"] = "gemini"
+    gemini_api_key: str = ""  # from https://aistudio.google.com/apikey, read from .env (or GEMINI_API_KEY / GOOGLE_API_KEY)
+    gemini_model: str = "gemini-flash-latest"  # the alias follows Google's current Flash model (free tier)
     anthropic_api_key: str = ""  # read from .env; the ANTHROPIC_API_KEY environment variable works too
     # Without an AI model: quote the best sections whole (true) or pick single matching sentences (false)
     extractive_whole_sections: bool = True
@@ -185,9 +188,9 @@ class Settings(BaseSettings):
 
     @field_validator("llm_provider", mode="before")
     @classmethod
-    def _claude_only(cls, value):
-        value = str(value or "anthropic").strip().lower()
-        return "anthropic" if value in ("auto", "gemini", "claude") else value
+    def _provider(cls, value):
+        value = str(value or "gemini").strip().lower()
+        return {"auto": "gemini", "google": "gemini", "claude": "anthropic", "opus": "anthropic"}.get(value, value)
 
     @field_validator("data_dir")
     @classmethod

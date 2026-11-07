@@ -14,8 +14,8 @@ images (photos, posters, notices) alongside the answer.
 |---|---|
 | ![Hostel photos](docs/screenshots/real-photos.png) | ![Intake](docs/screenshots/real-intake.png) |
 
-> Real answers from the shipped AAACET knowledge base in extractive mode (no API key). With `ANTHROPIC_API_KEY` set,
-> Claude writes the answer from the same cited sources. The page layout, colours, fonts, logo, menu and footer were
+> Real answers from the shipped AAACET knowledge base in extractive mode (no API key). With `GEMINI_API_KEY` set,
+> Gemini writes the answer from the same cited sources. The page layout, colours, fonts, logo, menu and footer were
 > **measured from the official website** ([details](#matching-the-official-website)).
 
 ---
@@ -31,7 +31,7 @@ images (photos, posters, notices) alongside the answer.
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
 | Tests | 184 backend tests, 15 page unit tests (Vitest + jsdom on the real index.html and scripts), 51 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
-| Claude answers / vision descriptions | Implemented and unit-tested with a mocked client. Needs `ANTHROPIC_API_KEY`. Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
+| AI answers (Gemini, or Claude) / vision descriptions | Implemented and unit-tested with mocked clients; the Gemini client was checked against the real API (it reports a wrong key clearly). Needs `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY` for Claude; vision descriptions use Claude). Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
 | Off-topic questions | With Claude, the model replies "not covered" via a `[[NO_ANSWER]]` marker. In extractive mode, an off-topic question that shares a word with some page may still get loosely related quotes. |
 | Docker images / Compose | Written, but not built in the build environment (no Docker daemon). |
 
@@ -147,7 +147,7 @@ flowchart LR
 * **Any language:** a question that is not in English (Tamil, Hindi, Arabic, French..., also Tamil typed in Latin
   letters) is translated by Claude into an English search query (the website is in English) and answered in the
   question's language, with names, numbers and citations unchanged (`backend/rag/llm/language.py`, `TRANSLATE_PROMPT`).
-  This needs `ANTHROPIC_API_KEY`; without it, answers stay English quotes and the UI says so. An answer in another
+  This needs `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`); without it, answers stay English quotes and the UI says so. An answer in another
   language has a **Show in English** button (`POST /api/translate`, `ANSWER_TRANSLATE_PROMPT`) that switches between
   the English version and the original; links stay limited to the ones the answer already had.
 * **Follow-up questions:** the earlier turns go to Claude with the new question, and with a key a follow-up is first
@@ -166,10 +166,11 @@ flowchart LR
   and emails (enquiry@, admissions@). For admission, scholarship and fee questions, and when the website has no answer,
   the card also lists the admission & scholarship staff from the admission page. These come from
   `frontend/js/site-data.js` (kept by hand, with sources).
-* **Answer model: Claude only** (`ANTHROPIC_API_KEY` in `.env`, model `LLM_MODEL`, default `claude-opus-5-5` at
-  `LLM_EFFORT=low`, with server-side refusal fallbacks). The key is read from `.env` (or the environment / an
-  `ant auth login` profile) and also used for image descriptions. Without a key, or when Claude fails, answers
-  quote the website. Every model call
+* **Answer model: Google Gemini** by default (`GEMINI_API_KEY` in `.env`, from https://aistudio.google.com/apikey;
+  model `GEMINI_MODEL`, default `gemini-flash-latest`, which follows Google's current Flash model on the free tier).
+  Claude works too: `LLM_PROVIDER=anthropic` with `ANTHROPIC_API_KEY` (model `LLM_MODEL`, default `claude-opus-5-5`
+  at `LLM_EFFORT=low`); with only one of the two keys set, that one is used. Without a key, or when the model
+  fails, answers quote the website. Every model call
   is limited to `LLM_TIMEOUT_SECONDS` (45 s, under the browser's 90 s): a slow or hanging model ends in the quoted
   answer, never in a page that keeps "Searching the official website…". A follow-up's rewrite for searching gets
   15 s (then the question is searched as asked) and the whole answer 80 s; a stand-alone question makes one model
@@ -297,7 +298,7 @@ docs/screenshots/   generated by the e2e tests
 Requirements: Python 3.11+. Node 20+ only to run the page's tests. Optional: Docker (for a Qdrant server) and a GPU for BGE-M3.
 
 ```bash
-cp .env.example .env            # then fill in ANTHROPIC_API_KEY and ADMIN_TOKEN
+cp .env.example .env            # then fill in GEMINI_API_KEY and ADMIN_TOKEN
 make install                    # venv + backend deps (the chat page needs nothing installed)
 make install-ml                 # BGE-M3 (PyTorch, sentence-transformers); skip for the offline demo
 ```
@@ -371,7 +372,7 @@ The chat is offered two ways:
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/chat` | grounded answer + cited sources + images |
-| POST | `/api/translate` | English version of an answer in another language (needs `ANTHROPIC_API_KEY`) |
+| POST | `/api/translate` | English version of an answer in another language (needs `GEMINI_API_KEY` or `ANTHROPIC_API_KEY`) |
 | GET | `/api/suggest?q=` | type-ahead question suggestions |
 | POST | `/api/search/text` | hybrid text retrieval (with semantic/BM25 ranks) |
 | POST | `/api/search/images` | image retrieval |
@@ -433,7 +434,8 @@ All configuration lives in environment variables (see `.env.example`). The exter
 
 | Variable | Needed for | Without it |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Claude answers, vision descriptions | extractive answers, no AI image descriptions |
+| `GEMINI_API_KEY` | Gemini answers (the default) | Claude if `ANTHROPIC_API_KEY` is set, else extractive answers |
+| `ANTHROPIC_API_KEY` | Claude answers (`LLM_PROVIDER=anthropic`), vision descriptions | no AI image descriptions |
 | `ADMIN_TOKEN` | `/api/admin/*` | admin endpoints return 503 |
 | `QDRANT_API_KEY` | secured Qdrant server / cloud | not needed for local or embedded Qdrant |
 | Hugging Face access | first download of `BAAI/bge-m3` | set `EMBEDDING_MODEL` to a local path, or use `hashing` |
@@ -458,7 +460,7 @@ All configuration lives in environment variables (see `.env.example`). The exter
 
 ## Deployment
 ```bash
-cp .env.example .env    # set ANTHROPIC_API_KEY, ADMIN_TOKEN
+cp .env.example .env    # set GEMINI_API_KEY, ADMIN_TOKEN
 docker compose up -d --build
 docker compose run --rm backend python -m rag.cli all      # first crawl + index
 # UI: http://localhost:8080   (nginx proxies /api to the backend; Qdrant runs as a server)
@@ -491,7 +493,7 @@ and uses the vectors already in Qdrant Cloud.
    ```bash
    python scripts/deploy_hf_space.py --space <hf-username>/arivazhai-api --cors https://<site>.netlify.app
    ```
-   It checks the cluster, creates the Space, stores `QDRANT_URL`, `QDRANT_API_KEY` (and `ANTHROPIC_API_KEY` if set)
+   It checks the cluster, creates the Space, stores `QDRANT_URL`, `QDRANT_API_KEY` (and `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` if set)
    as Space secrets and `CORS_ORIGINS` as a variable, and uploads `deploy/huggingface/` (Dockerfile on port 7860,
    the search model built into the image), `backend/rag`, the chat page (`frontend/`) and the knowledge base.
    `--dry-run` lists the files. The whole assistant is then at `https://<hf-username>-arivazhai-api.hf.space/`
@@ -515,7 +517,7 @@ image skipped the `apt-get` and model steps that run normally on Hugging Face.)
 | `401 (Unauthorized)` / `Invalid API key or JWT` | `QDRANT_API_KEY` in `.env` does not match the Qdrant Cloud cluster's key |
 | `Collection … has N-d vectors but the embedder produces M-d` | You changed the embedding model: `python -m rag.cli index --full` |
 | Crawl finishes with 0 pages | Check network access to the site, `CRAWL_ALLOWED_DOMAINS`, and `robots.txt` (`python -m rag.cli status` shows `robots_forbidden`) |
-| Answers say "AI answer generation is not configured" | Set `ANTHROPIC_API_KEY` (or log in with `ant auth login`) and restart |
+| Answers say "AI answer generation is not configured" | Set `GEMINI_API_KEY` in `.env` (or `ANTHROPIC_API_KEY` for Claude) and restart; `python -m rag.cli check-llm` says what is wrong |
 | OCR text empty | `OCR_ENGINE=rapidocr` needs `libgl1`/`libglib2.0-0` on slim Linux images; check `/api/status` → `images.ocr_engine` |
 | Images missing in the UI | They fall back to the original URL, then to a placeholder; check `data/processed/images.jsonl` statuses (`http_error`, `too_large`, …) |
 | The page can't reach the API | Open the page from the backend (http://127.0.0.1:8000/), where `apiBaseUrl` in `frontend/js/config.js` stays `""`. When the page is on another site, set `apiBaseUrl` to the backend's address and add that site's address to `CORS_ORIGINS` in `.env` |

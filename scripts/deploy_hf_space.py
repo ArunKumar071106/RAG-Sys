@@ -10,7 +10,7 @@ What it does:
 3. uploads deploy/huggingface/{Dockerfile,README.md} to its root, backend/rag, backend/requirements.txt, the chat
    page (frontend/: index.html, css, js, brand) and the knowledge base (data/processed/*.jsonl, data/status.json)
    in one commit, which makes the Space build; the Space's address then opens the chat;
-4. stores QDRANT_URL, QDRANT_API_KEY (and ANTHROPIC_API_KEY if set) as Space secrets and CORS_ORIGINS as a variable.
+4. stores QDRANT_URL, QDRANT_API_KEY (and GEMINI_API_KEY / ANTHROPIC_API_KEY if set) as Space secrets and CORS_ORIGINS as a variable.
    Keys are never written into the uploaded files.
 
 Needs a Hugging Face access token with write permission: --token, the HF_TOKEN environment variable, an earlier
@@ -133,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
 
         # secrets before the upload, so the first build starts with them
         secrets = {"QDRANT_URL": settings.qdrant_url, "QDRANT_API_KEY": settings.qdrant_api_key,
+                   "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY") or _env_file_value("GEMINI_API_KEY"),
                    "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY") or _env_file_value("ANTHROPIC_API_KEY")}
         for key, value in secrets.items():
             if value:
