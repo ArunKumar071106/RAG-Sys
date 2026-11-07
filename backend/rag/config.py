@@ -116,6 +116,10 @@ class Settings(BaseSettings):
         # "how to apply online": admission, unless the question is about a job
         r"^(?!.*\b(jobs?|faculty|vacanc\w*|careers?|recruit\w*|posts?|staff)\b).*\b(apply|applying|application)\b":
             "admission online admission apply now",
+        # "my cut off is 123.5, am I eligible for AI&DS?": the website's eligibility rules (it lists no department
+        # cut-offs, which TNEA counselling sets each year); a cut-off for a scholarship stays a scholarship question
+        r"^(?!.*\bscholar).*\b(cut[- ]?off|cutoff|eligib\w*|minimum marks|marks? (needed|required))\b":
+            "TNEA B.E./B.Tech. Eligibility admission",
         r"\b(bus|buses|transport)\b": "transport facilities",
         r"\bwi-?fi\b": "Wi-Fi internet",
         r"\bplacement (officer|cell|head)|\btpo\b": "training placement cell",

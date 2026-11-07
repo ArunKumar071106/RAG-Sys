@@ -44,3 +44,4 @@
 {"question": "What scholarships are available based on +2 cut-off marks?", "expected_url_patterns": ["re:/admission/$"]}
 {"question": "Are hostels available for boys and girls?", "expected_url_patterns": ["/aaa-hostels/"]}
 {"question": "Whom should I contact for admission?", "expected_url_patterns": ["re:/admission/$|/admission-officer/"]}
+{"question": "my cut off is 123.5, i am eligible for AI&DS department?", "expected_url_patterns": ["re:/admission/$"]}
