@@ -562,6 +562,18 @@ def test_a_question_that_stands_on_its_own_makes_one_model_call(services):
     assert len(llm.calls) == 2  # a follow-up is rewritten with the conversation, then answered
 
 
+def test_a_casually_typed_question_is_rewritten_before_searching(services):
+    import asyncio
+
+    llm = FakeLLM("What hostel facilities are available?")
+    answers = AnswerService(services.retriever, llm)
+    query = asyncio.run(answers.search_query("hostel enna iruku bro, wat facilitiez", []))
+    assert query == "What hostel facilities are available?" and len(llm.calls) == 1
+    llm.calls.clear()
+    assert asyncio.run(answers.search_query("What hostel facilities are there?", [])) == "What hostel facilities are there?"
+    assert not llm.calls  # a clean question is searched as asked: no extra wait
+
+
 def test_a_count_question_about_one_department_gets_its_row():
     from rag.llm.client import ExtractiveAnswerer
 

@@ -268,9 +268,12 @@ class AnswerService:
         one, follow-ups borrow from the previous question and the rest is searched as written."""
         query = self.retrieval_query(question, history)
         earlier = [t.content[:300] for t in history if t.role == "user" and t.content.strip()][-3:]
-        if self.llm is None or (is_english(question) and not earlier):
+        # typed the way people chat ("hostal fess evlo bro", "wat r the documnets"): words the website never
+        # uses; the search corrects close typos itself, the AI model rewrites the rest into the website's words
+        casual = bool(self.retriever.unknown_words(question))
+        if self.llm is None or (is_english(question) and not earlier and not casual):
             return query
-        if is_english(question) and not self._leans_on_earlier(question):
+        if is_english(question) and not casual and not self._leans_on_earlier(question):
             # "What is the hostel fee?" after other questions stands on its own: no second model call
             # (which would double the wait) before the answer
             return query

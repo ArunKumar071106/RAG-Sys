@@ -252,3 +252,24 @@ def test_apply_questions_mean_admission_unless_about_a_job(services):
     norm = services.retriever.normalize_query
     assert "online admission" in norm("how to apply online")
     assert "admission" not in norm("faculty job application").lower()
+
+
+def test_misspelled_and_casual_words_become_the_websites_words():
+    from rag.retrieval.spelling import Speller
+
+    speller = Speller(["Hostel fees and hostel rules. Hostel facilities for boys and girls."] * 30
+                      + ["The college address is Amathur.", "Documents required for admission"] * 10
+                      + ["Library facility and faculty list"] * 10 + ["hotal"])  # a rare typo on the site itself
+    assert speller.correct("hostal fess") == "hostel fees"  # the common word, not the site's own typo "hotal"
+    assert speller.correct("colege adress, documnets for admision") == "college address, documents for admission"
+    assert speller.correct("bus facilty") == "bus facility"  # a dropped letter, not "faculty"
+    assert speller.correct("hostel fees") == "hostel fees"
+    assert speller.unknown("hostel fees evlo bro") == ["evlo"]  # chat words like "bro" are not a reason to rewrite
+    assert speller.unknown("What are the hostel fees?") == []
+
+
+def test_tanglish_and_chat_words_are_understood(services):
+    retriever = services.retriever
+    query = retriever.normalize_query("hostel fees evlo bro pls")
+    assert "how much" in query and "bro" not in query and "pls" not in query
+    assert "available" in retriever.normalize_query("bus iruka?")

@@ -51,3 +51,9 @@
 {"question": "Whom should I contact for admission?", "expect": ["7373527252"]}
 {"question": "my cut off is 123.5, i am eligible for AI&DS department?", "expect": ["45%"]}
 {"question": "what cutoff is needed for CSE?", "expect": ["45%"]}
+{"question": "hostal fess evlo?", "expect": ["hostel"]}
+{"question": "wat r the documnets need for admision", "expect": ["Transfer Certificate"]}
+{"question": "cse seats evlo bro", "expect": ["180"]}
+{"question": "scholership for +2 cutoff", "expect": ["cut-off of 180"]}
+{"question": "colege adress pls", "expect": ["Amathur"]}
+{"question": "eligiblity for be admision", "expect": ["45%"]}

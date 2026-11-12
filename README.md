@@ -176,6 +176,12 @@ flowchart LR
   15 s (then the question is searched as asked) and the whole answer 80 s; a stand-alone question makes one model
   call. The search itself runs in a worker thread, so a slow Qdrant call never stalls other requests. The log shows
   how long each answer took.
+* **Casually typed questions** ("hostal fess evlo bro", "wat r the documnets need for admision"): misspelled words are
+  corrected to the nearest word the website uses (`backend/rag/retrieval/spelling.py`: a dropped or swapped letter
+  counts less than a wrong one, and a common website word beats a rare one), Tanglish and chat words have meanings
+  in `QUERY_EXPANSIONS` ("evlo" = how much, "iruka" = available, "bro"/"pls" dropped), and a question that still
+  has words the website never uses is rewritten by the AI model into plain words before searching. Clean questions
+  are searched as asked, with no extra wait.
 * Questions about the college's strengths ("Why should I choose this college?", "what is special about AAACET")
   search for its "About College" sections (youngest NAAC 'A' college, ISO 21001, research centre, 400+ papers).
 * If no key is configured, or the LLM API fails, the answer falls back to quoting the website (extractive mode), and

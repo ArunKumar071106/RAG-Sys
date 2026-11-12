@@ -107,6 +107,15 @@ class Settings(BaseSettings):
         r"(?-i:IT)": "Information Technology",
         r"S\s*&\s*H": "Science and Humanities",
         r"HOD|H\.O\.D": "Head of the Department",
+        # Tanglish and chat words, the way students and parents type (no AI model needed to understand them)
+        r"evlo|evalo|evvalo|evvalavu|evalavu|ethana|ethanai": "how much",
+        r"enna|yenna": "what",
+        r"enga|engey|enge|yenga": "where",
+        r"iruka|irukka|irukaa|irukkaa|irukudha|irukutha|irukkudha": "available",
+        r"venum|vennum|venuma|vendum|venam": "needed",
+        r"bro|pls|plz|pl[sz]e|sir|mam|madam|dude|da|machi|macha": "",
+        r"wat|wht": "what",
+        r"r u|r": "are",
     }
     # Words the website uses for a question's intent, added to the search (pattern -> words).
     query_synonyms: dict[str, str] = {

@@ -33,6 +33,7 @@ from rag.index.qdrant_store import QdrantStore
 from rag.models import RetrievedChunk, RetrievedImage
 from rag.retrieval.corpus import Corpus
 from rag.retrieval.rrf import reciprocal_rank_fusion
+from rag.retrieval.spelling import Speller
 
 log = logging.getLogger(__name__)
 
@@ -157,6 +158,8 @@ class HybridRetriever:
         # Field index over page titles and section headings: "Who is the principal?" should
         # find the "Principal Message" page even when news posts mention the principal more.
         self.bm25_titles = BM25Index.build([(cid, chunk_title_text(chunk)) for cid, chunk in corpus.chunks.items()])
+        # the website's own words: "hostal fess" is searched as "hostel fees"
+        self.speller = Speller(text for chunk in corpus.chunks.values() for text in (chunk.page_title, chunk.text))
         # Over the network (Qdrant Cloud) the image search for a question starts with its text search,
         # so a question waits for one round trip instead of two; search_images picks the result up.
         self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="qdrant") if getattr(store, "remote", False) else None
@@ -181,13 +184,18 @@ class HybridRetriever:
         return [(cid, score) for cid, score, _ in self.store.search(s.qdrant_image_collection, vector, s.semantic_candidates)
                 if cid in self.corpus.image_chunks]
 
+    def unknown_words(self, question: str) -> list[str]:
+        """Words of a question the website never uses, after short forms are spelled out: typos too far
+        from any website word, chat words, Tanglish. Such a question is rewritten by the AI model."""
+        return self.speller.unknown(expand_query(content_query(question), self.settings.query_expansions))
+
     def normalize_query(self, query: str) -> str:
-        """What is searched for: request words dropped, short forms spelled out the website's way,
+        """What is searched for: misspelled words corrected to the website's words, request words dropped, short forms spelled out the website's way,
         "department" dropped when a department is named (it is implied, and "About Department"
         pages would otherwise outrank the department's "Faculty List"), and words the website uses
         for the question's intent added ("where is the college" -> "address")."""
         text = re.sub(r"\bdepts?\b", "department", content_query(query), flags=re.I)
-        text = expand_query(text, self.settings.query_expansions)
+        text = self.speller.correct(expand_query(text, self.settings.query_expansions))
         lowered = text.lower()
         named = [d for d in self.settings.departments if d.lower() in lowered]
         if named:
