@@ -24,6 +24,8 @@
   }
 
   function messageFor(kind, detail) {
+    if (kind === "invalid" && detail) return detail;
+    if (A.i18n && kind !== "invalid") return A.i18n.t("err_" + (kind in { network: 1, timeout: 1, rate_limited: 1, starting: 1, unavailable: 1 } ? kind : "server"));
     switch (kind) {
       case "network":
         return "Can't reach the assistant right now. Please check your connection and try again.";
@@ -128,6 +130,20 @@
     }
   }
 
+  /** 👍 / 👎 on an answer (and what was wrong); false when it could not be saved. */
+  async function sendFeedback(question, answer, rating, comment) {
+    try {
+      const response = await fetch(apiUrl("/api/feedback"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: question, answer: String(answer || "").slice(0, 4000), rating: rating, comment: comment || "" }),
+      });
+      return response.ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /** "ok" when the assistant can be reached (also while it builds its index), else the problem. */
   async function checkHealth(signal) {
     const t = timed(10000, signal);
@@ -142,5 +158,5 @@
     }
   }
 
-  A.api = { ApiError, apiUrl, sendChat, translateAnswer, fetchSuggestions, checkHealth, messageFor };
+  A.api = { ApiError, apiUrl, sendChat, translateAnswer, fetchSuggestions, sendFeedback, checkHealth, messageFor };
 })((window.Arivazhai = window.Arivazhai || {}));

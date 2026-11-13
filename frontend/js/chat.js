@@ -9,6 +9,7 @@
   const api = A.api;
   const robot = A.robot;
   const site = A.site;
+  const t = (key) => A.i18n.t(key);
 
   /** The API reads the last 12 turns, the first 2,000 characters of each. */
   const HISTORY_LIMIT = 12;
@@ -89,6 +90,12 @@
     errorText: "m-0 min-w-[180px] flex-1 text-danger-text",
     retry: "inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-pill border border-brand bg-white px-3.5 py-1 text-[0.85rem] font-medium whitespace-nowrap text-brand enabled:hover:bg-brand enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-55",
     option: "cursor-pointer px-4 py-[9px] leading-[1.35] text-ink [&_strong]:font-semibold [&_strong]:text-brand",
+    feedback: "feedback mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-2.5 text-[0.85rem] text-muted",
+    rate: "rate grid size-9 cursor-pointer place-items-center rounded-full border border-field bg-white text-[1.05rem] enabled:hover:border-navy aria-pressed:border-navy aria-pressed:bg-navy/10 disabled:cursor-default",
+    comment: "mt-1 flex w-full flex-wrap items-center gap-2",
+    commentField: "min-w-[220px] flex-1 rounded-lg border-2 border-field bg-white px-3 py-1.5 text-[0.9rem] text-ink focus-visible:border-navy",
+    smallButton: "cursor-pointer rounded-full border border-navy bg-navy px-3.5 py-1.5 text-[0.85rem] font-semibold text-white hover:bg-navy-dark",
+    talk: "talk mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.85rem] text-muted [&_a]:inline-flex [&_a]:items-center [&_a]:gap-1 [&_a]:rounded-full [&_a]:border [&_a]:border-field [&_a]:bg-white [&_a]:px-3 [&_a]:py-1 [&_a]:font-semibold [&_a]:text-navy [&_a]:no-underline [&_a:hover]:border-navy",
     optionActive: "bg-subtle",
   };
 
@@ -248,7 +255,7 @@
           el("span", { "aria-hidden": "true", text: "📞" }),
           " ",
           el("a", { href: telHref(phone), text: formatPhone(phone) }),
-          /^1800/.test(phone.replace(/\D/g, "")) ? el("span", { class: C.contactNote, text: " (toll-free)" }) : null,
+          /^1800/.test(phone.replace(/\D/g, "")) ? el("span", { class: C.contactNote, text: " " + t("tollFree") }) : null,
         ]),
       );
     }
@@ -258,7 +265,7 @@
     const card = el("section", { class: C.contactCard, "aria-label": title }, [el("h4", { class: C.contactTitle, text: title }), el("ul", { class: C.contactList }, items)]);
     if (staff && site.admissionStaff.length) {
       card.append(
-        el("h5", { class: C.contactSubtitle, text: "Admission & scholarship" }),
+        el("h5", { class: C.contactSubtitle, text: t("staffTitle") }),
         el(
           "ul",
           { class: C.contactPeople },
@@ -284,7 +291,7 @@
       button.textContent = "";
       button.append(el("span", { "aria-hidden": "true", text: "🌐" }), " " + words);
     };
-    label("Show in English");
+    label(t("showEnglish"));
     const box = el("div", { class: C.translate }, [button]);
     button.addEventListener("click", async () => {
       const error = box.querySelector(".translate__error");
@@ -293,25 +300,72 @@
         showing = !showing;
         show(showing ? english : null);
         button.setAttribute("aria-pressed", String(showing));
-        label(showing ? "Show original" : "Show in English");
+        label(showing ? t("showOriginal") : t("showEnglish"));
         return;
       }
       button.disabled = true;
-      label("Translating…");
+      label(t("translating"));
       try {
         english = await api.translateAnswer(text);
         showing = true;
         show(english);
         button.setAttribute("aria-pressed", "true");
-        label("Show original");
+        label(t("showOriginal"));
       } catch (err) {
-        label("Show in English");
+        label(t("showEnglish"));
         box.append(el("span", { class: C.translateError, role: "alert", text: err instanceof api.ApiError ? err.message : "The English version is not available right now." }));
       } finally {
         button.disabled = false;
       }
     });
     return box;
+  }
+
+  /** "Was this answer helpful? 👍 👎": a 👎 asks what was wrong (optional), then both are sent together. */
+  function feedbackBar(question, answer) {
+    const box = el("div", { class: C.feedback }, [el("span", { text: t("helpful") })]);
+    const thanks = () => {
+      box.textContent = "";
+      box.append(el("span", { role: "status", text: t("thanks") }));
+    };
+    const up = el("button", { type: "button", class: C.rate, "aria-pressed": "false", "aria-label": t("yes"), title: t("yes"), text: "👍" });
+    const down = el("button", { type: "button", class: C.rate, "aria-pressed": "false", "aria-label": t("no"), title: t("no"), text: "👎" });
+    up.addEventListener("click", () => {
+      up.setAttribute("aria-pressed", "true");
+      up.disabled = down.disabled = true;
+      api.sendFeedback(question, answer, "up", "");
+      setTimeout(thanks, 400);
+    });
+    down.addEventListener("click", () => {
+      down.setAttribute("aria-pressed", "true");
+      up.disabled = down.disabled = true;
+      const field = el("input", { type: "text", class: C.commentField, maxlength: "500", "aria-label": t("whatWrong"), placeholder: t("whatWrong") });
+      const form = el("form", { class: C.comment }, [field, el("button", { type: "submit", class: C.smallButton, text: t("sendFeedback") })]);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        api.sendFeedback(question, answer, "down", field.value.trim());
+        thanks();
+      });
+      box.append(form);
+      field.focus();
+    });
+    box.append(up, down);
+    return box;
+  }
+
+  /** "Need to talk to someone?": call, email and (when the office gives a number) WhatsApp, under every answer. */
+  function talkBar() {
+    const phone = site.officePhones[0];
+    const email = site.emails.find((e) => /admission/i.test(e)) || site.emails[0];
+    const links = [
+      phone ? el("a", { href: telHref(phone) }, [el("span", { "aria-hidden": "true", text: "📞" }), t("call")]) : null,
+      email ? el("a", { href: "mailto:" + email }, [el("span", { "aria-hidden": "true", text: "✉️" }), t("email")]) : null,
+      site.whatsapp
+        ? el("a", { href: "https://wa.me/" + String(site.whatsapp).replace(/\D/g, ""), target: "_blank", rel: "noopener noreferrer" },
+            [el("span", { "aria-hidden": "true", text: "💬" }), t("whatsapp")])
+        : null,
+    ].filter(Boolean);
+    return links.length ? el("div", { class: C.talk }, [el("span", { text: t("talk") }), ...links]) : null;
   }
 
   // ------------------------------------------------------------------ messages
@@ -322,7 +376,7 @@
   }
 
   function renderError(message, onRetry) {
-    const retry = el("button", { type: "button", class: C.retry, "data-busy": true, text: "Try again", onclick: () => onRetry(message.id) });
+    const retry = el("button", { type: "button", class: C.retry, "data-busy": true, text: t("tryAgain"), onclick: () => onRetry(message.id) });
     return el("div", { class: C.assistantMessage }, [
       sender(),
       el("div", { class: C.bubble + " " + C.errorBubble }, [
@@ -356,7 +410,7 @@
     const photoQuestion = PHOTO_QUESTION.test(question);
     const gallery = images.length
       ? el("section", { class: C.images, "aria-label": "Related images from the official website" }, [
-          el("h4", { class: C.sectionTitle, text: "Images from the official website" }),
+          el("h4", { class: C.sectionTitle, text: t("images") }),
           el("div", { class: C.imageGrid }, images.map((image, i) => imageCard(image, i + 1, message.id + "-" + image.id))),
         ])
       : null;
@@ -374,9 +428,10 @@
         result.translatable ? translateToggle(message.content, showText) : null,
         result.notice ? el("p", { class: C.notice, text: result.notice }) : null,
         photoQuestion ? null : gallery,
-        sourceList(sources, "Sources from the official website", "cited"),
-        noAnswer && related.length ? sourceList(related, "These official pages may be related", "related") : null,
-        showContact ? contactCard(noAnswer ? "The admission office can help you directly" : "Contact the college", showStaff) : null,
+        sourceList(sources, t("sources"), "cited"),
+        noAnswer && related.length ? sourceList(related, t("related"), "related") : null,
+        showContact ? contactCard(noAnswer ? t("officeHelps") : t("contactCollege"), showStaff) : talkBar(),
+        feedbackBar(question, message.content),
       ]),
     ]);
   }
@@ -386,7 +441,7 @@
       sender(),
       el("div", { class: C.bubble + " " + C.plain + " " + C.loadingBubble }, [
         el("span", { class: C.dots, "aria-hidden": "true" }, [el("span"), el("span"), el("span")]),
-        el("span", { class: C.muted, text: "Searching the official website…" }),
+        el("span", { class: C.muted, text: t("searching") }),
       ]),
     ]);
   }
@@ -406,6 +461,8 @@
     const sendButton = form.querySelector(".chat-input__send");
     const list = form.querySelector(".chat-suggestions");
     const count = form.querySelector(".chat-input__count");
+    const mic = form.querySelector(".chat-input__mic");
+    const status = form.querySelector(".chat-input__status");
     let suggestions = [];
     let active = -1;
     let typed = false; // suggestions follow typing, not text set by picking one
@@ -529,11 +586,64 @@
       send(trimmed());
     });
     refresh();
+    setupVoice();
+
+    /** Ask by voice: the browser turns speech into text in the box (English or Tamil, as the chat's language). */
+    function setupVoice() {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!mic || !Recognition) return; // Firefox and some browsers: no voice, the button stays hidden
+      mic.hidden = false;
+      let recognition = null;
+      const say = (key) => {
+        if (status) status.textContent = t(key);
+      };
+      const stop = () => {
+        recognition = null;
+        mic.setAttribute("aria-pressed", "false");
+        mic.setAttribute("aria-label", t("mic"));
+      };
+      mic.addEventListener("click", () => {
+        if (recognition) {
+          recognition.stop();
+          return;
+        }
+        recognition = new Recognition();
+        recognition.lang = A.i18n.speech;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        const before = field.value.trim();
+        recognition.onresult = (event) => {
+          const heard = Array.from(event.results).map((r) => r[0].transcript).join(" ").trim();
+          field.value = (before ? before + " " : "") + heard;
+          typed = false; // no type-ahead list over spoken words
+          refresh();
+        };
+        recognition.onerror = (event) => {
+          say(event.error === "not-allowed" || event.error === "service-not-allowed" ? "micDenied" : "micFailed");
+          stop();
+        };
+        recognition.onend = () => {
+          if (status && status.textContent === t("listening")) say("hint");
+          stop();
+          field.focus();
+        };
+        mic.setAttribute("aria-pressed", "true");
+        mic.setAttribute("aria-label", t("micStop"));
+        say("listening");
+        try {
+          recognition.start();
+        } catch (e) {
+          say("micFailed");
+          stop();
+        }
+      });
+    }
 
     return {
       field: field,
       setDisabled(value) {
         disabled = value;
+        if (mic) mic.disabled = value;
         refresh();
       },
     };
@@ -606,7 +716,7 @@
       const latest = [...state.messages].reverse().find((m) => m.role === "assistant");
       const questions = latest && latest.result && latest.result.follow_ups;
       if (state.loading || !questions || !questions.length) return;
-      followUps = suggestionList(questions, "You can also ask", ask, C.followUps);
+      followUps = suggestionList(questions, t("alsoAsk"), ask, C.followUps);
       nodes.get(latest.id).appendChild(followUps);
     }
 

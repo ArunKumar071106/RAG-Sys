@@ -72,7 +72,22 @@
     });
   }
 
+  /** "தமிழ் / English": the chat's words in the other language (remembered in this browser). */
+  function setupLanguage() {
+    const button = document.querySelector(".chat__lang");
+    const mark = () => {
+      if (button) button.setAttribute("lang", A.i18n.lang === "ta" ? "en" : "ta");
+    };
+    A.i18n.apply();
+    mark();
+    if (button) button.addEventListener("click", () => {
+      A.i18n.toggle();
+      mark();
+    });
+  }
+
   function boot() {
+    setupLanguage();
     A.robot.drawProfiles();
     setupMenu();
     setupScrollToChat();

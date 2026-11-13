@@ -24,7 +24,9 @@
     );
   }
 
-  const officePhone = A.site && A.site.officePhones[0];
+  const t = (key) => A.i18n.t(key);
+  /** A moment's words, in the chat's language (js/i18n.js). */
+  const TEXT = new Proxy({}, { get: (_, kind) => ({ title: t("m_" + String(kind) + "_title"), text: t("m_" + String(kind) + "_text") }) });
 
   /** From the design: 0.35 s fade and blur in, about 2.2 s hold, 0.4 s exit. */
   const ENTER_MS = 350;
@@ -36,18 +38,6 @@
   /** Loading uses the welcome hop and wave: the robot is already greeting while the assistant is contacted. */
   const FACE = { greet: "greet", load: "greet", think: "think", error: "error", net: "net", unsure: "unsure" };
 
-  const TEXT = {
-    greet: { title: "Vanakkam! I'm Arivazhai", text: "Your guide to AAACET admissions. Ask me anything." },
-    load: { title: "Getting ready…", text: "Loading the official AAACET website content." },
-    think: { title: "Finding your answer…", text: "Searching the official AAACET website." },
-    error: { title: "Something went wrong", text: "Please try again in a moment." },
-    net: { title: "You're offline", text: "Check your connection and try again." },
-    unsure: {
-      title: "I couldn't find that",
-      text: officePhone ? "Call the admission office: " + officePhone : "The admission office can help you directly.",
-    },
-  };
-
   const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
 
   /** The moment for a failed request, worded for what actually went wrong. */
@@ -55,15 +45,15 @@
     if (isOffline()) return { kind: "net" };
     switch (kind) {
       case "network":
-        return { kind: "error", title: "Can't reach the assistant", text: "Please check your connection and try again." };
+        return { kind: "error", title: t("m_network_title"), text: t("m_network_text") };
       case "timeout":
-        return { kind: "error", title: "That took too long", text: "Please try again in a moment." };
+        return { kind: "error", title: t("m_timeout_title"), text: t("m_error_text") };
       case "rate_limited":
-        return { kind: "error", title: "Too many questions at once", text: "Please wait a moment and try again." };
+        return { kind: "error", title: t("m_rate_title"), text: t("m_rate_text") };
       case "starting":
-        return { kind: "error", title: "Still getting ready", text: "Please try again in a minute." };
+        return { kind: "error", title: t("m_starting_title"), text: t("m_starting_text") };
       case "invalid":
-        return { kind: "unsure", title: "Could you rephrase that?", text: "Ask about admissions, courses, fees or campus life." };
+        return { kind: "unsure", title: t("m_rephrase_title"), text: t("m_rephrase_text") };
       default:
         return { kind: "error" };
     }

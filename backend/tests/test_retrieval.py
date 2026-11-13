@@ -273,3 +273,27 @@ def test_tanglish_and_chat_words_are_understood(services):
     query = retriever.normalize_query("hostel fees evlo bro pls")
     assert "how much" in query and "bro" not in query and "pls" not in query
     assert "available" in retriever.normalize_query("bus iruka?")
+
+
+def test_multilingual_e5_search_model_gets_its_markers():
+    from rag.embeddings.base import FastEmbedEmbedder
+
+    class Fake:
+        def __init__(self):
+            self.seen = []
+
+        def embed(self, texts):
+            texts = list(texts)
+            self.seen += texts
+            return [[1.0, 0.0] for _ in texts]
+
+        def query_embed(self, texts):
+            self.seen += [f"(bge query) {t}" for t in texts]
+            return [[1.0, 0.0] for _ in texts]
+
+    e5 = FastEmbedEmbedder("intfloat/multilingual-e5-large", model=Fake())
+    e5.embed_documents(["Hostel fees"]), e5.embed_query("விடுதி கட்டணம்")
+    assert e5.model.seen[-2:] == ["passage: Hostel fees", "query: விடுதி கட்டணம்"]
+    bge = FastEmbedEmbedder("BAAI/bge-small-en-v1.5", model=Fake())
+    bge.embed_documents(["Hostel fees"]), bge.embed_query("hostel")
+    assert bge.model.seen[-2:] == ["Hostel fees", "(bge query) hostel"]  # the vectors in Qdrant now stay valid

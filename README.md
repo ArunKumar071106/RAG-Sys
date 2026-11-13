@@ -223,6 +223,37 @@ scripts\build_css.cmd               # Windows
 ```
 `css/tailwind.css` is committed, so running or hosting the page needs no build.
 
+### Feedback, the daily report and the live check
+* **👍 / 👎 under every answer.** A 👎 asks what was wrong (optional). Ratings go to `POST /api/feedback`.
+* **Unanswered questions.** Every question the website cannot answer is saved too. Both are kept in
+  `DATA_DIR/feedback/` (one JSON line each) with phone numbers and email addresses masked, and no IP address.
+* **Daily email.** Once a day (`REPORT_HOUR`, the server's local time) the new entries are emailed as one report to
+  `REPORT_EMAIL_TO`: the unanswered questions (grouped, with how often each was asked) and the 👎 answers with their
+  comments. Set `REPORT_EMAIL_TO`, `SMTP_USER` and `SMTP_PASSWORD` in `.env` (for Gmail an app password), then:
+  ```bash
+  python -m rag.cli feedback-report --test-email   # check the email settings
+  python -m rag.cli feedback-report                # print what is new since the last email
+  python -m rag.cli feedback-report --send         # email it now
+  ```
+* **The live check.** `python -m rag.cli eval-live` asks the answer-check questions through your real setup (search
+  model, Qdrant, Gemini) and writes `data/reports/live-eval-<date>.md`: what passed, what failed with the answer
+  given, whether the AI wrote it, and how long it took. It pauses 4 s between questions for Gemini's free tier
+  (`--pause`, `--limit N` for a quick run).
+
+### Talking to a person, voice and Tamil (`frontend/js/`)
+* **"Need to talk to someone?"** under every answer: call the admission office, email it, and WhatsApp once the
+  office's WhatsApp number is set in `frontend/js/site-data.js` (`whatsapp`). A question the website does not answer
+  shows the full contact card with the admission staff instead.
+* **Ask by voice:** a microphone button next to Send (Chrome, Edge, Safari; hidden where the browser cannot listen).
+  It writes the spoken question into the box, in English or Tamil, as the chat's language is set.
+* **தமிழ் / English** in the chat header switches the chat's words (welcome, suggested questions, buttons, messages,
+  the robot's moments) to Tamil, remembered in the browser (`frontend/js/i18n.js`). With the AI model, a question
+  in Tamil is answered in Tamil.
+* **Search model for Tamil questions** (optional): with Gemini, Tamil questions are translated before searching, so
+  the default English search model works. To search Tamil directly, set `FASTEMBED_MODEL=intfloat/multilingual-e5-large`
+  (2.2 GB) or `EMBEDDING_PROVIDER=bge-m3` (needs `requirements-ml.txt`). Either rebuilds all vectors on the next
+  start, which takes hours on a laptop CPU.
+
 ### Suggestions while typing (`backend/rag/retrieval/suggest.py`, `GET /api/suggest?q=`)
 * Candidates: common questions, four questions for each department in `DEPARTMENTS` (faculty, about, labs, vision and
   mission), and "Tell me about …" for each section page of the website (titles used by one page only).

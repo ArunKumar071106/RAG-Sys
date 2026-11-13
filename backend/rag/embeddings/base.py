@@ -80,6 +80,8 @@ class FastEmbedEmbedder:
             model = TextEmbedding(model_name, cache_dir=cache_dir)
         self.model = model
         self.name = f"fastembed:{model_name}"
+        # E5 models (intfloat/multilingual-e5-large: Tamil and ~100 languages) are trained with these markers
+        self._e5 = "e5" in model_name.lower().split("/")[-1]
         self.dim = len(next(iter(self.model.embed(["dimension probe"]))))
 
     @staticmethod
@@ -91,9 +93,13 @@ class FastEmbedEmbedder:
     def embed_documents(self, texts: list[str]) -> np.ndarray:
         if not texts:
             return np.zeros((0, self.dim), dtype=np.float32)
+        if self._e5:
+            texts = ["passage: " + t for t in texts]
         return self._normalise(self.model.embed(texts))
 
     def embed_query(self, text: str) -> np.ndarray:
+        if self._e5:
+            return self._normalise(self.model.embed(["query: " + text]))[0]
         return self._normalise(self.model.query_embed([text]))[0]
 
 
