@@ -7,6 +7,7 @@ Endpoints (all under /api):
   GET  /sources/{chunk_id}   full text and metadata of one chunk
   GET  /images/{image_id}         image metadata
   GET  /images/{image_id}/file    the downloaded image file
+  POST /feedback             👍 / 👎 on an answer (saved without personal details, emailed daily)
   GET  /health               liveness + component status
   GET  /status               crawl / extraction / indexing status
   POST /admin/reindex        start a reindex job      (Bearer ADMIN_TOKEN)
@@ -18,6 +19,7 @@ http://127.0.0.1:8000/ is the whole assistant.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -32,6 +34,7 @@ from rag import __version__
 from rag.api.security import BodySizeLimitMiddleware, RateLimiter, make_admin_dependency, make_rate_limit_dependency
 from rag.api.services import Services
 from rag.config import Settings, get_settings
+from rag.feedback import FeedbackLog, daily_reports, email_configured
 from rag.images.stage import image_file_path
 from rag.index.indexer import manifest_path
 from rag.llm.answer import ChatResult, ChatTurn
@@ -64,6 +67,13 @@ class ChatRequest(BaseModel):
         return value
 
 
+class FeedbackRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    answer: str = Field(default="", max_length=20_000)
+    rating: Literal["up", "down"]
+    comment: str = Field(default="", max_length=1000)
+
+
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=6, ge=1, le=20)
@@ -79,12 +89,18 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per Qdrant Cloud request is noise
 
+    feedback = FeedbackLog(settings.data_dir / "feedback") if settings.feedback_enabled else None
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         owned = getattr(app.state, "services", None) is None
         if owned:
             app.state.services = Services(settings, background=True)
+        # the daily email of unanswered questions and ratings, when an address and SMTP account are set
+        reporter = asyncio.create_task(daily_reports(settings, feedback)) if feedback and email_configured(settings) else None
         yield
+        if reporter:
+            reporter.cancel()
         if owned:  # injected services belong to the caller
             app.state.services.close()
 
@@ -129,6 +145,9 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         if not services.corpus.chunks:
             raise HTTPException(status_code=503, detail="The knowledge base is empty. Run the crawl/index pipeline first.")
         result = await services.answers.answer(body.message, body.history)
+        if feedback and result.mode == "no_answer":
+            # what people ask that the website does not answer: for the admission office's daily report
+            feedback.unanswered(body.message, services.answers.retrieval_query(body.message, body.history))
         if services.suggester is not None:
             asked = [t.content for t in body.history if t.role == "user"]
             # "what about its labs?" after a CSE question is a CSE question: offer CSE follow-ups
@@ -143,6 +162,14 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             return TranslateResponse(text=await services.answers.translate(body.text, body.target))
         except LLMUnavailable as exc:
             raise HTTPException(status_code=503, detail="Translation needs the AI answer service (GEMINI_API_KEY).") from exc
+
+    @app.post("/api/feedback", dependencies=[rate_limited])
+    def give_feedback(body: FeedbackRequest):
+        """👍 / 👎 on an answer, with an optional comment; saved without personal details."""
+        if feedback is None:
+            raise HTTPException(status_code=404, detail="Feedback is turned off")
+        feedback.rating(body.question, body.answer, body.rating, body.comment)
+        return {"ok": True}
 
     # Type-ahead: cheap and called as people type, so it has its own, more generous limit.
     suggest_limited = Depends(make_rate_limit_dependency(RateLimiter(max(120, settings.rate_limit_per_minute * 6))))

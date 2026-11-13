@@ -188,31 +188,34 @@
           <span class="profile grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-gold bg-navy-dark" aria-hidden="true" data-robot="head"></span>
           <div>
             <h2 id="chat-title" class="m-0 text-[1.3rem] text-white">Arivazhai</h2>
-            <p class="mt-0.5 mb-0 text-[0.85rem] text-field">AAACET admission help desk · answers from the official website</p>
+            <p class="mt-0.5 mb-0 text-[0.85rem] text-field" data-i18n="subtitle">AAACET admission help desk · answers from the official website</p>
           </div>
         </div>
-        <button type="button" class="chat__new min-h-11 shrink-0 cursor-pointer rounded-[10px] border border-white/40 bg-transparent px-4 font-semibold text-white enabled:hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-55" disabled>New chat</button>
+        <div class="flex shrink-0 items-center gap-2">
+          <button type="button" class="chat__lang min-h-11 shrink-0 cursor-pointer rounded-[10px] border border-white/40 bg-transparent px-3 font-semibold text-white hover:bg-white/12" lang="ta" data-i18n="switchTo" data-i18n-attr="aria-label:switchLabel;title:switchLabel">தமிழ்</button>
+          <button type="button" class="chat__new min-h-11 shrink-0 cursor-pointer rounded-[10px] border border-white/40 bg-transparent px-4 font-semibold text-white enabled:hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-55" disabled data-i18n="newChat">New chat</button>
+        </div>
       </div>
 
       <div class="chat__log relative flex max-h-[68vh] flex-1 flex-col gap-[18px] overflow-y-auto p-[22px] max-phone:max-h-none max-phone:px-4 max-phone:py-3.5 embed:max-h-none" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation">
         <div class="message--assistant flex flex-col items-start gap-1.5">
           <span class="inline-flex items-center gap-2 text-[0.72rem] font-extrabold tracking-[0.04em] text-gold-text uppercase" aria-hidden="true"><span class="profile grid size-[26px] shrink-0 place-items-center overflow-hidden rounded-full border-[1.5px] border-gold bg-navy-dark" data-robot="head"></span>Arivazhai</span>
           <div class="bubble w-[min(880px,100%)] max-w-[min(780px,100%)] min-w-0 rounded-[4px_16px_16px_16px] border border-line bg-white px-4 py-3 wrap-anywhere">
-            <p>Vanakkam! I'm Arivazhai, the AAACET admission assistant. Ask me about eligibility, TNEA counselling, courses, fees,
+            <p data-i18n="welcome">Vanakkam! I'm Arivazhai, the AAACET admission assistant. Ask me about eligibility, TNEA counselling, courses, fees,
               scholarships, hostel or placements. I answer from the official website and link every source.</p>
             <!-- The questions parents ask most before admission. Each is in backend/eval/questions_aaacet.jsonl,
                  so `make eval` checks it against the real knowledge base. -->
             <div class="suggestions mt-3.5" id="welcome-suggestions">
-              <h3 class="mt-0 mb-2 text-[0.95rem] tracking-[0.04em] text-muted uppercase" id="welcome-suggestions-title">Try asking</h3>
+              <h3 class="mt-0 mb-2 text-[0.95rem] tracking-[0.04em] text-muted uppercase" id="welcome-suggestions-title" data-i18n="tryAsking">Try asking</h3>
               <ul class="m-0 flex list-none flex-wrap gap-2 p-0" aria-labelledby="welcome-suggestions-title">
-                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white">What is the eligibility for B.E. / B.Tech admission?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white">What is the TNEA counselling code of AAACET?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white">How many seats are there in each department?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white">How do I apply for admission online?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white">What documents are needed for admission?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white">What scholarships are available based on +2 cut-off marks?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white">Are hostels available for boys and girls?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white">Whom should I contact for admission?</button></li>
+                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset1">What is the eligibility for B.E. / B.Tech admission?</button></li>
+                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset2">What is the TNEA counselling code of AAACET?</button></li>
+                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset3">How many seats are there in each department?</button></li>
+                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset4">How do I apply for admission online?</button></li>
+                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset5">What documents are needed for admission?</button></li>
+                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset6">What scholarships are available based on +2 cut-off marks?</button></li>
+                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset7">Are hostels available for boys and girls?</button></li>
+                  <li><button type="button" class="chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset8">Whom should I contact for admission?</button></li>
               </ul>
             </div>
           </div>
@@ -220,16 +223,19 @@
       </div>
 
       <div class="chat__footer flex flex-col gap-2.5 border-t border-line bg-white px-[22px] pt-2.5 pb-4 max-phone:sticky max-phone:bottom-0 max-phone:px-3.5">
-        <form class="chat-input relative grid grid-cols-[1fr_auto] gap-x-2.5 gap-y-2" novalidate>
+        <form class="chat-input relative grid grid-cols-[1fr_auto_auto] gap-x-2.5 gap-y-2" novalidate>
           <label for="chat-message" class="sr-only">Ask a question about AAACET</label>
           <ul id="chat-suggestions" class="chat-suggestions absolute inset-x-0 bottom-[calc(100%-8px)] z-[5] m-0 max-h-[260px] list-none overflow-y-auto rounded-[10px] border border-edge bg-white px-0 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.14)]" role="listbox" aria-label="Suggested questions" hidden></ul>
           <textarea id="chat-message" class="chat-input__field max-h-[180px] min-h-12 resize-y rounded-xl border-2 border-field bg-white px-3.5 py-[11px] text-ink focus-visible:border-navy" dir="auto" rows="1" placeholder="Ask about admissions, courses, facilities…"
-            maxlength="1000" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-describedby="chat-input-hint"></textarea>
-          <button type="submit" class="chat-input__send inline-flex min-h-[42px] min-w-[104px] cursor-pointer items-center justify-center gap-1.5 self-stretch rounded-xl border border-transparent bg-gold px-5 py-2 font-bold whitespace-nowrap text-navy-dark enabled:hover:bg-gold-dark disabled:cursor-not-allowed disabled:opacity-55 max-phone:min-w-[52px]" disabled aria-label="Send message">
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            <span class="max-phone:hidden">Send</span>
+            maxlength="1000" data-i18n-attr="placeholder:placeholder" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-describedby="chat-input-hint"></textarea>
+          <button type="button" class="chat-input__mic inline-flex min-h-[42px] min-w-12 cursor-pointer items-center justify-center self-stretch rounded-xl border-2 border-field bg-white px-3 text-navy hover:border-navy aria-pressed:animate-pulse aria-pressed:border-danger aria-pressed:bg-danger aria-pressed:text-white" aria-pressed="false" data-i18n-attr="aria-label:mic;title:mic" aria-label="Ask by voice" title="Ask by voice" hidden>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
           </button>
-          <p id="chat-input-hint" class="col-span-full m-0 text-[0.78rem] text-muted">Press Enter to send, Shift + Enter for a new line. Use ↑ ↓ to pick a suggestion.<span class="chat-input__count" hidden></span></p>
+          <button type="submit" class="chat-input__send inline-flex min-h-[42px] min-w-[104px] cursor-pointer items-center justify-center gap-1.5 self-stretch rounded-xl border border-transparent bg-gold px-5 py-2 font-bold whitespace-nowrap text-navy-dark enabled:hover:bg-gold-dark disabled:cursor-not-allowed disabled:opacity-55 max-phone:min-w-[52px]" disabled aria-label="Send message" data-i18n-attr="aria-label:sendLabel">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            <span class="max-phone:hidden" data-i18n="send">Send</span>
+          </button>
+          <p id="chat-input-hint" class="col-span-full m-0 text-[0.78rem] text-muted"><span class="chat-input__status" data-i18n="hint">Press Enter to send, Shift + Enter for a new line. Use ↑ ↓ to pick a suggestion.</span><span class="chat-input__count" hidden></span></p>
         </form>
       </div>
     </section>
@@ -285,7 +291,7 @@
   </footer>
 
   <button type="button" class="scroll-to-chat fixed right-6 bottom-6 z-[1500] flex min-h-14 animate-scroll-hint cursor-pointer items-center gap-2 rounded-full border-2 border-gold bg-white py-0 pr-2 pl-[18px] font-bold text-navy shadow-[0_6px_18px_rgba(13,27,61,0.22)] hover:bg-cream hover:[animation-play-state:paused] focus-visible:bg-cream focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-navy focus-visible:[animation-play-state:paused] motion-reduce:animate-none max-phone:right-4 max-phone:bottom-4 embed:hidden" aria-label="Go to the chat below" title="The chat is below">
-    <span aria-hidden="true">Chat below</span>
+    <span aria-hidden="true" data-i18n="chatBelow">Chat below</span>
     <svg class="block size-[38px] rounded-full bg-navy p-1.5 text-white" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9.5l6 6 6-6"/></svg>
   </button>
 
@@ -294,6 +300,7 @@
 
   <script src="js/config.js"></script>
   <script src="js/site-data.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/markdown.js"></script>
   <script src="js/api.js"></script>
   <script src="js/robot.js"></script>

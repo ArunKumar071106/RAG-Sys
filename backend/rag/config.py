@@ -173,6 +173,16 @@ class Settings(BaseSettings):
     llm_server_fallbacks: bool = True
     llm_history_turns: int = 6
 
+    # ---- feedback: unanswered questions and 👍/👎, emailed once a day ---------------------
+    feedback_enabled: bool = True  # save unanswered questions and ratings in DATA_DIR/feedback (no personal details)
+    report_email_to: CsvList = []  # who gets the daily report (comma separated); empty: no email
+    report_hour: int = Field(default=18, ge=0, le=23)  # when, in the server's local time
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587  # 587 STARTTLS, 465 SSL
+    smtp_user: str = ""  # the sending account, e.g. a Gmail address
+    smtp_password: str = ""  # for Gmail an app password (Google account > Security > App passwords)
+    smtp_from: str = ""  # defaults to SMTP_USER
+
     # ---- API -----------------------------------------------------------
     # browsers may call the API from these other sites (the page served by this API needs no entry)
     cors_origins: CsvList = ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -186,7 +196,8 @@ class Settings(BaseSettings):
     auto_index_on_startup: bool = True  # build the index at API start when only processed chunks exist
 
     @field_validator(
-        "crawl_start_urls", "crawl_allowed_domains", "image_allowed_domains", "cors_origins", "departments", mode="before"
+        "crawl_start_urls", "crawl_allowed_domains", "image_allowed_domains", "cors_origins", "departments",
+        "report_email_to", mode="before"
     )
     @classmethod
     def _split_csv(cls, value: object) -> object:

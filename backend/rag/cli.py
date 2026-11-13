@@ -14,6 +14,8 @@
     python -m rag.cli eval [--questions eval/questions.jsonl] [--k 5]
     python -m rag.cli eval-answers [--questions eval/answers_aaacet.jsonl]
     python -m rag.cli eval-facts [--verbose]  # which facts of each answer are lost, and where
+    python -m rag.cli eval-live [--limit N] [--pause S]  # the answer checks with your real setup (Gemini), as a report
+    python -m rag.cli feedback-report [--send] [--all] [--test-email]  # unanswered questions and 👍/👎
     python -m rag.cli demo                  # build + index the fictional demo site (offline)
 """
 
@@ -226,6 +228,55 @@ def cmd_eval_facts(args, settings) -> int:
     return 0
 
 
+def cmd_eval_live(args, settings) -> int:
+    """The answer checks through the real setup (search model, Qdrant, AI model); writes a report."""
+    from rag.eval.answer_eval import load_cases
+    from rag.eval.live_eval import run_live, write_report
+
+    logging.getLogger("rag").setLevel(logging.WARNING)
+    cases = [c for path in args.questions for c in load_cases(Path(path))][: args.limit or None]
+    services = _services(settings)
+    if services.answers is None:
+        print(f"The assistant could not start: {services.error}")
+        return 1
+    print(f"{len(cases)} questions, answer model: {getattr(services.answers.llm, 'name', None) or 'none (quotes the website)'}")
+    report = asyncio.run(run_live(services.answers, cases, pause=args.pause))
+    services.close()
+    path = write_report(report, settings.data_dir / "reports")
+    print(f"\n{report.passed} of {len(report.results)} answers contain the expected fact. Report: {path}")
+    return 0
+
+
+def cmd_feedback_report(args, settings) -> int:
+    """Print (or email) the unanswered questions and ratings since the last emailed report."""
+    from rag.feedback import FeedbackLog, email_configured, send_email, send_report
+
+    feedback = FeedbackLog(settings.data_dir / "feedback")
+    if args.test_email or args.send:
+        if not email_configured(settings):
+            print("Email is not set up: put REPORT_EMAIL_TO, SMTP_USER and SMTP_PASSWORD in .env (see .env.example).")
+            return 1
+        try:
+            if args.test_email:
+                send_email(settings, "Arivazhai: test email", "Email from Arivazhai works. The daily report of unanswered "
+                           f"questions will come here at {settings.report_hour}:00.")
+                print(f"[OK] test email sent to {', '.join(settings.report_email_to)}")
+                return 0
+            report = send_report(settings, feedback, force=True)
+        except Exception as exc:
+            print(f"[!!] could not send: {type(exc).__name__}: {exc}")
+            print("For Gmail, SMTP_PASSWORD must be an app password (Google account > Security > 2-Step Verification > "
+                  "App passwords), not your normal password.")
+            return 1
+        print(f"[OK] report emailed to {', '.join(settings.report_email_to)}: {report.subject}")
+        return 0
+    report = feedback.report(None if args.all else feedback.last_sent())
+    print(report.subject)
+    print()
+    print(report.text())
+    return 0
+
+
 def cmd_demo(args, settings) -> int:
     """Build the fictional demo site, serve it locally and run the whole pipeline on it."""
     from rag.demo.site import build_demo_site, serve_directory
@@ -272,6 +323,15 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("eval-facts")
     p.add_argument("--questions", default=str(BACKEND_DIR / "eval" / "facts_aaacet.jsonl"))
     p.add_argument("--verbose", action="store_true", help="one line per question with the facts it misses")
+    p = sub.add_parser("eval-live")
+    p.add_argument("--questions", nargs="+", default=[str(BACKEND_DIR / "eval" / "answers_aaacet.jsonl"),
+                                                       str(BACKEND_DIR / "eval" / "answers_aaacet_holdout.jsonl")])
+    p.add_argument("--limit", type=int, default=0, help="only the first N questions")
+    p.add_argument("--pause", type=float, default=4.0, help="seconds between questions (Gemini free tier: a few a minute)")
+    p = sub.add_parser("feedback-report")
+    p.add_argument("--send", action="store_true", help="email it now to REPORT_EMAIL_TO")
+    p.add_argument("--all", action="store_true", help="everything saved, not only what is new since the last email")
+    p.add_argument("--test-email", action="store_true", help="send a test email to check the SMTP settings")
     p = sub.add_parser("demo")
     p.add_argument("--port", type=int, default=0)
 
@@ -279,7 +339,8 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     handlers = {"status": cmd_status, "search": cmd_search, "ask": cmd_ask, "eval": cmd_eval,
-                "eval-answers": cmd_eval_answers, "eval-facts": cmd_eval_facts, "check-qdrant": cmd_check_qdrant, "check-llm": cmd_check_llm, "demo": cmd_demo}
+                "eval-answers": cmd_eval_answers, "eval-facts": cmd_eval_facts, "check-qdrant": cmd_check_qdrant, "check-llm": cmd_check_llm,
+                "feedback-report": cmd_feedback_report, "eval-live": cmd_eval_live, "demo": cmd_demo}
     return handlers.get(args.command, cmd_stage)(args, settings)
 
 
