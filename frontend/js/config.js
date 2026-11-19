@@ -4,8 +4,8 @@
  * apiBaseUrl: where the backend runs.
  *   ""  (empty) when the backend serves this page itself (http://127.0.0.1:8000/) or a web server
  *       forwards /api to it (docker compose).
- *   "https://<hf-username>-arivazhai-api.hf.space" when the page is on another site (Netlify, the
- *       college website); that site's address must then be in the backend's CORS_ORIGINS.
+ *   "https://assistant.example.edu" when the page is copied onto another site (e.g. the college
+ *       website); that site's address must then be in the backend's CORS_ORIGINS.
  */
 window.ARIVAZHAI_CONFIG = {
   apiBaseUrl: "",
