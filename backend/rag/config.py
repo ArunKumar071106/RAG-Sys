@@ -183,6 +183,11 @@ class Settings(BaseSettings):
     smtp_password: str = ""  # for Gmail an app password (Google account > Security > App passwords)
     smtp_from: str = ""  # defaults to SMTP_USER
 
+    # Keeping the answers current: crawl the website again every N days (30 = monthly) while the server runs,
+    # index what changed, and email REPORT_EMAIL_TO what was updated. 0 = only by hand (python -m rag.cli refresh).
+    refresh_every_days: int = Field(default=0, ge=0, le=365)
+    refresh_hour: int = Field(default=2, ge=0, le=23)  # at night, in the server's local time
+
     # ---- API -----------------------------------------------------------
     # browsers may call the API from these other sites (the page served by this API needs no entry)
     cors_origins: CsvList = ["http://localhost:5173", "http://127.0.0.1:5173"]

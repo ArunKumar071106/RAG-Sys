@@ -35,6 +35,7 @@ from rag.api.security import BodySizeLimitMiddleware, RateLimiter, make_admin_de
 from rag.api.services import Services
 from rag.config import Settings, get_settings
 from rag.feedback import FeedbackLog, daily_reports, email_configured
+from rag.refresh import scheduled_refreshes
 from rag.images.stage import image_file_path
 from rag.index.indexer import manifest_path
 from rag.llm.answer import ChatResult, ChatTurn
@@ -98,9 +99,12 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             app.state.services = Services(settings, background=True)
         # the daily email of unanswered questions and ratings, when an address and SMTP account are set
         reporter = asyncio.create_task(daily_reports(settings, feedback)) if feedback and email_configured(settings) else None
+        # the monthly (REFRESH_EVERY_DAYS) crawl + index of the website, with an email of what changed
+        refresher = asyncio.create_task(scheduled_refreshes(settings, app.state.services)) if settings.refresh_every_days else None
         yield
-        if reporter:
-            reporter.cancel()
+        for task in (reporter, refresher):
+            if task:
+                task.cancel()
         if owned:  # injected services belong to the caller
             app.state.services.close()
 

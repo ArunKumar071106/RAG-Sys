@@ -29,7 +29,7 @@ images (photos, posters, notices) alongside the answer.
 | Complete answers (no API key) | 60 questions written from the live website by someone who never saw this system, each with every fact a complete answer contains (2–6 per question, 245 facts; `backend/eval/facts_aaacet.jsonl`, `python -m rag.cli eval-facts --verbose`). Each fact is traced to where it is lost. Before: answers held **40%** of their facts; 32% were handed to the answer composer and left out, 22% were found but ranked below the results used, 6% were not in the knowledge base. After the fixes below: **74%** on the 40 questions used while fixing (was 44%; 21 complete answers, was 9) and **47%** on the 20 held-out questions never looked at (was 31%). What is left is mostly ranking (28% of held-out facts are found but ranked too low) and about 4% of facts that are only in scanned PDFs, images or a brochure the crawl never reached. |
 | Answer quality (no API key) | 40 everyday questions, each with the fact a correct answer must contain (`backend/eval/answers_aaacet.jsonl`, `python -m rag.cli eval-answers`): **40/40** (was 18/40 before the tab, chunking and answer fixes below). 20 held-out questions written after tuning and never tuned on (`answers_aaacet_holdout.jsonl`): **19/20** (was 16/20). Measured with hybrid search (all-MiniLM-L6-v2 stand-in) in extractive mode. Page retrieval after these changes: Recall@1 0.71, Recall@3 0.97, MRR 0.84. |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
-| Tests | 184 backend tests, 15 page unit tests (Vitest + jsdom on the real index.html and scripts), 51 Playwright tests on desktop, tablet and mobile |
+| Tests | 207 backend tests, 15 page unit tests (Vitest + jsdom on the real index.html and scripts), 51 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
 | AI answers (Gemini, or Claude) / vision descriptions | Implemented and unit-tested with mocked clients; the Gemini client was checked against the real API (it reports a wrong key clearly). Needs `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY` for Claude; vision descriptions use Claude). Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
 | Off-topic questions | With Claude, the model replies "not covered" via a `[[NO_ANSWER]]` marker. In extractive mode, an off-topic question that shares a word with some page may still get loosely related quotes. |
@@ -376,6 +376,25 @@ posts), skips archive listings, and keeps a polite rate of about one request per
 from `backend/`). Indexing is **incremental** by default: only changed pages are re-embedded and removed pages are
 deleted. Changing the embedding model or dimension automatically triggers a full rebuild, so vectors from different
 models are never mixed.
+
+#### Monthly refresh, automatically
+The college adds news, notices and pages every month. Arivazhai can crawl the website again, index only what
+changed, and email the admin a summary ("12 pages changed", or what went wrong). Pick one way:
+
+* **The server runs all the time:** set `REFRESH_EVERY_DAYS=30` (and `REFRESH_HOUR=2`, at night) in `.env`. The
+  API refreshes every 30 days while it runs, and the running assistant switches to the new index by itself. A
+  refresh missed while the server was off runs the next night.
+* **Windows (Task Scheduler):** from the project folder, once:
+  ```powershell
+  schtasks /Create /TN "Arivazhai monthly refresh" /SC MONTHLY /D 1 /ST 02:00 /F /TR "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PWD\scripts\refresh.ps1`""
+  ```
+  It runs `python -m rag.cli refresh` on the 1st of every month at 2 AM, with a log in `data\logs`.
+* **Linux / Docker (cron):** `0 2 1 * * /path/to/RAG-Sys/scripts/refresh.sh` (or
+  `docker compose run --rm backend python -m rag.cli refresh`).
+
+By hand: `python -m rag.cli refresh` (in `backend/`). When it last ran and runs next: `python -m rag.cli refresh --when`.
+The summary goes to `REPORT_EMAIL_TO` through the same SMTP account as the daily report; without email set up,
+the result is still saved in `data/refresh_state.json`.
 
 Evaluate retrieval against labelled questions with the official source pages that answer them
 (`backend/eval/questions_aaacet.jsonl`):

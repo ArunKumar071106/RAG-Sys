@@ -6,6 +6,7 @@
     python -m rag.cli chunk                 # documents -> text chunks
     python -m rag.cli index [--full]        # embed + Qdrant + BM25 (incremental by default)
     python -m rag.cli all [--full] [--skip-crawl]
+    python -m rag.cli refresh               # crawl again, index what changed, email the admin (for a monthly scheduler)
     python -m rag.cli status
     python -m rag.cli check-qdrant          # is Qdrant Cloud / a Qdrant server set up and filled?
     python -m rag.cli check-llm             # does the AI (Gemini or Claude) answer, and how fast?
@@ -47,6 +48,20 @@ def cmd_stage(args, settings) -> int:
         stages = tuple(s for s in stages if s != "crawl")
     _print(run_pipeline(settings, stages, full=getattr(args, "full", False)))
     return 0
+
+
+def cmd_refresh(args, settings) -> int:
+    from rag.refresh import last_refresh, next_refresh, run_refresh
+
+    if args.when:
+        last = last_refresh(settings)
+        _print({"last_refresh": last.isoformat(timespec="minutes") if last else None,
+                "every_days": settings.refresh_every_days or "off (REFRESH_EVERY_DAYS=0)",
+                "next_in_server": next_refresh(settings, last).isoformat(timespec="minutes") if settings.refresh_every_days else None})
+        return 0
+    result = run_refresh(settings)
+    print(result.text())
+    return 0 if result.ok else 1
 
 
 def cmd_status(args, settings) -> int:
@@ -307,6 +322,8 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("all")
     p.add_argument("--full", action="store_true")
     p.add_argument("--skip-crawl", action="store_true")
+    p = sub.add_parser("refresh")
+    p.add_argument("--when", action="store_true", help="only show when it last ran and when it runs next")
     sub.add_parser("status")
     sub.add_parser("check-qdrant")
     sub.add_parser("check-llm")
@@ -338,7 +355,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     settings = get_settings()
     logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    handlers = {"status": cmd_status, "search": cmd_search, "ask": cmd_ask, "eval": cmd_eval,
+    handlers = {"status": cmd_status, "refresh": cmd_refresh, "search": cmd_search, "ask": cmd_ask, "eval": cmd_eval,
                 "eval-answers": cmd_eval_answers, "eval-facts": cmd_eval_facts, "check-qdrant": cmd_check_qdrant, "check-llm": cmd_check_llm,
                 "feedback-report": cmd_feedback_report, "eval-live": cmd_eval_live, "demo": cmd_demo}
     return handlers.get(args.command, cmd_stage)(args, settings)
