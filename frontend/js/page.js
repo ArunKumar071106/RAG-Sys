@@ -12,6 +12,7 @@
       const label = toggle.querySelector(".sr-only");
       const setOpen = (open) => {
         nav.classList.toggle("mainnav--open", open);
+        document.documentElement.classList.toggle("menu-open", open);
         toggle.setAttribute("aria-expanded", String(open));
         if (label) label.textContent = open ? "Close menu" : "Open menu";
       };

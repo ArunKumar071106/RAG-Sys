@@ -31,6 +31,7 @@
       preset7: "Are hostels available for boys and girls?",
       preset8: "Whom should I contact for admission?",
       placeholder: "Ask about admissions, courses, facilities…",
+      placeholderPhone: "Type your question…",
       hint: "Press Enter to send, Shift + Enter for a new line. Use ↑ ↓ to pick a suggestion.",
       send: "Send",
       sendLabel: "Send message",
@@ -110,6 +111,7 @@
       preset7: "ஆண்கள் மற்றும் பெண்களுக்கு விடுதி வசதி உள்ளதா?",
       preset8: "சேர்க்கைக்கு யாரைத் தொடர்பு கொள்ள வேண்டும்?",
       placeholder: "சேர்க்கை, படிப்புகள், வசதிகள் பற்றிக் கேளுங்கள்…",
+      placeholderPhone: "கேள்வியைக் கேளுங்கள்…",
       hint: "அனுப்ப Enter, புதிய வரிக்கு Shift + Enter. பரிந்துரையைத் தேர்ந்தெடுக்க ↑ ↓.",
       send: "அனுப்பு",
       sendLabel: "செய்தியை அனுப்பு",
@@ -185,6 +187,11 @@
     return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
   }
 
+  // phones (the website's 760px break point) get shorter words where a key has a "...Phone" version
+  const phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 760px)") : null;
+  const onPhone = () => !!(phoneQuery && phoneQuery.matches);
+  if (phoneQuery && phoneQuery.addEventListener) phoneQuery.addEventListener("change", () => apply());
+
   /** Put the current language's words into every marked element under root. */
   function apply(root) {
     const scope = root || document;
@@ -194,7 +201,7 @@
     scope.querySelectorAll("[data-i18n-attr]").forEach((node) => {
       node.getAttribute("data-i18n-attr").split(";").forEach((pair) => {
         const [attr, key] = pair.split(":").map((x) => x.trim());
-        if (attr && key) node.setAttribute(attr, t(key));
+        if (attr && key) node.setAttribute(attr, t(onPhone() && STRINGS.en[key + "Phone"] ? key + "Phone" : key));
       });
     });
     const chat = document.getElementById("assistant");

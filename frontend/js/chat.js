@@ -49,7 +49,7 @@
     sectionTitle: "mt-0 mb-2 text-[0.9rem] tracking-[0.04em] text-muted uppercase",
     suggestionsTitle: "mt-0 mb-2 text-[0.95rem] tracking-[0.04em] text-muted uppercase",
     chipList: "m-0 flex list-none flex-wrap gap-2 p-0",
-    chip: "chip cursor-pointer rounded-full border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white",
+    chip: "chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white",
     sources: "sources mt-3.5 border-t border-edge pt-3",
     sourceList: "m-0 grid list-none gap-2 p-0",
     sourceItem: "flex gap-2.5",
@@ -595,7 +595,10 @@
       mic.hidden = false;
       let recognition = null;
       const say = (key) => {
-        if (status) status.textContent = t(key);
+        if (status) {
+          status.textContent = t(key);
+          status.setAttribute("data-state", key);
+        }
       };
       const stop = () => {
         recognition = null;
