@@ -64,6 +64,7 @@
   /* the website's own break points: the menu folds at 1024px, the phone layout starts at 760px */
   --breakpoint-nav: 64.0625rem; /* max-nav: = up to 1024px */
   --breakpoint-phone: 47.5625rem; /* max-phone: = up to 760px */
+  --breakpoint-desk: 64.0625rem; /* desk: = from 1025px, the full menu */
 
   --animate-dot: dot 1.2s infinite ease-in-out;
   --animate-scroll-hint: scroll-hint 1.8s ease-in-out infinite;
@@ -136,10 +137,10 @@
 
   /* the hamburger's three bars and the sub-menu's plus / minus */
   .menu-bars, .menu-bars::before, .menu-bars::after {
-    @apply relative mx-auto block h-0.5 w-5 bg-ink content-[''];
+    @apply relative mx-auto block h-[3px] w-[22px] rounded-[1px] bg-black content-[''];
   }
-  .menu-bars::before { @apply absolute -top-1.5; }
-  .menu-bars::after { @apply absolute top-1.5; }
+  .menu-bars::before { @apply absolute -top-[7px]; }
+  .menu-bars::after { @apply absolute top-[7px]; }
   .plus-icon { @apply relative size-2.5; }
   .plus-icon::before, .plus-icon::after { @apply absolute bg-current opacity-75 content-['']; }
   .plus-icon::before { @apply inset-x-0 top-1 h-[1.5px]; }
@@ -158,6 +159,9 @@
   @media (prefers-reduced-motion: reduce) {
     .profile .rb .eyes { animation: none !important; }
   }
+
+  /* scrolling to a message keeps it clear of the question box stuck to the bottom */
+  .chat__log > * { scroll-margin-top: 16px; scroll-margin-bottom: 150px; }
 
   /* text in the chat bubbles, and answers rendered from Markdown */
   .bubble p:first-child { margin-top: 0; }

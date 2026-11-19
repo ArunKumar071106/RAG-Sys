@@ -690,9 +690,13 @@
       });
     }
 
+    /** The question and "searching" stay in sight at the bottom; a new answer is shown from its first line. */
     function scrollToEnd() {
       const last = log.lastElementChild;
-      if (last && last.scrollIntoView) last.scrollIntoView({ block: "end", behavior: "smooth" });
+      if (!last || !last.scrollIntoView) return;
+      const latest = state.messages[state.messages.length - 1];
+      const isAnswer = !state.loading && latest && latest.role === "assistant" && nodes.get(latest.id) === last;
+      last.scrollIntoView({ block: isAnswer ? "start" : "end", behavior: "smooth" });
     }
 
     /** While a question is out: no sending, no "Try again", no clickable questions. */

@@ -158,7 +158,13 @@ flowchart LR
 * **Next questions:** every answer comes with three full questions to ask next (`follow_ups`): about the same
   department, then related topics (fees → scholarships, hostel → transport…), never one already asked. They are shown
   under the latest answer.
-* **Finding the chat:** a bouncing "Chat below" down arrow at the bottom-right while the question box is still below
+* **Layout (desktop and phone):** the page follows the official website's look on every size (on phones: the red
+  corner header, the campus photo with the gold title box). The question box sticks to the bottom of the screen
+  and the page scrolls once (no scroll box inside the chat). A new answer is shown from its first line. Phones get
+  a shorter placeholder, no keyboard tips, and a two-column footer.
+* **Admission help panel (desktop):** beside the chat, the TNEA counselling code, call, toll-free, email, the
+  prospectus and "Apply for admission" (smaller screens get the contact buttons under every answer).
+* **Finding the chat:** on a short screen, a bouncing "Chat below" down arrow at the bottom-right while the question box is still below
   the screen (and the Arivazhai menu link) scroll to the chat and put the cursor in the question box, with no robot moment; the arrow
   hides once the chat is in view.
 * **Contact details:** when the website does not cover a question, and for questions about contacting the college,

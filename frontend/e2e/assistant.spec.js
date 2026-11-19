@@ -151,20 +151,54 @@ test("the page does not grow with the conversation", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "You can also ask" })).toHaveCount(1); // under the latest answer only
 });
 
+test("the question box is in sight as the page opens", async ({ page }) => {
+  // it sticks to the bottom of the screen on every size, so the down arrow is not needed
+  await page.goto("/");
+  await momentGone(page);
+  await expect(page.getByLabel("Ask a question about AAACET")).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Go to the chat below" })).toBeHidden();
+});
+
 test("down arrow shows the chat is below and takes you there", async ({ page }, info) => {
+  // a short screen (a small laptop, or a phone turned sideways): the chat starts below it
+  await page.setViewportSize({ width: page.viewportSize().width, height: 420 });
   await page.goto("/");
   await momentGone(page);
   const arrow = page.getByRole("button", { name: "Go to the chat below" });
-  if (info.project.name === "mobile") {
-    // on phones the question box sticks to the bottom of the screen, so it is already in sight
-    await expect(page.getByLabel("Ask a question about AAACET")).toBeInViewport();
-    await expect(arrow).toBeHidden();
-    return;
-  }
   await expect(arrow).toBeVisible();
   await page.screenshot({ path: join(SHOTS, `${info.project.name}-chat-below.png`) });
   await arrow.click();
   await expect(page.getByLabel("Ask a question about AAACET")).toBeFocused();
   await expect(page.getByLabel("Ask a question about AAACET")).toBeInViewport();
   await expect(arrow).toBeHidden();
+});
+
+test("desktop keeps admission help beside the chat; smaller screens get it under each answer", async ({ page }, info) => {
+  await page.goto("/");
+  await momentGone(page);
+  const panel = page.getByRole("complementary", { name: "Admission help" });
+  if (info.project.name !== "desktop") {
+    await expect(panel).toBeHidden();
+    return;
+  }
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText("4680")).toBeVisible();
+  await expect(panel.getByRole("link", { name: /Call the admission office/ })).toHaveAttribute("href", "tel:04562251111");
+  await expect(panel.getByRole("link", { name: "Apply for admission" })).toHaveAttribute("href", "https://aaaenggcoll.ac.in/admission/");
+});
+
+test("a new answer is shown from its first line, the question box still in sight", async ({ page }) => {
+  await page.goto("/");
+  await momentGone(page);
+  await ask(page, "What is the TNEA counselling code?");
+  await expect(page.locator(".message--user")).toHaveCount(1);
+  await expect(page.getByRole("status")).toHaveCount(0, { timeout: 30_000 });
+  const answer = page.locator(".chat__log > .message--assistant").last();
+  await expect(answer).not.toHaveText(/Vanakkam/);
+  // the smooth scroll settles with the answer's top near the top of the screen
+  await expect
+    .poll(async () => answer.evaluate((node) => Math.round(node.getBoundingClientRect().top)), { timeout: 5000 })
+    .toBeLessThanOrEqual(40);
+  await expect(answer).toBeInViewport({ ratio: 0.1 });
+  await expect(page.getByLabel("Ask a question about AAACET")).toBeInViewport();
 });
