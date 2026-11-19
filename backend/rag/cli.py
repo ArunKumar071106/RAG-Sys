@@ -293,10 +293,19 @@ def cmd_feedback_report(args, settings) -> int:
 
 
 def cmd_demo(args, settings) -> int:
-    """Build the fictional demo site, serve it locally and run the whole pipeline on it."""
+    """Build the fictional demo site, serve it locally and run the whole pipeline on it.
+
+    It never touches the real knowledge base: it works in data/demo (unless DATA_DIR names another folder)
+    with a local Qdrant on disk, whatever QDRANT_URL in .env says, so Qdrant Cloud is left alone."""
+    from rag.config import PROJECT_DIR
     from rag.demo.site import build_demo_site, serve_directory
     from rag.pipeline import run_pipeline
 
+    update = {"qdrant_url": "", "qdrant_api_key": ""}
+    if settings.data_dir.resolve() == (PROJECT_DIR / "data").resolve():
+        update["data_dir"] = PROJECT_DIR / "data" / "demo"
+    settings = settings.model_copy(update=update)
+    print(f"Demo data folder: {settings.data_dir} (local Qdrant; your real data and Qdrant Cloud are not touched)")
     root = build_demo_site(settings.data_dir / "demo_site")
     server, base = serve_directory(root, args.port)
     print(f"Serving fictional demo site at {base}")

@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
 export DATA_DIR="${DATA_DIR:-$ROOT/data/e2e}"
+# a local Qdrant on disk: never the Qdrant Cloud named in .env
+export QDRANT_URL= QDRANT_API_KEY=
 export EMBEDDING_PROVIDER=hashing LLM_PROVIDER=extractive RATE_LIMIT_PER_MINUTE=0 LOG_LEVEL=WARNING
 export CORS_ORIGINS="${CORS_ORIGINS:-http://127.0.0.1:4173,http://localhost:4173}"
 cd "$ROOT/backend"

@@ -26,7 +26,7 @@ test-frontend:
 e2e:                ## Playwright UI tests against the real API on the fictional demo data
 	cd frontend && PLAYWRIGHT_CHROMIUM_PATH=$(CHROMIUM) npx playwright test
 
-demo:               ## offline: build + index the fictional demo site into data/
+demo:               ## offline: build + index the fictional demo site into data/demo (never the real data)
 	cd backend && EMBEDDING_PROVIDER=hashing ../$(PY) -m rag.cli demo
 
 crawl:
