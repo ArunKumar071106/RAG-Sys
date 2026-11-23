@@ -163,6 +163,12 @@
 
   /* scrolling to a message keeps it clear of the question box stuck to the bottom */
   .chat__log > * { scroll-margin-top: 96px; scroll-margin-bottom: 150px; } /* clear of the sticky Arivazhai bar */
+  /* phones: the conversation scrolls in its own box, between the top bar and the question box */
+  @media (max-width: 760px) {
+    .chat__log > * { scroll-margin-top: 12px; scroll-margin-bottom: 12px; }
+    html:has(.chat) { background: var(--color-navy); } /* the phone's status bar area matches the top bar */
+  }
+  .welcome .suggestions ul::-webkit-scrollbar { display: none; }
 
   /* text in the chat bubbles, and answers rendered from Markdown */
   .bubble p:first-child { margin-top: 0; }

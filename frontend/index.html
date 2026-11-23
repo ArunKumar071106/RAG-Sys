@@ -9,7 +9,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#323496">
   <meta name="description" content="Arivazhai, the AAACET admission assistant - answers from the official AAA College of Engineering and Technology website.">
   <title>Arivazhai | AAA College of Engineering and Technology</title>
   <link rel="icon" href="brand/favicon.png">
@@ -23,7 +24,7 @@
   <a class="skip-link absolute -top-12 left-4 z-50 rounded-brand bg-brand px-3.5 py-2 text-white focus:top-2 embed:hidden" href="#chat-message">Skip to the question box</a>
 
   <!-- the official website's header and menu (measured from https://aaaenggcoll.ac.in/) -->
-  <header class="site-header relative z-20 embed:hidden">
+  <header class="site-header relative z-20 max-phone:hidden embed:hidden">
     <p class="m-0 hidden bg-navy px-4 py-1.5 text-center font-heading text-[1rem] font-semibold tracking-[0.01em] text-white max-nav:block">COUNSELLING CODE : 4680</p>
     <div class="bg-[image:var(--brand-header-bg)] text-[var(--brand-header-fg)] max-nav:bg-[linear-gradient(128deg,#fff_88%,var(--brand-primary)_88%)] max-phone:bg-[linear-gradient(128deg,#fff_77%,var(--brand-primary)_77%)]">
       <div class="mx-auto w-full max-w-[1240px] px-4 flex min-h-[137px] items-center gap-4 py-[18px] max-nav:min-h-[103px] max-nav:py-2.5">
@@ -166,7 +167,7 @@
     </nav>
   </header>
 
-  <div class="bg-navy bg-cover bg-center embed:hidden" style="background-image: url('brand/banner.jpg')">
+  <div class="bg-navy bg-cover bg-center max-phone:sr-only embed:hidden" style="background-image: url('brand/banner.jpg')">
     <div class="mx-auto w-full max-w-[1240px] px-4 flex min-h-[300px] items-end max-phone:px-2.5">
       <div class="relative z-[2] -mb-[60px] max-w-[502px] bg-[var(--brand-banner-box-bg)] px-[30px] pt-9 pb-[30px] text-on-gold max-phone:-mb-[100px] max-phone:w-full max-phone:max-w-none max-phone:p-[30px]">
         <h1 class="mt-0 mb-1 text-[clamp(1.6rem,3vw,2rem)] max-phone:mb-3 max-phone:text-[2rem] text-inherit [text-transform:var(--brand-banner-transform)]">Arivazhai</h1>
@@ -181,24 +182,24 @@
     </div>
   </div>
 
-  <main class="page-main mx-auto w-full max-w-[1240px] px-4 pt-[92px] pb-12 max-phone:px-0 max-phone:pt-[124px] max-phone:pb-6 embed:m-0 embed:h-screen embed:max-w-none embed:p-0">
+  <main class="page-main mx-auto w-full max-w-[1240px] px-4 pt-[92px] pb-12 max-phone:p-0 embed:m-0 embed:h-screen embed:max-w-none embed:p-0">
     <div class="chat-layout grid grid-cols-[minmax(0,1fr)] items-start gap-6 desk:grid-cols-[minmax(0,1fr)_300px] embed:block embed:h-full">
-    <section class="chat is-signed-out flex min-h-[70vh] flex-col border border-line bg-desk shadow-brand max-phone:border-x-0 embed:h-full embed:min-h-0" id="assistant" aria-labelledby="chat-title">
-      <div class="chat__header sticky top-0 z-[6] flex items-center justify-between gap-2.5 border-b-4 border-gold bg-navy px-4 py-3.5 text-white max-phone:py-3 [&_:focus-visible]:outline-gold">
-        <div class="flex min-w-0 items-center gap-3">
-          <span class="profile grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-gold bg-navy-dark" aria-hidden="true" data-robot="head"></span>
-          <div>
-            <h2 id="chat-title" class="m-0 text-[1.3rem] text-white">Arivazhai</h2>
-            <p class="mt-0.5 mb-0 text-[0.85rem] text-field max-phone:hidden" data-i18n="subtitle">AAACET admission help desk · answers from the official website</p>
+    <section class="chat is-signed-out flex min-h-[70vh] flex-col overflow-clip rounded-2xl border border-line bg-white shadow-brand max-phone:fixed max-phone:inset-x-0 max-phone:top-0 max-phone:z-[40] max-phone:h-[var(--app-height,100dvh)] max-phone:min-h-0 max-phone:rounded-none max-phone:border-0 max-phone:shadow-none embed:h-full embed:min-h-0 embed:rounded-none embed:border-0" id="assistant" aria-labelledby="chat-title">
+      <!-- the top bar: on phones the whole screen is the chat, like a chat app; the menu (☰) holds the rest -->
+      <div class="chat__header sticky top-0 z-[6] flex items-center gap-2 border-b-[3px] border-gold bg-navy px-3 py-2.5 text-white max-phone:pt-[max(10px,env(safe-area-inset-top))] desk:px-5 [&_:focus-visible]:outline-gold">
+        <button type="button" class="chat__menu hidden size-10 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-white hover:bg-white/12 max-phone:grid embed:!hidden" aria-expanded="false" aria-controls="help-panel" data-i18n-attr="aria-label:menu" aria-label="Menu"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+        <div class="flex min-w-0 flex-1 items-center gap-2.5">
+          <span class="profile grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-gold bg-navy-dark desk:size-11" aria-hidden="true" data-robot="head"></span>
+          <div class="min-w-0">
+            <h2 id="chat-title" class="m-0 text-[1.2rem] leading-tight text-white">Arivazhai</h2>
+            <p class="m-0 truncate text-[0.78rem] text-field" data-i18n="subtitle">AAACET admission help desk · answers from the official website</p>
           </div>
         </div>
-        <div class="flex shrink-0 items-center gap-2">
-          <button type="button" class="chat__lang min-h-11 shrink-0 cursor-pointer rounded-[10px] border border-white/40 bg-transparent px-3 font-semibold text-white hover:bg-white/12 max-phone:min-h-10 max-phone:px-2.5 max-phone:text-[0.85rem]" lang="ta" data-i18n="switchTo" data-i18n-attr="aria-label:switchLabel;title:switchLabel">தமிழ்</button>
-          <button type="button" class="chat__new [.is-signed-out_&]:hidden min-h-11 shrink-0 cursor-pointer rounded-[10px] border border-white/40 bg-transparent px-4 font-semibold text-white enabled:hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-55 max-phone:min-h-10 max-phone:px-2.5 max-phone:text-[0.85rem]" disabled data-i18n="newChat">New chat</button>
-        </div>
+        <button type="button" class="chat__lang min-h-10 shrink-0 cursor-pointer rounded-full border border-white/40 bg-transparent px-3 text-[0.85rem] font-semibold text-white hover:bg-white/12" lang="ta" data-i18n="switchTo" data-i18n-attr="aria-label:switchLabel;title:switchLabel">தமிழ்</button>
+        <button type="button" class="chat__new inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-white/40 bg-transparent px-3.5 text-[0.85rem] font-semibold text-white enabled:hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-55 max-phone:size-10 max-phone:justify-center max-phone:p-0 [.is-signed-out_&]:hidden" disabled data-i18n-attr="title:newChat" title="New chat"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg><span class="max-phone:sr-only" data-i18n="newChat">New chat</span></button>
       </div>
 
-      <div class="chat__who flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-white px-[22px] py-2 text-[0.85rem] text-muted max-phone:px-4 [.is-signed-out_&]:hidden">
+      <div class="chat__who flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-white px-5 py-2 text-[0.85rem] text-muted max-phone:hidden [.is-signed-out_&]:hidden">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" class="text-navy"><path fill="currentColor" d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.2-8 5v3h16v-3c0-2.8-3.6-5-8-5z"/></svg>
         <span><span data-i18n="who">Chatting as</span> <strong class="chat__name text-navy"></strong></span>
         <span aria-hidden="true">·</span>
@@ -206,7 +207,7 @@
         <button type="button" class="chat__signout ml-auto cursor-pointer border-0 bg-transparent p-1 text-[0.85rem] font-semibold text-link underline" data-i18n="signOut">Not you?</button>
       </div>
 
-      <form class="chat-login hidden flex-1 flex-col gap-3 p-[22px] max-phone:px-4 [.is-signed-out_&]:flex" novalidate aria-labelledby="login-title">
+      <form class="chat-login hidden flex-1 flex-col gap-3 p-[22px] max-phone:min-h-0 max-phone:overflow-y-auto max-phone:px-4 [.is-signed-out_&]:flex" novalidate aria-labelledby="login-title">
         <div class="mx-auto flex w-full max-w-[460px] flex-col gap-3 rounded-2xl border border-line bg-white p-6 max-phone:p-4">
           <span class="profile mx-auto grid size-16 place-items-center overflow-hidden rounded-full border-2 border-gold bg-navy-dark" aria-hidden="true" data-robot="head"></span>
           <h3 id="login-title" class="m-0 text-center text-[1.3rem] text-navy" data-i18n="loginTitle">Before we start</h3>
@@ -226,45 +227,45 @@
         </div>
       </form>
 
-      <div class="chat__log relative flex flex-1 flex-col gap-[18px] p-[22px] max-phone:px-4 max-phone:py-3.5 embed:overflow-y-auto [.is-signed-out_&]:hidden" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation">
-        <div class="message--assistant flex flex-col items-start gap-1.5">
-          <span class="inline-flex items-center gap-2 text-[0.72rem] font-extrabold tracking-[0.04em] text-gold-text uppercase" aria-hidden="true"><span class="profile grid size-[26px] shrink-0 place-items-center overflow-hidden rounded-full border-[1.5px] border-gold bg-navy-dark" data-robot="head"></span>Arivazhai</span>
-          <div class="bubble w-[min(880px,100%)] max-w-[min(780px,100%)] min-w-0 rounded-[4px_16px_16px_16px] border border-line bg-white px-4 py-3 wrap-anywhere">
-            <p data-i18n="welcome">Vanakkam! I'm Arivazhai, the AAACET admission assistant. Ask me about eligibility, TNEA counselling, courses, fees,
+      <div class="chat__log relative flex flex-1 flex-col gap-6 px-5 py-6 max-phone:min-h-0 max-phone:overflow-y-auto max-phone:overscroll-contain max-phone:px-4 max-phone:py-4 embed:min-h-0 embed:overflow-y-auto [.is-signed-out_&]:hidden" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation">
+        <!-- the empty chat: a greeting and the questions parents ask most (each is in backend/eval/questions_aaacet.jsonl,
+             so `make eval` checks it against the real knowledge base); hidden once the conversation starts -->
+        <div class="welcome flex flex-col gap-5 max-phone:min-h-full" id="welcome-suggestions">
+          <div class="flex flex-col items-center gap-2 pt-4 text-center max-phone:flex-1 max-phone:justify-center max-phone:pt-2">
+            <span class="profile grid size-16 place-items-center overflow-hidden rounded-full border-2 border-gold bg-navy-dark" aria-hidden="true" data-robot="head"></span>
+            <h3 class="welcome__hello m-0 font-heading text-[1.6rem] text-navy"><span data-i18n="hello">Hello</span><span class="welcome__name"></span></h3>
+            <p class="m-0 max-w-[560px] text-[0.95rem] text-muted" data-i18n="welcome">Vanakkam! I'm Arivazhai, the AAACET admission assistant. Ask me about eligibility, TNEA counselling, courses, fees,
               scholarships, hostel or placements. I answer from the official website and link every source.</p>
-            <!-- The questions parents ask most before admission. Each is in backend/eval/questions_aaacet.jsonl,
-                 so `make eval` checks it against the real knowledge base. -->
-            <div class="suggestions mt-3.5" id="welcome-suggestions">
-              <h3 class="mt-0 mb-2 text-[0.95rem] tracking-[0.04em] text-muted uppercase" id="welcome-suggestions-title" data-i18n="tryAsking">Try asking</h3>
-              <ul class="m-0 flex list-none flex-wrap gap-2 p-0" aria-labelledby="welcome-suggestions-title">
-                  <li><button type="button" class="chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset1">What is the eligibility for B.E. / B.Tech admission?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset2">What is the TNEA counselling code of AAACET?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset3">How many seats are there in each department?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset4">How do I apply for admission online?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset5">What documents are needed for admission?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset6">What scholarships are available based on +2 cut-off marks?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset7">Are hostels available for boys and girls?</button></li>
-                  <li><button type="button" class="chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white" data-i18n="preset8">Whom should I contact for admission?</button></li>
-              </ul>
-            </div>
+          </div>
+          <div class="suggestions">
+            <h3 class="mt-0 mb-2 text-[0.8rem] tracking-[0.05em] text-muted uppercase" id="welcome-suggestions-title" data-i18n="tryAsking">Try asking</h3>
+            <ul class="m-0 grid list-none grid-cols-2 gap-2.5 p-0 desk:grid-cols-4 max-phone:-mx-4 max-phone:flex max-phone:snap-x max-phone:gap-2.5 max-phone:overflow-x-auto max-phone:px-4 max-phone:pb-1 max-phone:[scrollbar-width:none]" aria-labelledby="welcome-suggestions-title">
+            <li class="max-phone:shrink-0 max-phone:snap-start"><button type="button" class="chip flex min-h-[76px] w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-left text-[0.9rem] leading-snug text-ink shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle max-phone:w-[210px] max-phone:min-h-[92px]"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" class="text-brand"><path fill="currentColor" d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3 1 9l11 6 9-4.91V17h2V9L12 3z"/></svg><span data-i18n="preset1">What is the eligibility for B.E. / B.Tech admission?</span></button></li>
+            <li class="max-phone:shrink-0 max-phone:snap-start"><button type="button" class="chip flex min-h-[76px] w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-left text-[0.9rem] leading-snug text-ink shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle max-phone:w-[210px] max-phone:min-h-[92px]"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" class="text-brand"><path fill="currentColor" d="M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9a2 2 0 0 0 2.82 0l7-7a2 2 0 0 0 0-2.84zM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7z"/></svg><span data-i18n="preset2">What is the TNEA counselling code of AAACET?</span></button></li>
+            <li class="max-phone:shrink-0 max-phone:snap-start"><button type="button" class="chip flex min-h-[76px] w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-left text-[0.9rem] leading-snug text-ink shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle max-phone:w-[210px] max-phone:min-h-[92px]"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" class="text-brand"><path fill="currentColor" d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg><span data-i18n="preset3">How many seats are there in each department?</span></button></li>
+            <li class="max-phone:shrink-0 max-phone:snap-start"><button type="button" class="chip flex min-h-[76px] w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-left text-[0.9rem] leading-snug text-ink shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle max-phone:w-[210px] max-phone:min-h-[92px]"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" class="text-brand"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg><span data-i18n="preset4">How do I apply for admission online?</span></button></li>
+            <li class="max-phone:shrink-0 max-phone:snap-start"><button type="button" class="chip flex min-h-[76px] w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-left text-[0.9rem] leading-snug text-ink shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle max-phone:w-[210px] max-phone:min-h-[92px]"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" class="text-brand"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-1 7V3.5L18.5 9zM8 13h8v2H8zm0 4h5v2H8z"/></svg><span data-i18n="preset5">What documents are needed for admission?</span></button></li>
+            <li class="max-phone:shrink-0 max-phone:snap-start"><button type="button" class="chip flex min-h-[76px] w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-left text-[0.9rem] leading-snug text-ink shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle max-phone:w-[210px] max-phone:min-h-[92px]"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" class="text-brand"><path fill="currentColor" d="M17 4V2H7v2H2v5c0 2.21 1.79 4 4 4h.54A6 6 0 0 0 11 16.92V19H7v2h10v-2h-4v-2.08A6 6 0 0 0 17.46 13H18c2.21 0 4-1.79 4-4V4h-5zM4 9V6h3v5c-1.66 0-3-.9-3-2zm16 0c0 1.1-1.34 2-3 2V6h3v3z"/></svg><span data-i18n="preset6">What scholarships are available based on +2 cut-off marks?</span></button></li>
+            <li class="max-phone:shrink-0 max-phone:snap-start"><button type="button" class="chip flex min-h-[76px] w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-left text-[0.9rem] leading-snug text-ink shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle max-phone:w-[210px] max-phone:min-h-[92px]"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" class="text-brand"><path fill="currentColor" d="M7 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9a4 4 0 0 0-4-4z"/></svg><span data-i18n="preset7">Are hostels available for boys and girls?</span></button></li>
+            <li class="max-phone:shrink-0 max-phone:snap-start"><button type="button" class="chip flex min-h-[76px] w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-left text-[0.9rem] leading-snug text-ink shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle max-phone:w-[210px] max-phone:min-h-[92px]"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" class="text-brand"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z"/></svg><span data-i18n="preset8">Whom should I contact for admission?</span></button></li>
+            </ul>
           </div>
         </div>
       </div>
 
-      <div class="chat__footer sticky bottom-0 z-[4] [.is-signed-out_&]:hidden flex flex-col gap-2.5 border-t border-line bg-white px-[22px] pt-3 pb-4 shadow-[0_-6px_16px_rgba(13,27,61,0.07)] max-phone:px-3.5 max-phone:pt-2.5">
-        <form class="chat-input relative grid grid-cols-[1fr_auto_auto] gap-x-2.5 gap-y-2" novalidate>
+      <div class="chat__footer sticky bottom-0 z-[4] flex flex-col gap-1.5 bg-white px-4 pt-2 pb-3 max-phone:pb-[max(10px,env(safe-area-inset-bottom))] [.is-signed-out_&]:hidden">
+        <button type="button" class="chat__jump absolute -top-12 left-1/2 z-[5] grid size-10 -translate-x-1/2 cursor-pointer place-items-center rounded-full border border-line bg-white text-navy shadow-[0_4px_14px_rgba(13,27,61,0.18)] hover:bg-subtle" data-i18n-attr="aria-label:jumpLatest;title:jumpLatest" aria-label="Go to the latest message" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z"/></svg></button>
+        <form class="chat-input relative mx-auto w-full max-w-[880px]" novalidate>
           <label for="chat-message" class="sr-only">Ask a question about AAACET</label>
-          <ul id="chat-suggestions" class="chat-suggestions absolute inset-x-0 bottom-[calc(100%-8px)] z-[5] m-0 max-h-[260px] list-none overflow-y-auto rounded-[10px] border border-edge bg-white px-0 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.14)]" role="listbox" aria-label="Suggested questions" hidden></ul>
-          <textarea id="chat-message" class="chat-input__field max-h-[180px] min-h-12 resize-y rounded-xl max-phone:resize-none border-2 border-field bg-white px-3.5 py-[11px] text-ink focus-visible:border-navy" dir="auto" rows="1" placeholder="Ask about admissions, courses, facilities…"
-            maxlength="1000" data-i18n-attr="placeholder:placeholder" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-describedby="chat-input-hint"></textarea>
-          <button type="button" class="chat-input__mic inline-flex min-h-[42px] min-w-12 cursor-pointer items-center justify-center self-stretch rounded-xl border-2 border-field bg-white px-3 text-navy hover:border-navy aria-pressed:animate-pulse aria-pressed:border-danger aria-pressed:bg-danger aria-pressed:text-white" aria-pressed="false" data-i18n-attr="aria-label:mic;title:mic" aria-label="Ask by voice" title="Ask by voice" hidden>
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
-          </button>
-          <button type="submit" class="chat-input__send inline-flex min-h-[42px] min-w-[104px] cursor-pointer items-center justify-center gap-1.5 self-stretch rounded-xl border border-transparent bg-gold px-5 py-2 font-bold whitespace-nowrap text-navy-dark enabled:hover:bg-gold-dark disabled:cursor-not-allowed disabled:opacity-55 max-phone:min-w-[52px]" disabled aria-label="Send message" data-i18n-attr="aria-label:sendLabel">
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            <span class="max-phone:hidden" data-i18n="send">Send</span>
-          </button>
-          <p id="chat-input-hint" class="col-span-full m-0 text-[0.78rem] text-muted max-phone:-mt-2"><span class="chat-input__status max-phone:data-[state=hint]:hidden" data-state="hint" data-i18n="hint">Press Enter to send, Shift + Enter for a new line. Use ↑ ↓ to pick a suggestion.</span><span class="chat-input__count" hidden></span></p>
+          <ul id="chat-suggestions" class="chat-suggestions absolute inset-x-0 bottom-[calc(100%+6px)] z-[5] m-0 max-h-[260px] list-none overflow-y-auto rounded-2xl border border-edge bg-white px-0 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.14)]" role="listbox" aria-label="Suggested questions" hidden></ul>
+          <div class="composer flex items-end gap-1.5 rounded-[26px] border border-field bg-white py-1.5 pr-1.5 pl-4 shadow-[0_2px_12px_rgba(13,27,61,0.08)] focus-within:border-navy focus-within:ring-2 focus-within:ring-navy/15">
+            <textarea id="chat-message" class="chat-input__field max-h-[160px] min-h-10 flex-1 resize-none border-0 bg-transparent px-0 py-2 leading-6 text-ink outline-none focus-visible:outline-none" dir="auto" rows="1" placeholder="Ask about admissions, courses, facilities…"
+              maxlength="1000" data-i18n-attr="placeholder:placeholder" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-describedby="chat-input-hint"></textarea>
+            <button type="button" class="chat-input__mic grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-navy hover:bg-subtle aria-pressed:animate-pulse aria-pressed:bg-danger aria-pressed:text-white" aria-pressed="false" data-i18n-attr="aria-label:mic;title:mic" aria-label="Ask by voice" title="Ask by voice" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg></button>
+            <button type="submit" class="chat-input__send grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-navy text-white enabled:hover:bg-navy-dark disabled:cursor-not-allowed disabled:bg-field disabled:text-white" disabled aria-label="Send message" data-i18n-attr="aria-label:sendLabel"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg><span class="sr-only" data-i18n="send">Send</span></button>
+          </div>
+          <p id="chat-input-hint" class="m-0 mt-1.5 text-center text-[0.75rem] text-muted"><span class="chat-input__status max-phone:data-[state=hint]:hidden" data-state="hint" data-i18n="hint">Press Enter to send, Shift + Enter for a new line. Use ↑ ↓ to pick a suggestion.</span><span class="chat-input__count" hidden></span>
+            <span class="chat-input__disclaimer block" data-i18n="disclaimer">Arivazhai can make mistakes. Please confirm important details with the admission office.</span></p>
         </form>
       </div>
       <dialog class="confirm-new m-auto w-[min(440px,calc(100%-32px))] rounded-2xl border-0 p-0 shadow-[0_20px_50px_rgba(13,27,61,0.35)] backdrop:bg-navy-dark/55" aria-labelledby="new-chat-title" aria-describedby="new-chat-text">
@@ -280,7 +281,18 @@
     </section>
 
     <!-- what parents need most: beside the chat on desktop (always in reach), below it on smaller screens -->
-    <aside class="help-panel flex flex-col gap-4 desk:sticky desk:top-6 max-desk:px-4 embed:hidden" aria-labelledby="help-title">
+    <div class="drawer-backdrop fixed inset-0 z-[45] hidden bg-navy-dark/55 max-phone:[.drawer-open_&]:block" aria-hidden="true"></div>
+    <aside id="help-panel" class="help-panel flex flex-col gap-4 desk:sticky desk:top-6 max-desk:px-4 embed:hidden max-phone:invisible max-phone:fixed max-phone:inset-y-0 max-phone:left-0 max-phone:z-[50] max-phone:w-[min(86vw,340px)] max-phone:-translate-x-full max-phone:overflow-y-auto max-phone:bg-desk max-phone:px-4 max-phone:pt-[max(16px,env(safe-area-inset-top))] max-phone:pb-[max(16px,env(safe-area-inset-bottom))] max-phone:shadow-[8px_0_30px_rgba(13,27,61,0.3)] max-phone:transition-[translate,visibility] max-phone:duration-200 motion-reduce:transition-none max-phone:[.drawer-open_&]:visible max-phone:[.drawer-open_&]:translate-x-0" aria-labelledby="help-title">
+      <!-- phones only: who is chatting, and closing the menu -->
+      <div class="hidden items-center gap-3 max-phone:flex">
+        <span class="profile grid size-11 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-gold bg-navy-dark" aria-hidden="true" data-robot="head"></span>
+        <div class="min-w-0 flex-1">
+          <p class="m-0 font-heading text-[1.1rem] font-semibold text-navy">Arivazhai</p>
+          <p class="drawer__user m-0 truncate text-[0.85rem] text-muted"></p>
+        </div>
+        <button type="button" class="drawer__close grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-navy hover:bg-subtle" data-i18n-attr="aria-label:closeMenu" aria-label="Close menu"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+      </div>
+      <button type="button" class="drawer__signout hidden min-h-10 cursor-pointer items-center gap-2 self-start rounded-full border border-field bg-white px-3.5 text-[0.85rem] font-semibold text-navy max-phone:[.has-user_&]:inline-flex" data-i18n="signOut">Not you?</button>
       <div class="rounded-[24px] bg-navy p-3 text-white">
         <div class="rounded-[16px] border border-white/70 px-5 py-5 text-center">
           <h2 id="help-title" class="m-0 text-[1.25rem] text-white" data-i18n="helpTitle">Admission help</h2>
@@ -302,11 +314,24 @@
         <p class="m-0 px-4 py-2.5 text-[0.85rem]"><span class="block text-muted">Kamarajar Educational Road, Amathur - 626 005</span>
           <a class="font-semibold" href="https://www.google.com/maps/search/?api=1&amp;query=AAA%20College%20of%20Engineering%20and%20Technology%2C%20Amathur%2C%20Sivakasi" target="_blank" rel="noopener noreferrer" data-i18n="mapOpen">Open in Google Maps</a></p>
       </section>
+      <nav class="hidden flex-col overflow-hidden rounded-xl border border-line bg-white max-phone:flex" aria-labelledby="college-links-title">
+        <h3 id="college-links-title" class="m-0 px-4 pt-3 pb-1 text-[1rem] text-navy" data-i18n="collegeSite">College website</h3>
+        <ul class="m-0 list-none p-0 [&_a]:flex [&_a]:min-h-11 [&_a]:items-center [&_a]:border-t [&_a]:border-line [&_a]:px-4 [&_a]:text-[0.92rem] [&_a]:text-ink [&_a]:no-underline [&_a:hover]:bg-subtle">
+          <li><a href="https://aaaenggcoll.ac.in/">Home</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/admission/">Admissions</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/cse/about-department/">Departments</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/placement/">Placements</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/aaa-hostels/">Hostel</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/aaa-transport/">Transport</a></li>
+          <li><a href="https://aaaenggcoll.ac.in/contact-us/">Contact us</a></li>
+          <li><a href="https://aaaenggcollege.org/studentlogin/login.php">Online fee payment</a></li>
+        </ul>
+      </nav>
     </aside>
     </div>
   </main>
 
-  <footer class="site-footer bg-footer text-[0.92rem] text-[var(--brand-footer-fg)] embed:hidden [&_a]:text-[var(--brand-footer-link)] [&_a]:no-underline [&_a:hover]:text-[var(--brand-footer-accent)] [&_a:hover]:underline">
+  <footer class="site-footer max-phone:hidden bg-footer text-[0.92rem] text-[var(--brand-footer-fg)] embed:hidden [&_a]:text-[var(--brand-footer-link)] [&_a]:no-underline [&_a:hover]:text-[var(--brand-footer-accent)] [&_a:hover]:underline">
     <div class="mx-auto w-full max-w-[1240px] px-4 grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-8 pt-[52px] pb-9 max-phone:grid-cols-2 max-phone:gap-x-5 max-phone:gap-y-7 max-phone:pt-10">
       <section class="max-phone:col-span-2" aria-labelledby="footer-about">
         <h2 id="footer-about" class="mt-0 mb-[22px] inline-block border-b-2 border-[var(--brand-footer-accent)] pb-1.5 text-[1.125rem] text-[var(--brand-footer-heading)]">About Arivazhai</h2>
@@ -355,7 +380,7 @@
     </div>
   </footer>
 
-  <button type="button" class="scroll-to-chat fixed right-6 bottom-6 z-[1500] flex min-h-14 animate-scroll-hint cursor-pointer items-center gap-2 rounded-full border-2 border-gold bg-white py-0 pr-2 pl-[18px] font-bold text-navy shadow-[0_6px_18px_rgba(13,27,61,0.22)] hover:bg-cream hover:[animation-play-state:paused] focus-visible:bg-cream focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-navy focus-visible:[animation-play-state:paused] motion-reduce:animate-none max-phone:right-4 max-phone:bottom-4 embed:hidden [.menu-open_&]:hidden" aria-label="Go to the chat below" title="The chat is below">
+  <button type="button" class="scroll-to-chat max-phone:!hidden fixed right-6 bottom-6 z-[1500] flex min-h-14 animate-scroll-hint cursor-pointer items-center gap-2 rounded-full border-2 border-gold bg-white py-0 pr-2 pl-[18px] font-bold text-navy shadow-[0_6px_18px_rgba(13,27,61,0.22)] hover:bg-cream hover:[animation-play-state:paused] focus-visible:bg-cream focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-navy focus-visible:[animation-play-state:paused] motion-reduce:animate-none max-phone:right-4 max-phone:bottom-4 embed:hidden [.menu-open_&]:hidden" aria-label="Go to the chat below" title="The chat is below">
     <span aria-hidden="true" data-i18n="chatBelow">Chat below</span>
     <svg class="block size-[38px] rounded-full bg-navy p-1.5 text-white" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9.5l6 6 6-6"/></svg>
   </button>

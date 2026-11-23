@@ -58,6 +58,64 @@
     }).observe(target);
   }
 
+  /**
+   * Phones: the chat fills the screen like a chat app. Its height follows the visible part of the
+   * screen (the browser's bars and the on-screen keyboard come and go), so the question box stays
+   * just above the keyboard.
+   */
+  function setupAppHeight() {
+    const view = window.visualViewport;
+    if (!view) return;
+    const set = () => {
+      document.documentElement.style.setProperty("--app-height", Math.round(view.height) + "px");
+      // iOS scrolls the page when the keyboard opens; on a phone the page itself never needs to scroll
+      if (window.scrollY && window.matchMedia && window.matchMedia("(max-width: 760px)").matches) window.scrollTo(0, 0);
+    };
+    view.addEventListener("resize", set);
+    set();
+  }
+
+  /** Phones: the ☰ menu slides out the help panel (who is chatting, admission help, map, college pages). */
+  function setupDrawer() {
+    const button = document.querySelector(".chat__menu");
+    const panel = document.getElementById("help-panel");
+    if (!button || !panel) return;
+    const root = document.documentElement;
+    const close = panel.querySelector(".drawer__close");
+    const backdrop = document.querySelector(".drawer-backdrop");
+    const setOpen = (open) => {
+      root.classList.toggle("drawer-open", open);
+      button.setAttribute("aria-expanded", String(open));
+      if (open) (close || panel).focus();
+      else if (panel.contains(document.activeElement)) button.focus();
+    };
+    button.addEventListener("click", () => setOpen(!root.classList.contains("drawer-open")));
+    if (close) close.addEventListener("click", () => setOpen(false));
+    if (backdrop) backdrop.addEventListener("click", () => setOpen(false));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && root.classList.contains("drawer-open")) setOpen(false);
+    });
+    panel.addEventListener("click", (event) => {
+      if (event.target.closest("a")) setOpen(false); // a link was followed
+    });
+
+    // who is chatting, and "Not you?", in the menu
+    const who = panel.querySelector(".drawer__user");
+    const signOut = panel.querySelector(".drawer__signout");
+    const show = (user) => {
+      root.classList.toggle("has-user", !!user);
+      if (who) who.textContent = user ? A.i18n.t("who") + " " + user.name : "";
+    };
+    if (A.user) {
+      show(A.user.current());
+      A.user.onChange(show);
+      if (signOut) signOut.addEventListener("click", () => {
+        setOpen(false);
+        A.user.signOut();
+      });
+    }
+  }
+
   /** On load the robot waves "Getting ready…" while the assistant is contacted, then greets (or says what is wrong). */
   function setupMoments() {
     const root = document.querySelector(".moment");
@@ -91,6 +149,8 @@
     setupLanguage();
     A.robot.drawProfiles();
     setupMenu();
+    setupAppHeight();
+    setupDrawer();
     setupScrollToChat();
     setupMoments();
     const section = document.getElementById("assistant");

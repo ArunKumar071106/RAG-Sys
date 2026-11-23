@@ -31,7 +31,11 @@ test.beforeEach(async ({ page, request }) => {
 
 test("welcome screen", async ({ page }, info) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Arivazhai" })).toBeVisible();
+  // phones: the chat is the whole screen; the page title stays for screen readers
+  if (info.project.name === "mobile") await expect(page.getByRole("heading", { level: 1, name: "Arivazhai" })).toBeAttached();
+  else await expect(page.getByRole("heading", { level: 1, name: "Arivazhai" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Arivazhai", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hello, Test Parent" })).toBeVisible();
   await expect(page.getByText(/Vanakkam! I'm Arivazhai, the AAACET admission assistant/)).toBeVisible();
   await expect(page.getByRole("button", { name: "How do I apply for admission online?" })).toBeVisible();
   await expectNoHorizontalScroll(page);
@@ -126,15 +130,25 @@ test("keyboard only: suggestion chip and new chat", async ({ page }) => {
   await expect(page.getByLabel("Ask a question about AAACET")).toBeFocused();
 });
 
-test("mobile menu", async ({ page }, info) => {
-  test.skip(info.project.name !== "mobile", "menu toggle only on small screens");
+test("phones: the chat fills the screen and ☰ opens admission help, the map and the college pages", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile", "the chat-app layout is for phones");
   await page.goto("/");
-  const nav = page.getByRole("navigation", { name: "Main" });
-  await expect(nav).toBeHidden();
-  await page.getByRole("button", { name: "Open menu" }).click();
-  await expect(nav.getByRole("link", { name: "Arivazhai" })).toBeVisible();
   await momentGone(page);
+  await expect(page.locator(".site-header")).toBeHidden();
+  const chat = await page.locator("#assistant").boundingBox();
+  expect(chat.height).toBeGreaterThanOrEqual(page.viewportSize().height - 1);
+  const panel = page.getByRole("complementary", { name: "Admission help" });
+  await expect(panel).toBeHidden();
+  await page.getByRole("button", { name: "Menu" }).click();
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText("Chatting as Test Parent")).toBeVisible();
+  await expect(panel.getByRole("link", { name: "Apply for admission" })).toBeVisible();
+  await expect(panel.getByRole("navigation", { name: "College website" }).getByRole("link", { name: "Admissions" })).toBeAttached();
+  await page.waitForTimeout(300); // the slide-in
   await page.screenshot({ path: join(SHOTS, "mobile-menu.png") });
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
 });
 
 test("embed mode renders only the chat panel", async ({ page }) => {
@@ -144,7 +158,7 @@ test("embed mode renders only the chat panel", async ({ page }) => {
   await expectNoHorizontalScroll(page);
 });
 
-test("the page does not grow with the conversation", async ({ page }) => {
+test("the page does not grow with the conversation", async ({ page }, info) => {
   await page.goto("/");
   await momentGone(page);
   const questions = ["What is the tuition fee for B.Tech Data Science?", "What are the library timings?", "Is there a hostel?"];
@@ -152,6 +166,11 @@ test("the page does not grow with the conversation", async ({ page }) => {
     await ask(page, q);
     await expect(page.locator(".message--user")).toHaveCount(i + 1);
     await expect(page.getByRole("status")).toHaveCount(0, { timeout: 30_000 });
+    if (info.project.name === "mobile") {
+      // phones: the conversation scrolls inside the screen; the page itself never grows
+      expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(1);
+      continue;
+    }
     // the page ends with the footer: no empty space below it that grows with the conversation
     const emptyBelow = await page.evaluate(
       () => document.documentElement.scrollHeight - (document.querySelector(".site-footer").getBoundingClientRect().bottom + window.scrollY),
@@ -170,6 +189,7 @@ test("the question box is in sight as the page opens", async ({ page }) => {
 });
 
 test("down arrow shows the chat is below and takes you there", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "on phones the chat is the whole screen: nothing is below");
   // a short screen (a small laptop, or a phone turned sideways): the chat starts below it
   await page.setViewportSize({ width: page.viewportSize().width, height: 420 });
   await page.goto("/");
@@ -186,12 +206,16 @@ test("down arrow shows the chat is below and takes you there", async ({ page }, 
 test("admission help and the college map: beside the chat on desktop, below it on smaller screens", async ({ page }, info) => {
   await page.goto("/");
   await momentGone(page);
+  // phones: the panel is the ☰ menu, hidden (also from screen readers) until opened
+  if (info.project.name === "mobile") await page.getByRole("button", { name: "Menu" }).click();
   const panel = page.getByRole("complementary", { name: "Admission help" });
-  await expect(panel).toBeAttached();
-  const chat = await page.locator("#assistant").boundingBox();
-  const box = await panel.boundingBox();
-  if (info.project.name === "desktop") expect(box.x).toBeGreaterThan(chat.x + chat.width - 1);
-  else expect(box.y).toBeGreaterThan(chat.y + chat.height - 1);
+  await expect(panel).toBeVisible();
+  if (info.project.name !== "mobile") {
+    const chat = await page.locator("#assistant").boundingBox();
+    const box = await panel.boundingBox();
+    if (info.project.name === "desktop") expect(box.x).toBeGreaterThan(chat.x + chat.width - 1);
+    else expect(box.y).toBeGreaterThan(chat.y + chat.height - 1);
+  }
   const map = panel.locator("iframe");
   await expect(map).toHaveAttribute("title", /AAA College of Engineering and Technology/);
   const apply = await panel.getByRole("link", { name: "Apply for admission" }).boundingBox();

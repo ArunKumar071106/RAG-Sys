@@ -29,7 +29,7 @@ images (photos, posters, notices) alongside the answer.
 | Complete answers (no API key) | 60 questions written from the live website by someone who never saw this system, each with every fact a complete answer contains (2–6 per question, 245 facts; `backend/eval/facts_aaacet.jsonl`, `python -m rag.cli eval-facts --verbose`). Each fact is traced to where it is lost. Before: answers held **40%** of their facts; 32% were handed to the answer composer and left out, 22% were found but ranked below the results used, 6% were not in the knowledge base. After the fixes below: **74%** on the 40 questions used while fixing (was 44%; 21 complete answers, was 9) and **47%** on the 20 held-out questions never looked at (was 31%). What is left is mostly ranking (28% of held-out facts are found but ranked too low) and about 4% of facts that are only in scanned PDFs, images or a brochure the crawl never reached. |
 | Answer quality (no API key) | 40 everyday questions, each with the fact a correct answer must contain (`backend/eval/answers_aaacet.jsonl`, `python -m rag.cli eval-answers`): **40/40** (was 18/40 before the tab, chunking and answer fixes below). 20 held-out questions written after tuning and never tuned on (`answers_aaacet_holdout.jsonl`): **19/20** (was 16/20). Measured with hybrid search (all-MiniLM-L6-v2 stand-in) in extractive mode. Page retrieval after these changes: Recall@1 0.71, Recall@3 0.97, MRR 0.84. |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
-| Tests | 213 backend tests, 29 page unit tests (Vitest + jsdom on the real index.html and scripts), 65 Playwright tests on desktop, tablet and mobile |
+| Tests | 213 backend tests, 35 page unit tests (Vitest + jsdom on the real index.html and scripts), 64 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
 | AI answers (Gemini, or Claude) / vision descriptions | Implemented and unit-tested with mocked clients; the Gemini client was checked against the real API (it reports a wrong key clearly). Needs `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY` for Claude; vision descriptions use Claude). Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
 | Off-topic questions | With Claude, the model replies "not covered" via a `[[NO_ANSWER]]` marker. In extractive mode, an off-topic question that shares a word with some page may still get loosely related quotes. |
@@ -158,10 +158,18 @@ flowchart LR
 * **Next questions:** every answer comes with three full questions to ask next (`follow_ups`): about the same
   department, then related topics (fees → scholarships, hostel → transport…), never one already asked. They are shown
   under the latest answer.
-* **Layout (desktop and phone):** the page follows the official website's look on every size (on phones: the red
-  corner header, the campus photo with the gold title box). The question box sticks to the bottom of the screen
-  and the page scrolls once (no scroll box inside the chat). A new answer is shown from its first line. Phones get
-  a shorter placeholder, no keyboard tips, and a two-column footer.
+* **Layout: a chat app on phones, the college page on desktop.** Most visitors use a phone, so there the chat fills
+  the screen like popular AI chat apps: a slim navy top bar (☰ menu, Arivazhai, தமிழ், New chat), the conversation
+  scrolling between it and the question box, which stays above the keyboard (the visible screen height is followed).
+  The ☰ menu slides out who is chatting ("Not you?"), admission help (counselling code, call, email, prospectus,
+  Apply), the campus map and the college website's main pages; the college header, banner and footer are hidden on
+  phones (the page title stays for screen readers). Desktop and tablet keep the official site's header, banner and
+  footer around the chat, with admission help beside it (desktop) or below it (tablet). On every size: an empty chat
+  greets the visitor by name with question cards (icons; on phones a row that scrolls sideways above the question
+  box), questions are navy bubbles and answers read as plain text with Copy, Listen (read aloud, English or Tamil) and
+  thumbs up / down under them, the question box is a rounded pill that grows with the question (mic and send inside),
+  with "Arivazhai can make mistakes" under it, and a round arrow returns to the latest message. On phones the robot
+  thinks inline instead of over a blurred screen. A new answer is shown from its first line.
 * **Admission help panel (desktop):** beside the chat, the TNEA counselling code, call, toll-free, email, the
   prospectus and "Apply for admission" (smaller screens get the contact buttons under every answer).
 * **Finding the chat:** on a short screen, a bouncing "Chat below" down arrow at the bottom-right while the question box is still below

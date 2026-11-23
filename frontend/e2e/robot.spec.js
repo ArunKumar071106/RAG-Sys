@@ -72,9 +72,15 @@ test("question sent: thinking over the blurred chat, then the answer", async ({ 
   await page.goto("/");
   await settled(page);
   await ask(page, "Are hostels available for boys and girls?");
-  await expect(robot(page)).toHaveAttribute("data-moment", "think");
-  await expect(overlay(page).getByText("Finding your answer…")).toBeVisible();
-  await shot(page, "03-thinking", info.project.name === "desktop");
+  if (info.project.name === "mobile") {
+    // phones: the robot thinks inline, like a chat app, without covering the conversation
+    await expect(page.getByRole("status")).toContainText("Searching the official website");
+    await expect(page.locator(".moment")).not.toHaveClass(/is-shown/);
+  } else {
+    await expect(robot(page)).toHaveAttribute("data-moment", "think");
+    await expect(overlay(page).getByText("Finding your answer…")).toBeVisible();
+    await shot(page, "03-thinking", info.project.name === "desktop");
+  }
   await settled(page);
   await expect(page.getByRole("region", { name: "Sources from the official website" })).toBeVisible({ timeout: 30_000 });
 });

@@ -34,23 +34,23 @@
     sender: "inline-flex items-center gap-2 text-[0.72rem] font-extrabold tracking-[0.04em] text-gold-text uppercase",
     profileSmall: "profile grid size-[26px] shrink-0 place-items-center overflow-hidden rounded-full border-[1.5px] border-gold bg-navy-dark",
     userMessage: "message--user flex items-start justify-end gap-2.5",
-    assistantMessage: "message--assistant flex flex-col items-start gap-1.5",
-    // an answer bubble; one of the colour sets below goes with it (two colour classes on one element would clash)
-    bubble: "bubble w-[min(880px,100%)] max-w-[min(780px,100%)] min-w-0 rounded-[4px_16px_16px_16px] border px-4 py-3 wrap-anywhere",
-    plain: "border-line bg-white",
-    userBubble: "bubble max-w-[min(620px,85%)] rounded-[16px_4px_16px_16px] bg-navy px-4 py-3 whitespace-pre-wrap text-white wrap-anywhere max-phone:max-w-[90%]",
-    noAnswer: "border-y-line border-r-line border-l-4 border-l-gold bg-white",
-    errorBubble: "border-danger bg-danger-bg",
-    loadingBubble: "flex flex-[0_1_auto] items-center gap-2.5",
+    assistantMessage: "message--assistant flex w-full max-w-[820px] flex-col items-start gap-2",
+    // an answer; exactly one of the looks below goes with it (spacing and colours live in the look, never twice)
+    bubble: "bubble w-full min-w-0 text-[1rem] leading-[1.65] wrap-anywhere",
+    plain: "py-0.5",
+    userBubble: "bubble max-w-[min(620px,85%)] rounded-[20px_20px_6px_20px] bg-navy px-4 py-2.5 whitespace-pre-wrap text-white wrap-anywhere max-phone:max-w-[88%]",
+    noAnswer: "rounded-xl border-l-4 border-l-gold bg-cream px-4 py-3",
+    errorBubble: "rounded-xl border border-danger bg-danger-bg px-4 py-3",
+    loadingBubble: "flex flex-[0_1_auto] items-center gap-2.5 py-1",
     dots: "inline-flex gap-1 [&>span]:size-[7px] [&>span]:animate-dot [&>span]:rounded-full [&>span]:bg-brand [&>span:nth-child(2)]:[animation-delay:0.2s] [&>span:nth-child(3)]:[animation-delay:0.4s] motion-reduce:[&>span]:animate-none motion-reduce:[&>span]:opacity-70",
     muted: "text-[0.9rem] text-muted",
     suggestions: "suggestions mt-3.5",
-    followUps: "suggestions mt-1 w-[min(880px,100%)]",
+    followUps: "suggestions mt-1 w-full max-w-[820px]",
     sectionTitle: "mt-0 mb-2 text-[0.9rem] tracking-[0.04em] text-muted uppercase",
     suggestionsTitle: "mt-0 mb-2 text-[0.95rem] tracking-[0.04em] text-muted uppercase",
     chipList: "m-0 flex list-none flex-wrap gap-2 p-0",
-    chip: "chip cursor-pointer rounded-[20px] border border-field bg-white px-4 py-2 text-left text-[0.9rem] text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white",
-    sources: "sources mt-3.5 border-t border-edge pt-3",
+    chip: "chip cursor-pointer rounded-2xl border border-line bg-white px-3.5 py-2 text-left text-[0.9rem] text-navy shadow-[0_1px_2px_rgba(13,27,61,0.06)] enabled:hover:border-navy enabled:hover:bg-subtle",
+    sources: "sources mt-4 rounded-xl border border-line bg-subtle/60 px-3.5 py-3",
     sourceList: "m-0 grid list-none gap-2 p-0",
     sourceItem: "flex gap-2.5",
     sourceNum: "mt-0.5 grid size-[22px] shrink-0 place-items-center rounded-full bg-brand text-[0.75rem] font-bold text-white",
@@ -90,8 +90,11 @@
     errorText: "m-0 min-w-[180px] flex-1 text-danger-text",
     retry: "inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-pill border border-brand bg-white px-3.5 py-1 text-[0.85rem] font-medium whitespace-nowrap text-brand enabled:hover:bg-brand enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-55",
     option: "cursor-pointer px-4 py-[9px] leading-[1.35] text-ink [&_strong]:font-semibold [&_strong]:text-brand",
-    feedback: "feedback mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-2.5 text-[0.85rem] text-muted",
-    rate: "rate grid size-9 cursor-pointer place-items-center rounded-full border border-field bg-white text-navy enabled:hover:border-navy aria-pressed:border-navy aria-pressed:bg-navy/10 disabled:cursor-default",
+    // under every answer, like chat apps: copy, listen, thumbs up / down
+    feedback: "feedback mt-2 flex flex-wrap items-center gap-1 text-[0.85rem] text-muted",
+    action: "action grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted enabled:hover:bg-subtle enabled:hover:text-navy aria-pressed:text-navy aria-pressed:bg-navy/10 disabled:cursor-default",
+    rate: "rate grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted enabled:hover:bg-subtle enabled:hover:text-navy aria-pressed:bg-navy/10 aria-pressed:text-navy disabled:cursor-default",
+    actionNote: "ml-1 text-[0.8rem] text-muted",
     comment: "mt-1 flex w-full flex-wrap items-center gap-2",
     commentField: "min-w-[220px] flex-1 rounded-lg border-2 border-field bg-white px-3 py-1.5 text-[0.9rem] text-ink focus-visible:border-navy",
     smallButton: "cursor-pointer rounded-full border border-navy bg-navy px-3.5 py-1.5 text-[0.85rem] font-semibold text-white hover:bg-navy-dark",
@@ -106,6 +109,10 @@
     chat: "M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 9h12v2H6zm8 5H6v-2h8zm4-6H6V6h12z",
     translate: "M12.87 15.07l-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
     thumbUp: "M1 21h4V9H1v12zm22-11a2 2 0 0 0-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10a2 2 0 0 0 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z",
+    copy: "M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z",
+    check: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+    volume: "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z",
+    stop: "M6 6h12v12H6z",
     thumbDown: "M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2a2 2 0 0 0 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5a2 2 0 0 0-2-2zm4 0v12h4V3h-4z",
   };
 
@@ -360,15 +367,73 @@
     return box;
   }
 
-  /** "Was this answer helpful?" with thumbs up / down: thumbs down asks what was wrong (optional), then both are sent together. */
-  function feedbackBar(question, answer) {
-    const box = el("div", { class: C.feedback }, [el("span", { text: t("helpful") })]);
-    const thanks = () => {
-      box.textContent = "";
-      box.append(el("span", { role: "status", text: t("thanks") }));
+  /** Reading an answer aloud (the browser's own voices; English or Tamil by the answer's letters). */
+  const speech = window.speechSynthesis && typeof window.SpeechSynthesisUtterance === "function" ? window.speechSynthesis : null;
+  let speaking = null; // the Listen button of the answer being read
+
+  function speakingDone() {
+    if (!speaking) return;
+    speaking.setAttribute("aria-pressed", "false");
+    speaking.setAttribute("aria-label", t("listen"));
+    speaking.title = t("listen");
+    speaking.replaceChildren(icon("volume", 18));
+    speaking = null;
+  }
+
+  /**
+   * Under every answer, as in chat apps: Copy, Listen, and thumbs up / down ("Was this answer
+   * helpful?"); thumbs down asks what was wrong (optional), then both are sent together.
+   */
+  function feedbackBar(question, answer, textOf) {
+    const note = el("span", { class: C.actionNote, "aria-live": "polite" });
+    const say = (words) => {
+      note.textContent = words;
+      clearTimeout(note.timer);
+      note.timer = setTimeout(() => (note.textContent = ""), 2500);
     };
+    const plainText = () => String(textOf ? textOf() : answer).replace(/\[(\d+|image \d+)\]/g, "").replace(/\s+\n/g, "\n").trim();
+
+    const copy = el("button", { type: "button", class: C.action, "aria-label": t("copy"), title: t("copy") }, [icon("copy", 18)]);
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(plainText());
+        copy.replaceChildren(icon("check", 18));
+        say(t("copied"));
+        setTimeout(() => copy.replaceChildren(icon("copy", 18)), 2000);
+      } catch (e) {
+        /* no clipboard (an old browser, or not allowed): nothing to do */
+      }
+    });
+
+    let listen = null;
+    if (speech) {
+      listen = el("button", { type: "button", class: C.action, "aria-pressed": "false", "aria-label": t("listen"), title: t("listen") }, [icon("volume", 18)]);
+      listen.addEventListener("click", () => {
+        const mine = speaking === listen;
+        speech.cancel();
+        speakingDone();
+        if (mine) return; // a second press stops it
+        const text = plainText();
+        const utterance = new window.SpeechSynthesisUtterance(text);
+        utterance.lang = /[\u0B80-\u0BFF]/.test(text) ? "ta-IN" : "en-IN";
+        utterance.onend = utterance.onerror = () => {
+          if (speaking === listen) speakingDone();
+        };
+        speaking = listen;
+        listen.setAttribute("aria-pressed", "true");
+        listen.setAttribute("aria-label", t("stopListen"));
+        listen.title = t("stopListen");
+        listen.replaceChildren(icon("stop", 18));
+        speech.speak(utterance);
+      });
+    }
+
     const up = el("button", { type: "button", class: C.rate, "aria-pressed": "false", "aria-label": t("yes"), title: t("yes") }, [icon("thumbUp", 18)]);
     const down = el("button", { type: "button", class: C.rate, "aria-pressed": "false", "aria-label": t("no"), title: t("no") }, [icon("thumbDown", 18)]);
+    const box = el("div", { class: C.feedback }, [copy, listen, hidden(t("helpful")), up, down, note]);
+    const thanks = () => {
+      note.textContent = t("thanks");
+    };
     up.addEventListener("click", () => {
       up.setAttribute("aria-pressed", "true");
       up.disabled = down.disabled = true;
@@ -383,12 +448,12 @@
       form.addEventListener("submit", (event) => {
         event.preventDefault();
         api.sendFeedback(question, answer, "down", field.value.trim());
+        form.remove();
         thanks();
       });
       box.append(form);
       field.focus();
     });
-    box.append(up, down);
     return box;
   }
 
@@ -470,7 +535,7 @@
         sourceList(sources, t("sources"), "cited"),
         noAnswer && related.length ? sourceList(related, t("related"), "related") : null,
         showContact ? contactCard(noAnswer ? t("officeHelps") : t("contactCollege"), showStaff) : talkBar(),
-        feedbackBar(question, message.content),
+        feedbackBar(question, message.content, () => markdown.textContent),
       ]),
     ]);
   }
@@ -512,7 +577,13 @@
     const trimmed = () => field.value.trim();
     const isOpen = () => !list.hidden && suggestions.length > 0;
 
+    function grow() {
+      field.style.height = "auto";
+      if (field.scrollHeight) field.style.height = Math.min(field.scrollHeight, 160) + "px";
+    }
+
     function refresh() {
+      grow();
       sendButton.disabled = !trimmed() || disabled;
       const remaining = MAX_MESSAGE_LENGTH - field.value.length;
       count.hidden = remaining > 100;
@@ -739,9 +810,12 @@
     window.dispatchEvent(new Event(START_CHAT_EVENT));
   }
 
+  const phoneApp = () => !!(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
+
   function showMoment(event) {
-    if (event.type === "retrieving") robot.moments.show({ kind: "think" });
-    else if (event.type === "failed") robot.moments.show(robot.momentForFailure(event.kind));
+    if (event.type === "retrieving") {
+      if (!phoneApp()) robot.moments.show({ kind: "think" }); // phones: "Searching…" with the robot, inline
+    } else if (event.type === "failed") robot.moments.show(robot.momentForFailure(event.kind));
     else {
       const cue = robot.momentForResult(event.result);
       if (cue) robot.moments.show(cue);
@@ -835,6 +909,7 @@
       });
       drawFollowUps();
       newChat.disabled = state.messages.length === 0;
+      log.scrollTop = log.scrollHeight; // phones: the conversation opens at its latest message
     }
 
     /** Clear the screen (not the saved history): another person signs in, or one signs out. */
@@ -930,14 +1005,32 @@
     });
 
     setupSignIn();
+    setupJump();
+
+    /** Phones (the conversation scrolls in its own box): a round arrow back to the latest message. */
+    function setupJump() {
+      const jump = section.querySelector(".chat__jump");
+      if (!jump) return;
+      const update = () => {
+        const scrolls = log.scrollHeight > log.clientHeight + 4;
+        jump.hidden = !scrolls || log.scrollHeight - log.scrollTop - log.clientHeight < 240;
+      };
+      log.addEventListener("scroll", update, { passive: true });
+      jump.addEventListener("click", () => {
+        log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
+        input.field.focus({ preventScroll: true });
+      });
+    }
 
     /** The sign-in form (name + mobile number) and "Not you?". */
     function setupSignIn() {
       const form = section.querySelector(".chat-login");
       const name = section.querySelector(".chat__name");
+      const hello = section.querySelector(".welcome__name");
       const show = (user) => {
         section.classList.toggle("is-signed-out", !user);
         if (name) name.textContent = user ? user.name : "";
+        if (hello) hello.textContent = user && user.name ? ", " + user.name : ""; // "Hello, Meena"
       };
       if (!people) {
         show({ name: "" }); // a page without sign-in (tests, or LOGIN_REQUIRED switched off)
