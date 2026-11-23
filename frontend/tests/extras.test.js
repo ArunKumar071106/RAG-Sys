@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe("feedback on answers", () => {
-  it("sends 👍, and 👎 with what was wrong", async () => {
+  it("sends thumbs up, and thumbs down with what was wrong", async () => {
     const fetchMock = vi.fn((url) => Promise.resolve(jsonResponse(String(url).includes("/api/feedback") ? { ok: true } : answerResult)));
     loadPage(fetchMock);
     ask("How do I get admission?");

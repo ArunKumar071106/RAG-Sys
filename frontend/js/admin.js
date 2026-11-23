@@ -22,6 +22,30 @@
     /* storage blocked: sign in each time */
   }
 
+  // the same icon shapes as the chat (Material Design, Apache 2.0), in the colour of the text
+  const ICONS = {
+    thumbUp: "M1 21h4V9H1v12zm22-11a2 2 0 0 0-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10a2 2 0 0 0 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z",
+    thumbDown: "M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2a2 2 0 0 0 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5a2 2 0 0 0-2-2zm4 0v12h4V3h-4z",
+    check: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+    checkCircle: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
+  };
+
+  function icon(name, size) {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", String(size || 16));
+    svg.setAttribute("height", String(size || 16));
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.setAttribute("class", "inline-block shrink-0");
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("fill", "currentColor");
+    path.setAttribute("d", ICONS[name]);
+    svg.append(path);
+    return svg;
+  }
+
   function el(tag, attrs, children) {
     const node = document.createElement(tag);
     Object.entries(attrs || {}).forEach(([key, value]) => {
@@ -146,7 +170,7 @@
     return el("div", { class: "admin-card flex flex-col gap-1 !p-4" }, [
       el("span", { class: "text-[0.8rem] font-semibold tracking-[0.03em] text-muted uppercase", text: label }),
       el("span", { class: "font-heading text-[2rem] leading-none font-bold text-ink", text: value == null ? "–" : String(value) }),
-      note ? el("span", { class: "text-[0.8rem] text-muted", text: note }) : null,
+      note ? el("span", { class: "inline-flex flex-wrap items-center gap-1 text-[0.8rem] text-muted" }, typeof note === "string" ? [note] : note) : null,
     ]);
   }
 
@@ -219,7 +243,7 @@
       tile("Waiting for an answer", t.unanswered_open, "questions the website does not cover"),
       tile("Visitors", t.users, "signed in with name and number"),
       tile("Answer time", t.avg_seconds == null ? null : t.avg_seconds + " s", t.median_seconds == null ? "" : "median " + t.median_seconds + " s"),
-      tile("Helpful / not helpful", t.helpful + " / " + t.not_helpful, "👍 / 👎 under the answers"),
+      tile("Helpful / not helpful", t.helpful + " / " + t.not_helpful, [icon("thumbUp", 14), "/", icon("thumbDown", 14), "under the answers"]),
     );
     columnChart($('[data-chart="by_hour"]'), "When people ask: hour of the day (" + data.timezone + ")",
       data.by_hour.map((_, h) => hourLabel(h)), data.by_hour, (l, v) => l + ": " + v + " question" + (v === 1 ? "" : "s"));
@@ -248,7 +272,7 @@
     const list = $(".admin-unanswered");
     list.replaceChildren();
     if (!rows.length) {
-      list.append(el("p", { class: "m-0 text-muted", text: "No unanswered questions. 🎉" }));
+      list.append(el("p", { class: "m-0 inline-flex items-center gap-2 text-muted" }, [icon("checkCircle", 20), "No unanswered questions: every question so far has an answer."]));
       return;
     }
     rows.forEach((row) => {
@@ -258,7 +282,7 @@
           el("p", { class: "m-0 text-[0.85rem] text-muted", text: "Asked " + row.count + " time" + (row.count === 1 ? "" : "s") + " · last " + when(row.last_asked) }),
         ]),
         row.answered
-          ? el("span", { class: "rounded-full bg-[#e6f4ea] px-3 py-1 text-[0.85rem] font-semibold text-[#1e5e2f]", text: "✓ Answered" })
+          ? el("span", { class: "inline-flex items-center gap-1 rounded-full bg-[#e6f4ea] px-3 py-1 text-[0.85rem] font-semibold text-[#1e5e2f]" }, [icon("check"), "Answered"])
           : el("button", { type: "button", class: "min-h-10 cursor-pointer rounded-xl border-0 bg-gold px-4 font-bold text-navy-dark hover:bg-gold-dark",
                            text: "Answer", onclick: () => openEditor({ question: row.question, resolves: [row.question] }) }),
       ]));

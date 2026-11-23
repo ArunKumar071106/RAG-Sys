@@ -132,7 +132,7 @@
     }
   }
 
-  /** 👍 / 👎 on an answer (and what was wrong); false when it could not be saved. */
+  /** Thumbs up / down on an answer (and what was wrong); false when it could not be saved. */
   async function sendFeedback(question, answer, rating, comment) {
     try {
       const response = await fetch(apiUrl("/api/feedback"), {

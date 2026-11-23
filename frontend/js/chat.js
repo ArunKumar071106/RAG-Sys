@@ -75,14 +75,14 @@
     imageLinks: "mt-0.5 flex flex-wrap gap-x-3.5 gap-y-1",
     contactCard: "contact-card mt-3.5 rounded-[10px] border border-l-4 border-line border-l-gold bg-cream px-3.5 py-3",
     contactTitle: "mt-0 mb-1.5 text-[0.9rem] text-navy",
-    contactList: "m-0 flex list-none flex-wrap gap-x-[18px] gap-y-1.5 p-0 [&_a]:font-bold [&_a]:text-navy",
+    contactList: "m-0 flex list-none flex-wrap gap-x-[18px] gap-y-1.5 p-0 [&>li]:inline-flex [&>li]:items-center [&>li]:gap-1.5 [&_svg]:text-brand [&_a]:font-bold [&_a]:text-navy",
     contactNote: "text-[0.85rem] text-muted",
     contactSubtitle: "mt-2.5 mb-1 text-[0.85rem] text-navy",
     contactPeople: "m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-x-[18px] gap-y-1 p-0",
     contactPerson: "flex flex-wrap justify-between gap-x-2.5 gap-y-0.5 [&_a]:font-bold [&_a]:whitespace-nowrap [&_a]:text-navy",
     contactRole: "block text-[0.8rem] text-muted",
     translate: "mt-2.5 flex flex-wrap items-center gap-2",
-    translateButton: "translate__button cursor-pointer rounded-full border border-field bg-white px-3.5 py-1.5 text-[0.85rem] font-semibold text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white aria-pressed:border-navy aria-pressed:bg-navy aria-pressed:text-white",
+    translateButton: "translate__button inline-flex items-center gap-1.5 cursor-pointer rounded-full border border-field bg-white px-3.5 py-1.5 text-[0.85rem] font-semibold text-navy enabled:hover:border-navy enabled:hover:bg-navy enabled:hover:text-white aria-pressed:border-navy aria-pressed:bg-navy aria-pressed:text-white",
     translateError: "translate__error text-[0.85rem] text-danger",
     notice: "mt-2.5 mb-0 text-[0.85rem] text-muted italic",
     error: "flex flex-wrap items-center gap-2.5",
@@ -91,15 +91,41 @@
     retry: "inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-pill border border-brand bg-white px-3.5 py-1 text-[0.85rem] font-medium whitespace-nowrap text-brand enabled:hover:bg-brand enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-55",
     option: "cursor-pointer px-4 py-[9px] leading-[1.35] text-ink [&_strong]:font-semibold [&_strong]:text-brand",
     feedback: "feedback mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-2.5 text-[0.85rem] text-muted",
-    rate: "rate grid size-9 cursor-pointer place-items-center rounded-full border border-field bg-white text-[1.05rem] enabled:hover:border-navy aria-pressed:border-navy aria-pressed:bg-navy/10 disabled:cursor-default",
+    rate: "rate grid size-9 cursor-pointer place-items-center rounded-full border border-field bg-white text-navy enabled:hover:border-navy aria-pressed:border-navy aria-pressed:bg-navy/10 disabled:cursor-default",
     comment: "mt-1 flex w-full flex-wrap items-center gap-2",
     commentField: "min-w-[220px] flex-1 rounded-lg border-2 border-field bg-white px-3 py-1.5 text-[0.9rem] text-ink focus-visible:border-navy",
     smallButton: "cursor-pointer rounded-full border border-navy bg-navy px-3.5 py-1.5 text-[0.85rem] font-semibold text-white hover:bg-navy-dark",
-    talk: "talk mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.85rem] text-muted [&_a]:inline-flex [&_a]:items-center [&_a]:gap-1 [&_a]:rounded-full [&_a]:border [&_a]:border-field [&_a]:bg-white [&_a]:px-3 [&_a]:py-1 [&_a]:font-semibold [&_a]:text-navy [&_a]:no-underline [&_a:hover]:border-navy",
+    talk: "talk mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.85rem] text-muted [&_a]:inline-flex [&_a]:items-center [&_a]:gap-1.5 [&_a]:rounded-full [&_a]:border [&_a]:border-field [&_a]:bg-white [&_a]:px-3 [&_a]:py-1 [&_a]:font-semibold [&_a]:text-navy [&_a]:no-underline [&_a:hover]:border-navy",
     optionActive: "bg-subtle",
   };
 
   // ------------------------------------------------------------------ small helpers
+  const ICONS = {
+    phone: "M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z",
+    mail: "M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5z",
+    chat: "M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 9h12v2H6zm8 5H6v-2h8zm4-6H6V6h12z",
+    translate: "M12.87 15.07l-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
+    thumbUp: "M1 21h4V9H1v12zm22-11a2 2 0 0 0-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10a2 2 0 0 0 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z",
+    thumbDown: "M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2a2 2 0 0 0 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5a2 2 0 0 0-2-2zm4 0v12h4V3h-4z",
+  };
+
+  /** A small icon in the colour of the text around it (decorative: the words beside it say what it is). */
+  function icon(name, size) {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", String(size || 16));
+    svg.setAttribute("height", String(size || 16));
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.setAttribute("class", "icon inline-block shrink-0");
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("fill", "currentColor");
+    path.setAttribute("d", ICONS[name]);
+    svg.append(path);
+    return svg;
+  }
+
   function el(tag, attrs, children) {
     const node = document.createElement(tag);
     if (attrs) {
@@ -266,15 +292,14 @@
     for (const phone of site.officePhones) {
       items.push(
         el("li", null, [
-          el("span", { "aria-hidden": "true", text: "📞" }),
-          " ",
+          icon("phone"),
           el("a", { href: telHref(phone), text: formatPhone(phone) }),
           /^1800/.test(phone.replace(/\D/g, "")) ? el("span", { class: C.contactNote, text: " " + t("tollFree") }) : null,
         ]),
       );
     }
     for (const email of site.emails) {
-      items.push(el("li", null, [el("span", { "aria-hidden": "true", text: "✉️" }), " ", el("a", { href: "mailto:" + email, text: email })]));
+      items.push(el("li", null, [icon("mail"), el("a", { href: "mailto:" + email, text: email })]));
     }
     const card = el("section", { class: C.contactCard, "aria-label": title }, [el("h4", { class: C.contactTitle, text: title }), el("ul", { class: C.contactList }, items)]);
     if (staff && site.admissionStaff.length) {
@@ -303,7 +328,7 @@
     const button = el("button", { type: "button", class: C.translateButton, "aria-pressed": "false" });
     const label = (words) => {
       button.textContent = "";
-      button.append(el("span", { "aria-hidden": "true", text: "🌐" }), " " + words);
+      button.append(icon("translate"), words);
     };
     label(t("showEnglish"));
     const box = el("div", { class: C.translate }, [button]);
@@ -335,15 +360,15 @@
     return box;
   }
 
-  /** "Was this answer helpful? 👍 👎": a 👎 asks what was wrong (optional), then both are sent together. */
+  /** "Was this answer helpful?" with thumbs up / down: thumbs down asks what was wrong (optional), then both are sent together. */
   function feedbackBar(question, answer) {
     const box = el("div", { class: C.feedback }, [el("span", { text: t("helpful") })]);
     const thanks = () => {
       box.textContent = "";
       box.append(el("span", { role: "status", text: t("thanks") }));
     };
-    const up = el("button", { type: "button", class: C.rate, "aria-pressed": "false", "aria-label": t("yes"), title: t("yes"), text: "👍" });
-    const down = el("button", { type: "button", class: C.rate, "aria-pressed": "false", "aria-label": t("no"), title: t("no"), text: "👎" });
+    const up = el("button", { type: "button", class: C.rate, "aria-pressed": "false", "aria-label": t("yes"), title: t("yes") }, [icon("thumbUp", 18)]);
+    const down = el("button", { type: "button", class: C.rate, "aria-pressed": "false", "aria-label": t("no"), title: t("no") }, [icon("thumbDown", 18)]);
     up.addEventListener("click", () => {
       up.setAttribute("aria-pressed", "true");
       up.disabled = down.disabled = true;
@@ -372,11 +397,11 @@
     const phone = site.officePhones[0];
     const email = site.emails.find((e) => /admission/i.test(e)) || site.emails[0];
     const links = [
-      phone ? el("a", { href: telHref(phone) }, [el("span", { "aria-hidden": "true", text: "📞" }), t("call")]) : null,
-      email ? el("a", { href: "mailto:" + email }, [el("span", { "aria-hidden": "true", text: "✉️" }), t("email")]) : null,
+      phone ? el("a", { href: telHref(phone) }, [icon("phone"), t("call")]) : null,
+      email ? el("a", { href: "mailto:" + email }, [icon("mail"), t("email")]) : null,
       site.whatsapp
         ? el("a", { href: "https://wa.me/" + String(site.whatsapp).replace(/\D/g, ""), target: "_blank", rel: "noopener noreferrer" },
-            [el("span", { "aria-hidden": "true", text: "💬" }), t("whatsapp")])
+            [icon("chat"), t("whatsapp")])
         : null,
     ].filter(Boolean);
     return links.length ? el("div", { class: C.talk }, [el("span", { text: t("talk") }), ...links]) : null;
