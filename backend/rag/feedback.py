@@ -62,6 +62,11 @@ class FeedbackLog:
         self._append("unanswered.jsonl", {"at": _now().isoformat(timespec="seconds"), "question": scrub(question, 500),
                                           "searched": scrub(searched, 300)})
 
+    def asked(self, question: str, mode: str, seconds: float) -> None:
+        """Every question, for the admin dashboard: when, how it was answered and how long it took."""
+        self._append("questions.jsonl", {"at": _now().isoformat(timespec="seconds"), "question": scrub(question, 500),
+                                         "mode": mode, "seconds": round(seconds, 2)})
+
     def rating(self, question: str, answer: str, rating: str, comment: str = "") -> None:
         self._append("ratings.jsonl", {"at": _now().isoformat(timespec="seconds"), "rating": rating,
                                        "question": scrub(question, 500), "answer": scrub(answer, 600),

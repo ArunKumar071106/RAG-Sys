@@ -29,7 +29,7 @@ images (photos, posters, notices) alongside the answer.
 | Complete answers (no API key) | 60 questions written from the live website by someone who never saw this system, each with every fact a complete answer contains (2–6 per question, 245 facts; `backend/eval/facts_aaacet.jsonl`, `python -m rag.cli eval-facts --verbose`). Each fact is traced to where it is lost. Before: answers held **40%** of their facts; 32% were handed to the answer composer and left out, 22% were found but ranked below the results used, 6% were not in the knowledge base. After the fixes below: **74%** on the 40 questions used while fixing (was 44%; 21 complete answers, was 9) and **47%** on the 20 held-out questions never looked at (was 31%). What is left is mostly ranking (28% of held-out facts are found but ranked too low) and about 4% of facts that are only in scanned PDFs, images or a brochure the crawl never reached. |
 | Answer quality (no API key) | 40 everyday questions, each with the fact a correct answer must contain (`backend/eval/answers_aaacet.jsonl`, `python -m rag.cli eval-answers`): **40/40** (was 18/40 before the tab, chunking and answer fixes below). 20 held-out questions written after tuning and never tuned on (`answers_aaacet_holdout.jsonl`): **19/20** (was 16/20). Measured with hybrid search (all-MiniLM-L6-v2 stand-in) in extractive mode. Page retrieval after these changes: Recall@1 0.71, Recall@3 0.97, MRR 0.84. |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
-| Tests | 206 backend tests, 21 page unit tests (Vitest + jsdom on the real index.html and scripts), 58 Playwright tests on desktop, tablet and mobile |
+| Tests | 213 backend tests, 29 page unit tests (Vitest + jsdom on the real index.html and scripts), 65 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
 | AI answers (Gemini, or Claude) / vision descriptions | Implemented and unit-tested with mocked clients; the Gemini client was checked against the real API (it reports a wrong key clearly). Needs `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY` for Claude; vision descriptions use Claude). Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
 | Off-topic questions | With Claude, the model replies "not covered" via a `[[NO_ANSWER]]` marker. In extractive mode, an off-topic question that shares a word with some page may still get loosely related quotes. |
@@ -229,6 +229,34 @@ scripts\build_css.cmd               # Windows
 ```
 `css/tailwind.css` is committed, so running or hosting the page needs no build.
 
+### Visitors, the admin panel and the dashboard
+* **Signing in to chat:** the chat first asks for a name and a mobile number (Indian, 10 digits; checked on the page
+  and on the server). `POST /api/users` saves the visitor as a row of `DATA_DIR/admin/users.xlsx` (name, phone, first and
+  last visit, visits, questions asked) and returns a signed token (`DATA_DIR/admin/secret.key`); every question carries it
+  (`X-Arivazhai-User`) and `/api/chat` refuses questions without it (`LOGIN_REQUIRED=true`). The page keeps the name and
+  token, never the number. "Not you?" signs out.
+* **The conversation stays on the device:** it is saved per person in the browser (`localStorage`, the last 20 questions
+  and answers) and comes back after a reload. **New chat** asks first: "This conversation will be deleted from this
+  device. It cannot be brought back."
+* **Admin panel** at `/admin.html` (password: `ADMIN_TOKEN`; kept for that browser tab only). Nothing is in the page
+  itself: every figure comes from `/api/admin/*`, which answers only with the password.
+  * **Dashboard:** questions in the last 7 / 30 / 90 days, today, answered share, questions waiting for an answer,
+    visitors, answer time (average and median), 👍 / 👎; when people ask (hour of the day and day of the week, in
+    `DASHBOARD_TIMEZONE`) and questions per day as column charts (hover or focus a column for its number, or "Show as a
+    table"); the most frequent questions; answers marked not helpful with what was wrong. From `DATA_DIR/feedback/`
+    (`questions.jsonl` has every question, its time, how it was answered and how long it took).
+  * **Unanswered questions → Answer:** the admin writes the answer once. It is stored in `DATA_DIR/admin/answers.json`
+    and goes through the **same steps as a website page**: the structure-aware chunker (the question is the title), the
+    embedding model, Qdrant and the BM25 index (`answers` + `index` stages, in the background; only what changed is
+    embedded). The panel says "Ready: visitors now get this answer." The next visitor asking it in any wording gets it,
+    cited as "Answer from the admission office" (`/api/answers/<id>`). The monthly refresh keeps them.
+  * **Your answers:** edit or delete (deleting takes it out of the index). **Visitors:** download the Excel file.
+* **Around the chat:** the Arivazhai bar stays at the top while scrolling; under "Apply for admission" a Google map of the
+  campus with "Open in Google Maps" (beside the chat on desktop, below it on smaller screens).
+* **Voice:** while listening, Arivazhai says when the voice is not audible: no sound for 4 seconds ("I can't hear you:
+  please speak a little louder"), sound but no words ("move to a quieter place"), or no microphone. "I can hear you…"
+  shows once speech is detected.
+
 ### Feedback, the daily report and the live check
 * **👍 / 👎 under every answer.** A 👎 asks what was wrong (optional). Ratings go to `POST /api/feedback`.
 * **Unanswered questions.** Every question the website cannot answer is saved too. Both are kept in
@@ -305,6 +333,9 @@ backend/
     api/            FastAPI app, rate limiting, admin auth, services/reindex jobs
     eval/           Recall@K / MRR evaluation
     demo/           fictional demo website generator (tests + offline demo)
+    users.py        visitors (name + mobile number) in DATA_DIR/admin/users.xlsx, signed tokens
+    admin_answers.py the admin's answers, chunked and indexed like website pages
+    dashboard.py    the admin dashboard's figures
     cli.py          command-line entry point
   eval/             labelled question sets (demo + AAACET samples)
   tests/            pytest suite
@@ -321,6 +352,8 @@ frontend/           the chat page: HTML, Tailwind CSS and plain JavaScript, no f
   js/robot.js       Arivazhai's robot rig and its moments
   js/chat.js        messages, sources, image cards, contact card, translate, follow-ups, the question box
   js/page.js        menu, "Chat below" arrow, start-up
+  js/user.js        signing in (name + mobile number) and the conversation kept on the device
+  admin.html, js/admin.js  the admin panel: dashboard, answers to unanswered questions, visitors' Excel file
   brand/            official logo, banner photo, favicon and brand.json (measured by scripts/measure_brand.mjs)
   tests/            Vitest + jsdom tests of the real page and scripts (Node is only needed for tests)
   e2e/              Playwright tests (desktop / tablet / mobile) + screenshots
@@ -539,6 +572,12 @@ docker compose run --rm backend python -m rag.cli all      # first crawl + index
 * Put it behind HTTPS on a college address (e.g. `assistant.aaaenggcoll.ac.in`, through the college's web server
   or reverse proxy): voice questions need HTTPS. Link to it from the official menu, or embed `/?embed=1`.
 * After a code update: `git pull && docker compose up -d --build`. Back up the volumes `rag_data` and `qdrant_data`.
+
+### Local Qdrant (back from Qdrant Cloud)
+The vectors stay on the computer, in `DATA_DIR/qdrant`: no account, no key, nothing sent out. In `.env` leave both
+empty: `QDRANT_URL=` and `QDRANT_API_KEY=`. Stop the API (the local Qdrant allows one process), rebuild once with
+`python -m rag.cli index --full` (in `backend/`; the index record still describes the cloud store), then start the API.
+With Docker Compose the backend already uses its own Qdrant container.
 
 ### Qdrant Cloud
 1. Create a cluster at https://cloud.qdrant.io and an API key for it.

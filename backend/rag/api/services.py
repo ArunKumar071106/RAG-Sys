@@ -51,6 +51,7 @@ class Services:
         self.jobs: dict[str, Job] = {}
         self._lock = threading.RLock()
         self._job_lock = threading.Lock()
+        self._answers_pending = False
         # In the API the first load (which may build the whole index) runs in the background,
         # so the server starts at once and answers "starting up" instead of refusing connections.
         self.starting = background
@@ -169,12 +170,12 @@ class Services:
             self.store.close()
 
     # ------------------------------------------------------------ reindex jobs
-    def start_reindex(self, full: bool, recrawl: bool) -> Job:
+    def start_reindex(self, full: bool, recrawl: bool, stages: list[str] | None = None) -> Job:
         if self.starting or self.indexing:
             raise RuntimeError("The service is still building its index")
         if not self._job_lock.acquire(blocking=False):
             raise RuntimeError("A reindex job is already running")
-        stages = ["crawl", "extract", "images", "chunk", "index"] if recrawl else ["extract", "images", "chunk", "index"]
+        stages = stages or (["crawl", "extract", "images", "chunk", "index"] if recrawl else ["extract", "images", "chunk", "index"])
         job = Job(id=uuid.uuid4().hex[:12], mode="full" if full else "incremental", stages=stages)
         self.jobs[job.id] = job
         thread = threading.Thread(target=self._run_job, args=(job, full), daemon=True, name=f"reindex-{job.id}")
@@ -197,6 +198,21 @@ class Services:
         finally:
             job.finished_at = utc_now()
             self._job_lock.release()
+            if self._answers_pending:
+                self.update_answers()
+
+    def update_answers(self) -> Job | None:
+        """Index the admin answers (chunk them, embed what changed); queued if another job is running."""
+        self._answers_pending = True
+        if self.starting or self.indexing:
+            threading.Timer(30, self.update_answers).start()
+            return None
+        self._answers_pending = False
+        try:
+            return self.start_reindex(full=False, recrawl=False, stages=["answers", "index"])
+        except RuntimeError:
+            self._answers_pending = True  # runs when the current job finishes
+            return None
 
     @property
     def job_running(self) -> bool:

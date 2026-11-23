@@ -43,6 +43,9 @@ def run_chunking(settings: Settings) -> list[TextChunk]:
     for doc in read_jsonl(settings.documents_file, PageDocument):
         docs += 1
         chunks.extend(chunker.chunk_document(doc, duplicates.get(doc.url)))
+    from rag.admin_answers import answer_chunks
+
+    chunks.extend(answer_chunks(settings))  # the admin's answers to unanswered questions stay in the index
     chunks, removed = dedupe_chunks(chunks)
     write_jsonl(settings.chunks_file, chunks)
     avg = round(sum(c.token_count for c in chunks) / len(chunks), 1) if chunks else 0

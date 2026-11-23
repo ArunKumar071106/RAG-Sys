@@ -182,9 +182,9 @@
   </div>
 
   <main class="page-main mx-auto w-full max-w-[1240px] px-4 pt-[92px] pb-12 max-phone:px-0 max-phone:pt-[124px] max-phone:pb-6 embed:m-0 embed:h-screen embed:max-w-none embed:p-0">
-    <div class="chat-layout grid items-start gap-6 desk:grid-cols-[minmax(0,1fr)_300px] embed:block embed:h-full">
-    <section class="chat flex min-h-[70vh] flex-col border border-line bg-desk shadow-brand max-phone:border-x-0 embed:h-full embed:min-h-0" id="assistant" aria-labelledby="chat-title">
-      <div class="chat__header flex items-center justify-between gap-2.5 border-b-4 border-gold bg-navy px-4 py-3.5 text-white max-phone:py-3 [&_:focus-visible]:outline-gold">
+    <div class="chat-layout grid grid-cols-[minmax(0,1fr)] items-start gap-6 desk:grid-cols-[minmax(0,1fr)_300px] embed:block embed:h-full">
+    <section class="chat is-signed-out flex min-h-[70vh] flex-col border border-line bg-desk shadow-brand max-phone:border-x-0 embed:h-full embed:min-h-0" id="assistant" aria-labelledby="chat-title">
+      <div class="chat__header sticky top-0 z-[6] flex items-center justify-between gap-2.5 border-b-4 border-gold bg-navy px-4 py-3.5 text-white max-phone:py-3 [&_:focus-visible]:outline-gold">
         <div class="flex min-w-0 items-center gap-3">
           <span class="profile grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-gold bg-navy-dark" aria-hidden="true" data-robot="head"></span>
           <div>
@@ -194,11 +194,39 @@
         </div>
         <div class="flex shrink-0 items-center gap-2">
           <button type="button" class="chat__lang min-h-11 shrink-0 cursor-pointer rounded-[10px] border border-white/40 bg-transparent px-3 font-semibold text-white hover:bg-white/12 max-phone:min-h-10 max-phone:px-2.5 max-phone:text-[0.85rem]" lang="ta" data-i18n="switchTo" data-i18n-attr="aria-label:switchLabel;title:switchLabel">தமிழ்</button>
-          <button type="button" class="chat__new min-h-11 shrink-0 cursor-pointer rounded-[10px] border border-white/40 bg-transparent px-4 font-semibold text-white enabled:hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-55 max-phone:min-h-10 max-phone:px-2.5 max-phone:text-[0.85rem]" disabled data-i18n="newChat">New chat</button>
+          <button type="button" class="chat__new [.is-signed-out_&]:hidden min-h-11 shrink-0 cursor-pointer rounded-[10px] border border-white/40 bg-transparent px-4 font-semibold text-white enabled:hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-55 max-phone:min-h-10 max-phone:px-2.5 max-phone:text-[0.85rem]" disabled data-i18n="newChat">New chat</button>
         </div>
       </div>
 
-      <div class="chat__log relative flex flex-1 flex-col gap-[18px] p-[22px] max-phone:px-4 max-phone:py-3.5 embed:overflow-y-auto" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation">
+      <div class="chat__who flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-white px-[22px] py-2 text-[0.85rem] text-muted max-phone:px-4 [.is-signed-out_&]:hidden">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" class="text-navy"><path fill="currentColor" d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.2-8 5v3h16v-3c0-2.8-3.6-5-8-5z"/></svg>
+        <span><span data-i18n="who">Chatting as</span> <strong class="chat__name text-navy"></strong></span>
+        <span aria-hidden="true">·</span>
+        <span data-i18n="savedHere">Chat saved on this device</span>
+        <button type="button" class="chat__signout ml-auto cursor-pointer border-0 bg-transparent p-1 text-[0.85rem] font-semibold text-link underline" data-i18n="signOut">Not you?</button>
+      </div>
+
+      <form class="chat-login hidden flex-1 flex-col gap-3 p-[22px] max-phone:px-4 [.is-signed-out_&]:flex" novalidate aria-labelledby="login-title">
+        <div class="mx-auto flex w-full max-w-[460px] flex-col gap-3 rounded-2xl border border-line bg-white p-6 max-phone:p-4">
+          <span class="profile mx-auto grid size-16 place-items-center overflow-hidden rounded-full border-2 border-gold bg-navy-dark" aria-hidden="true" data-robot="head"></span>
+          <h3 id="login-title" class="m-0 text-center text-[1.3rem] text-navy" data-i18n="loginTitle">Before we start</h3>
+          <p class="m-0 text-center text-[0.95rem]" data-i18n="loginText">Please tell us your name and mobile number. The admission office may call you to help with your admission.</p>
+          <label class="flex flex-col gap-1 font-semibold text-ink" for="login-name"><span data-i18n="loginName">Your name</span>
+            <input id="login-name" name="name" class="min-h-12 rounded-xl border-2 border-field bg-white px-3.5 font-normal text-ink focus-visible:border-navy aria-[invalid=true]:border-danger" type="text" autocomplete="name" maxlength="60" required aria-describedby="login-name-error">
+          </label>
+          <p id="login-name-error" class="-mt-2 mb-0 text-[0.85rem] text-danger-text" hidden></p>
+          <label class="flex flex-col gap-1 font-semibold text-ink" for="login-phone"><span data-i18n="loginPhone">Mobile number</span>
+            <input id="login-phone" name="phone" class="min-h-12 rounded-xl border-2 border-field bg-white px-3.5 font-normal text-ink focus-visible:border-navy aria-[invalid=true]:border-danger" type="tel" inputmode="tel" autocomplete="tel-national" maxlength="16" required aria-describedby="login-phone-hint login-phone-error">
+            <span id="login-phone-hint" class="text-[0.8rem] font-normal text-muted" data-i18n="loginPhoneHint">10 digits, e.g. 98765 43210</span>
+          </label>
+          <p id="login-phone-error" class="-mt-2 mb-0 text-[0.85rem] text-danger-text" hidden></p>
+          <button type="submit" class="chat-login__submit min-h-12 cursor-pointer rounded-xl border-0 bg-gold px-5 font-bold text-navy-dark enabled:hover:bg-gold-dark disabled:cursor-wait disabled:opacity-60" data-i18n="loginButton">Start chatting</button>
+          <p class="chat-login__status m-0 text-center text-[0.9rem] text-danger-text" role="alert"></p>
+          <p class="m-0 text-center text-[0.8rem] text-muted" data-i18n="loginPrivacy">Your chat is saved only on this device.</p>
+        </div>
+      </form>
+
+      <div class="chat__log relative flex flex-1 flex-col gap-[18px] p-[22px] max-phone:px-4 max-phone:py-3.5 embed:overflow-y-auto [.is-signed-out_&]:hidden" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation">
         <div class="message--assistant flex flex-col items-start gap-1.5">
           <span class="inline-flex items-center gap-2 text-[0.72rem] font-extrabold tracking-[0.04em] text-gold-text uppercase" aria-hidden="true"><span class="profile grid size-[26px] shrink-0 place-items-center overflow-hidden rounded-full border-[1.5px] border-gold bg-navy-dark" data-robot="head"></span>Arivazhai</span>
           <div class="bubble w-[min(880px,100%)] max-w-[min(780px,100%)] min-w-0 rounded-[4px_16px_16px_16px] border border-line bg-white px-4 py-3 wrap-anywhere">
@@ -223,7 +251,7 @@
         </div>
       </div>
 
-      <div class="chat__footer sticky bottom-0 z-[4] flex flex-col gap-2.5 border-t border-line bg-white px-[22px] pt-3 pb-4 shadow-[0_-6px_16px_rgba(13,27,61,0.07)] max-phone:px-3.5 max-phone:pt-2.5">
+      <div class="chat__footer sticky bottom-0 z-[4] [.is-signed-out_&]:hidden flex flex-col gap-2.5 border-t border-line bg-white px-[22px] pt-3 pb-4 shadow-[0_-6px_16px_rgba(13,27,61,0.07)] max-phone:px-3.5 max-phone:pt-2.5">
         <form class="chat-input relative grid grid-cols-[1fr_auto_auto] gap-x-2.5 gap-y-2" novalidate>
           <label for="chat-message" class="sr-only">Ask a question about AAACET</label>
           <ul id="chat-suggestions" class="chat-suggestions absolute inset-x-0 bottom-[calc(100%-8px)] z-[5] m-0 max-h-[260px] list-none overflow-y-auto rounded-[10px] border border-edge bg-white px-0 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.14)]" role="listbox" aria-label="Suggested questions" hidden></ul>
@@ -239,10 +267,20 @@
           <p id="chat-input-hint" class="col-span-full m-0 text-[0.78rem] text-muted max-phone:-mt-2"><span class="chat-input__status max-phone:data-[state=hint]:hidden" data-state="hint" data-i18n="hint">Press Enter to send, Shift + Enter for a new line. Use ↑ ↓ to pick a suggestion.</span><span class="chat-input__count" hidden></span></p>
         </form>
       </div>
+      <dialog class="confirm-new m-auto w-[min(440px,calc(100%-32px))] rounded-2xl border-0 p-0 shadow-[0_20px_50px_rgba(13,27,61,0.35)] backdrop:bg-navy-dark/55" aria-labelledby="new-chat-title" aria-describedby="new-chat-text">
+        <form method="dialog" class="flex flex-col gap-3 p-6">
+          <h3 id="new-chat-title" class="m-0 text-[1.2rem] text-navy" data-i18n="newChatTitle">Start a new chat?</h3>
+          <p id="new-chat-text" class="m-0" data-i18n="newChatText">This conversation will be deleted from this device. It cannot be brought back.</p>
+          <div class="mt-2 flex flex-wrap justify-end gap-2">
+            <button value="cancel" class="min-h-11 cursor-pointer rounded-xl border border-field bg-white px-4 font-semibold text-navy hover:border-navy" data-i18n="newChatCancel">Keep this chat</button>
+            <button value="confirm" class="min-h-11 cursor-pointer rounded-xl border-0 bg-danger px-4 font-semibold text-white hover:opacity-90" data-i18n="newChatConfirm">Delete and start new</button>
+          </div>
+        </form>
+      </dialog>
     </section>
 
-    <!-- desktop only: what parents need most, always in reach (phones get it under every answer) -->
-    <aside class="help-panel sticky top-6 hidden flex-col gap-4 desk:flex embed:hidden" aria-labelledby="help-title">
+    <!-- what parents need most: beside the chat on desktop (always in reach), below it on smaller screens -->
+    <aside class="help-panel flex flex-col gap-4 desk:sticky desk:top-6 max-desk:px-4 embed:hidden" aria-labelledby="help-title">
       <div class="rounded-[24px] bg-navy p-3 text-white">
         <div class="rounded-[16px] border border-white/70 px-5 py-5 text-center">
           <h2 id="help-title" class="m-0 text-[1.25rem] text-white" data-i18n="helpTitle">Admission help</h2>
@@ -257,6 +295,13 @@
         <li><a href="https://aaaenggcoll.ac.in/wp-content/uploads/2024/07/College_Prospectus.pdf"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-1 7V3.5L18.5 9zM8 13h8v2H8zm0 4h5v2H8z"/></svg><span class="font-semibold" data-i18n="prospectus">College prospectus (PDF)</span></a></li>
       </ul>
       <a class="flex min-h-12 items-center justify-center rounded-pill bg-brand px-6 py-3 text-[0.95rem] font-semibold tracking-[0.06em] text-white uppercase no-underline hover:bg-brand-dark" href="https://aaaenggcoll.ac.in/admission/" data-i18n="applyOnline">Apply for admission</a>
+      <section class="overflow-hidden rounded-xl border border-line bg-white" aria-labelledby="map-title">
+        <h3 id="map-title" class="m-0 px-4 pt-3 pb-2 text-[1rem] text-navy" data-i18n="mapTitle">How to reach us</h3>
+        <iframe class="block h-[240px] w-full border-0" src="https://maps.google.com/maps?q=AAA%20College%20of%20Engineering%20and%20Technology%2C%20Amathur%2C%20Sivakasi&amp;z=14&amp;output=embed"
+          title="Map: AAA College of Engineering and Technology, Amathur, Sivakasi" data-i18n-attr="title:mapLabel" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        <p class="m-0 px-4 py-2.5 text-[0.85rem]"><span class="block text-muted">Kamarajar Educational Road, Amathur - 626 005</span>
+          <a class="font-semibold" href="https://www.google.com/maps/search/?api=1&amp;query=AAA%20College%20of%20Engineering%20and%20Technology%2C%20Amathur%2C%20Sivakasi" target="_blank" rel="noopener noreferrer" data-i18n="mapOpen">Open in Google Maps</a></p>
+      </section>
     </aside>
     </div>
   </main>
@@ -323,6 +368,7 @@
   <script src="js/i18n.js"></script>
   <script src="js/markdown.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/user.js"></script>
   <script src="js/robot.js"></script>
   <script src="js/chat.js"></script>
   <script src="js/page.js"></script>

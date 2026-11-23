@@ -144,13 +144,25 @@
    *   [I1] -> [[image 1]](#<prefix>-I1)   (jumps to the image card)
    * Unknown marks are removed rather than shown as dead links.
    */
+  /** Answers the admission office wrote are pages of our own backend (/api/answers/<id>), not of the website. */
+  const OFFICE_ANSWER = "/api/answers/";
+  function sourceUrl(url) {
+    const value = String(url || "");
+    if (!value.startsWith(OFFICE_ANSWER)) return value;
+    try {
+      return new URL(A.api.apiUrl(value), window.location.href).toString();
+    } catch (e) {
+      return value;
+    }
+  }
+
   function linkCitations(answer, sources, images, prefix) {
     const byId = new Map(sources.map((s) => [s.id, s]));
     const imageIds = new Set(images.map((i) => i.id));
     return answer.replace(/\[(S|I)(\d+)\]/g, (match, kind, num) => {
       if (kind === "S") {
         const source = byId.get("S" + num);
-        return source ? "[[" + num + "]](" + source.url + ' "Source ' + num + ": " + escapeTitle(source.title) + '")' : "";
+        return source ? "[[" + num + "]](" + sourceUrl(source.url) + ' "Source ' + num + ": " + escapeTitle(source.title) + '")' : "";
       }
       return imageIds.has("I" + num) ? "[[image " + num + "]](#" + prefix + "-I" + num + ")" : "";
     });
@@ -184,12 +196,14 @@
         "ol",
         { class: C.sourceList },
         sources.map((source, index) => {
-          const href = safeHref(source.url);
+          const href = safeHref(sourceUrl(source.url));
+          const office = String(source.url || "").startsWith(OFFICE_ANSWER);
           const label = href
             ? el("a", { href: href, target: "_blank", rel: "noopener noreferrer", class: C.sourceLink }, [
                 source.title,
-                source.heading ? el("span", { class: C.sourceHeading, text: " - " + source.heading }) : null,
-                hidden(" (opens official page in a new tab)"),
+                office ? el("span", { class: C.sourceHeading, text: " - " + t("fromOffice") })
+                  : source.heading ? el("span", { class: C.sourceHeading, text: " - " + source.heading }) : null,
+                hidden(" (opens in a new tab)"),
               ])
             : el("span", { class: C.sourceLink, text: source.title });
           return el("li", { class: C.sourceItem }, [
@@ -600,10 +614,22 @@
           status.setAttribute("data-state", key);
         }
       };
+      let checks = [];
       const stop = () => {
         recognition = null;
+        checks.forEach(clearTimeout);
+        checks = [];
         mic.setAttribute("aria-pressed", "false");
         mic.setAttribute("aria-label", t("mic"));
+      };
+      /** Arivazhai says when the voice is not audible: nothing heard, only noise, or no microphone. */
+      const cantHear = (kind) => {
+        say("hint");
+        if (A.robot && A.robot.moments) A.robot.moments.show({ kind: "unsure", title: t("m_" + kind + "_title"), text: t("m_" + kind + "_text") });
+        if (status) {
+          status.textContent = t("m_" + kind + "_title") + ". " + t("m_" + kind + "_text");
+          status.setAttribute("data-state", "voice");
+        }
       };
       mic.addEventListener("click", () => {
         if (recognition) {
@@ -615,18 +641,46 @@
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
         const before = field.value.trim();
+        // what the microphone has picked up so far: any sound at all, and a voice in it
+        const ear = { sound: false, speech: false, words: false };
+        const current = recognition;
+        recognition.onsoundstart = () => (ear.sound = true);
+        recognition.onspeechstart = () => {
+          ear.sound = ear.speech = true;
+          say("hearing");
+        };
+        recognition.onaudiostart = () => {
+          // no sound at all for 4 s: too quiet (or the microphone is muted)
+          checks.push(setTimeout(() => {
+            if (recognition === current && !ear.sound) {
+              cantHear("quiet");
+              current.abort();
+            }
+          }, 4000));
+          // sound but no words for 7 s: too much noise, or too far away
+          checks.push(setTimeout(() => {
+            if (recognition === current && !ear.words) {
+              cantHear(ear.speech || ear.sound ? "noisy" : "quiet");
+              current.abort();
+            }
+          }, 7000));
+        };
         recognition.onresult = (event) => {
+          ear.words = true;
           const heard = Array.from(event.results).map((r) => r[0].transcript).join(" ").trim();
           field.value = (before ? before + " " : "") + heard;
           typed = false; // no type-ahead list over spoken words
           refresh();
         };
         recognition.onerror = (event) => {
-          say(event.error === "not-allowed" || event.error === "service-not-allowed" ? "micDenied" : "micFailed");
+          if (event.error === "aborted") return; // stopped by the checks above, which already said why
+          if (event.error === "no-speech") cantHear(ear.sound ? "noisy" : "quiet");
+          else if (event.error === "audio-capture") cantHear("nomic");
+          else say(event.error === "not-allowed" || event.error === "service-not-allowed" ? "micDenied" : "micFailed");
           stop();
         };
         recognition.onend = () => {
-          if (status && status.textContent === t("listening")) say("hint");
+          if (status && (status.textContent === t("listening") || status.textContent === t("hearing"))) say("hint");
           stop();
           field.focus();
         };
@@ -682,6 +736,9 @@
     const nodes = new Map(); // message id -> its element
     let loadingNode = null;
     let followUps = null;
+    // who is chatting (js/user.js): the sign-in form shows until a name and mobile number are given
+    const people = opts.people !== undefined ? opts.people : A.user || null;
+    const dialog = section.querySelector(".confirm-new");
 
     if (welcome) {
       welcome.querySelectorAll(".chip").forEach((chip) => {
@@ -735,6 +792,36 @@
       else log.appendChild(node);
       if (welcome) welcome.hidden = true;
       newChat.disabled = false;
+      remember();
+    }
+
+    /** The conversation, saved in this browser for this person (errors are not kept). */
+    function remember() {
+      if (!people) return;
+      people.history.save(state.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, result: m.result,
+                                                       question: m.question, error: m.error })));
+    }
+
+    /** After a reload (or signing in again on this device): the saved conversation comes back. */
+    function restore() {
+      if (!people || !people.current()) return;
+      people.history.load().forEach((m) => {
+        if (m && (m.role === "user" || (m.role === "assistant" && m.result))) add({ ...m, id: m.id || nextId() });
+      });
+      drawFollowUps();
+      newChat.disabled = state.messages.length === 0;
+    }
+
+    /** Clear the screen (not the saved history): another person signs in, or one signs out. */
+    function clearScreen() {
+      if (state.controller) state.controller.abort();
+      state.controller = null;
+      state.messages = [];
+      nodes.forEach((node) => node.remove());
+      nodes.clear();
+      if (welcome) welcome.hidden = false;
+      setLoading(false);
+      newChat.disabled = true;
     }
 
     async function request(question, history) {
@@ -750,6 +837,10 @@
         onEvent({ type: "answered", result: result });
       } catch (err) {
         if (controller.signal.aborted) return;
+        if (err instanceof api.ApiError && err.kind === "login" && people) {
+          people.signOut(); // the server no longer knows this visitor: ask for the name and number again
+          return;
+        }
         const error = err instanceof api.ApiError ? { message: err.message, kind: err.kind } : { message: "Something went wrong. Please try again.", kind: "server" };
         add({ id: nextId(), role: "assistant", content: "", error: error, question: question });
         onEvent({ type: "failed", kind: error.kind });
@@ -780,23 +871,103 @@
       request(failed.question, historyFrom(state.messages).slice(0, -1));
     }
 
+    /** New chat: the conversation is deleted from the screen and from this device. */
     function reset() {
-      if (state.controller) state.controller.abort();
-      state.controller = null;
-      state.messages = [];
-      nodes.forEach((node) => node.remove());
-      nodes.clear();
-      if (welcome) welcome.hidden = false;
-      setLoading(false);
-      newChat.disabled = true;
+      clearScreen();
+      if (people) people.history.clear();
       input.field.focus();
     }
 
-    newChat.addEventListener("click", reset);
+    /** "New chat" asks first, because the saved conversation is deleted for good. */
+    function confirmNewChat() {
+      if (!state.messages.length) return Promise.resolve(true);
+      if (!dialog || typeof dialog.showModal !== "function") {
+        return Promise.resolve(window.confirm(t("newChatTitle") + "\n\n" + t("newChatText")));
+      }
+      return new Promise((resolve) => {
+        dialog.returnValue = "";
+        dialog.addEventListener("close", () => resolve(dialog.returnValue === "confirm"), { once: true });
+        dialog.showModal();
+        const keep = dialog.querySelector('button[value="cancel"]');
+        if (keep) keep.focus(); // the safe choice has the focus
+      });
+    }
+
+    newChat.addEventListener("click", () => {
+      confirmNewChat().then((ok) => {
+        if (ok) reset();
+      });
+    });
     window.addEventListener(START_CHAT_EVENT, () => {
       if (section.scrollIntoView) section.scrollIntoView({ behavior: "smooth", block: "start" });
-      input.field.focus({ preventScroll: true });
+      const first = section.classList.contains("is-signed-out") ? section.querySelector("#login-name") : input.field;
+      if (first) first.focus({ preventScroll: true });
     });
+
+    setupSignIn();
+
+    /** The sign-in form (name + mobile number) and "Not you?". */
+    function setupSignIn() {
+      const form = section.querySelector(".chat-login");
+      const name = section.querySelector(".chat__name");
+      const show = (user) => {
+        section.classList.toggle("is-signed-out", !user);
+        if (name) name.textContent = user ? user.name : "";
+      };
+      if (!people) {
+        show({ name: "" }); // a page without sign-in (tests, or LOGIN_REQUIRED switched off)
+        return;
+      }
+      show(people.current());
+      restore();
+      people.onChange((user) => {
+        clearScreen();
+        show(user);
+        if (user) restore();
+      });
+      const signOut = section.querySelector(".chat__signout");
+      if (signOut) signOut.addEventListener("click", () => {
+        people.signOut();
+        const first = section.querySelector("#login-name");
+        if (first) first.focus();
+      });
+      if (!form) return;
+      const nameField = form.querySelector("#login-name");
+      const phoneField = form.querySelector("#login-phone");
+      const button = form.querySelector(".chat-login__submit");
+      const status = form.querySelector(".chat-login__status");
+      const showError = (field, id, message) => {
+        const box = form.querySelector("#" + id);
+        field.setAttribute("aria-invalid", message ? "true" : "false");
+        if (box) {
+          box.textContent = message || "";
+          box.hidden = !message;
+        }
+      };
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const checked = people.validate(nameField.value, phoneField.value);
+        showError(nameField, "login-name-error", checked.errors.name);
+        showError(phoneField, "login-phone-error", checked.errors.phone);
+        status.textContent = "";
+        if (checked.errors.name || checked.errors.phone) {
+          (checked.errors.name ? nameField : phoneField).focus();
+          return;
+        }
+        button.disabled = true;
+        button.textContent = t("loginBusy");
+        try {
+          await people.signIn(checked.name, checked.phone);
+          phoneField.value = "";
+          input.field.focus();
+        } catch (err) {
+          status.textContent = (err && err.message) || t("loginFailed");
+        } finally {
+          button.disabled = false;
+          button.textContent = t("loginButton");
+        }
+      });
+    }
 
     return { ask: ask, retry: retry, reset: reset, state: state };
   }

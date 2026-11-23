@@ -12,7 +12,7 @@ from rag.utils import update_status, utc_now
 
 log = logging.getLogger(__name__)
 
-STAGES = ("crawl", "extract", "images", "chunk", "index")
+STAGES = ("crawl", "extract", "images", "chunk", "answers", "index")  # "answers": only the admin answers re-chunked
 
 
 def run_crawl_subprocess(settings: Settings, urls_file: str | None = None) -> None:
@@ -53,6 +53,10 @@ def run_pipeline(settings: Settings, stages: tuple[str, ...] = STAGES, full: boo
             report["images"] = len(run_image_stage(settings))
         elif stage == "chunk":
             report["chunks"] = len(run_chunking(settings))
+        elif stage == "answers":
+            from rag.admin_answers import merge_answer_chunks
+
+            report["answer_chunks"] = merge_answer_chunks(settings)
         elif stage == "index":
             from rag.embeddings import get_embedder
             from rag.index.indexer import Indexer

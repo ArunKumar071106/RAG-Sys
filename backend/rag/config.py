@@ -193,7 +193,9 @@ class Settings(BaseSettings):
     cors_origins: CsvList = ["http://localhost:5173", "http://127.0.0.1:5173"]
     # the chat page (plain HTML, CSS and JavaScript), served at / ; empty or missing: API only
     frontend_dir: Path | None = PROJECT_DIR / "frontend"
-    admin_token: str = ""
+    admin_token: str = ""  # also the admin panel's password (http://<server>/admin.html)
+    login_required: bool = True  # the chat asks for a name and mobile number first (saved in DATA_DIR/admin/users.xlsx)
+    dashboard_timezone: str = "Asia/Kolkata"  # the admin dashboard's hours and days
     rate_limit_per_minute: int = 30
     max_question_chars: int = 1000
     max_request_bytes: int = 256 * 1024  # a page loaded before history trimming sends whole earlier answers

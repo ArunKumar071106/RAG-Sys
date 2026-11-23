@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { signedIn } from "./helpers.js";
 
 // Runs against the real FastAPI backend indexed with the FICTIONAL demo site
 // (scripts/e2e_backend.sh), in extractive mode (no LLM key needed).
@@ -23,6 +24,10 @@ async function ask(page, question) {
   await box.fill(question);
   await box.press("Enter");
 }
+
+test.beforeEach(async ({ page, request }) => {
+  await signedIn(page, request);
+});
 
 test("welcome screen", async ({ page }, info) => {
   await page.goto("/");
@@ -112,6 +117,11 @@ test("keyboard only: suggestion chip and new chat", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Sources from the official website" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "New chat" }).focus();
   await page.keyboard.press("Enter");
+  // it asks first, with the safe choice focused; Tab to "Delete and start new"
+  await expect(page.getByRole("button", { name: "Keep this chat" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Delete and start new" })).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("region", { name: "Sources from the official website" })).toHaveCount(0);
   await expect(page.getByLabel("Ask a question about AAACET")).toBeFocused();
 });
@@ -173,15 +183,21 @@ test("down arrow shows the chat is below and takes you there", async ({ page }, 
   await expect(arrow).toBeHidden();
 });
 
-test("desktop keeps admission help beside the chat; smaller screens get it under each answer", async ({ page }, info) => {
+test("admission help and the college map: beside the chat on desktop, below it on smaller screens", async ({ page }, info) => {
   await page.goto("/");
   await momentGone(page);
   const panel = page.getByRole("complementary", { name: "Admission help" });
-  if (info.project.name !== "desktop") {
-    await expect(panel).toBeHidden();
-    return;
-  }
-  await expect(panel).toBeVisible();
+  await expect(panel).toBeAttached();
+  const chat = await page.locator("#assistant").boundingBox();
+  const box = await panel.boundingBox();
+  if (info.project.name === "desktop") expect(box.x).toBeGreaterThan(chat.x + chat.width - 1);
+  else expect(box.y).toBeGreaterThan(chat.y + chat.height - 1);
+  const map = panel.locator("iframe");
+  await expect(map).toHaveAttribute("title", /AAA College of Engineering and Technology/);
+  const apply = await panel.getByRole("link", { name: "Apply for admission" }).boundingBox();
+  expect((await map.boundingBox()).y).toBeGreaterThan(apply.y); // the map is under the Apply button
+  await expect(panel.getByRole("link", { name: "Open in Google Maps" })).toHaveAttribute("href", /google\.com\/maps/);
+  await panel.scrollIntoViewIfNeeded();
   await expect(panel.getByText("4680")).toBeVisible();
   await expect(panel.getByRole("link", { name: /Call the admission office/ })).toHaveAttribute("href", "tel:04562251111");
   await expect(panel.getByRole("link", { name: "Apply for admission" })).toHaveAttribute("href", "https://aaaenggcoll.ac.in/admission/");
@@ -195,10 +211,12 @@ test("a new answer is shown from its first line, the question box still in sight
   await expect(page.getByRole("status")).toHaveCount(0, { timeout: 30_000 });
   const answer = page.locator(".chat__log > .message--assistant").last();
   await expect(answer).not.toHaveText(/Vanakkam/);
-  // the smooth scroll settles with the answer's top near the top of the screen
+  // the smooth scroll settles with the answer's top just under the Arivazhai bar, which stays on screen
+  const bar = await page.locator(".chat__header").boundingBox();
   await expect
     .poll(async () => answer.evaluate((node) => Math.round(node.getBoundingClientRect().top)), { timeout: 5000 })
-    .toBeLessThanOrEqual(40);
+    .toBeLessThanOrEqual(bar.height + 40);
+  expect(await answer.evaluate((node) => node.getBoundingClientRect().top)).toBeGreaterThanOrEqual(bar.height - 1);
   await expect(answer).toBeInViewport({ ratio: 0.1 });
   await expect(page.getByLabel("Ask a question about AAACET")).toBeInViewport();
 });

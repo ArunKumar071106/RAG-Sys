@@ -1,0 +1,129 @@
+<!doctype html>
+<!--
+  Arivazhai admin panel: the dashboard (frequent questions, when people ask, how fast the answers are),
+  answers for the questions the website does not answer, and the visitors' Excel file.
+  The page itself holds no data: everything comes from /api/admin/*, which needs the admin password
+  (ADMIN_TOKEN in the backend's .env). Open it at http://<server>/admin.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Arivazhai admin | AAA College of Engineering and Technology</title>
+  <link rel="icon" href="brand/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;family=League+Spartan:wght@400;500;600;700&amp;display=swap">
+  <link rel="stylesheet" href="css/tailwind.css">
+</head>
+<body class="bg-desk">
+  <header class="border-b-4 border-gold bg-white">
+    <div class="mx-auto flex w-full max-w-[1240px] flex-wrap items-center gap-4 px-4 py-3">
+      <a href="./" class="flex items-center" aria-label="Back to the chat"><img class="block h-14 w-auto max-phone:h-11" src="brand/logo.png" alt="AAA College of Engineering and Technology logo"></a>
+      <p class="m-0 ml-auto font-heading text-[1.25rem] font-semibold text-navy">Arivazhai admin</p>
+      <button type="button" class="admin-signout hidden min-h-10 cursor-pointer rounded-xl border border-field bg-white px-4 font-semibold text-navy hover:border-navy [.is-admin_&]:block">Sign out</button>
+    </div>
+  </header>
+
+  <main class="mx-auto w-full max-w-[1240px] px-4 py-8 max-phone:py-5">
+    <!-- the admin password; the panel shows only after the server accepts it -->
+    <form class="admin-login mx-auto flex max-w-[420px] flex-col gap-3 rounded-2xl border border-line bg-white p-6 shadow-brand [.is-admin_&]:hidden" novalidate>
+      <h1 class="m-0 text-[1.5rem] text-navy">Admin sign-in</h1>
+      <p class="m-0 text-muted">Only the admission office. The password is <code>ADMIN_TOKEN</code> in the server's <code>.env</code>.</p>
+      <label class="flex flex-col gap-1 font-semibold" for="admin-password">Password
+        <input id="admin-password" class="min-h-12 rounded-xl border-2 border-field px-3.5 font-normal focus-visible:border-navy" type="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="min-h-12 cursor-pointer rounded-xl border-0 bg-gold font-bold text-navy-dark hover:bg-gold-dark disabled:opacity-60">Sign in</button>
+      <p class="admin-login__status m-0 text-danger-text" role="alert"></p>
+    </form>
+
+    <div class="admin-panel hidden flex-col gap-6 [.is-admin_&]:flex">
+      <nav class="flex flex-wrap gap-2" role="tablist" aria-label="Admin sections">
+        <button type="button" role="tab" class="admin-tab" aria-selected="true" aria-controls="tab-dashboard" id="t-dashboard">Dashboard</button>
+        <button type="button" role="tab" class="admin-tab" aria-selected="false" aria-controls="tab-unanswered" id="t-unanswered">Unanswered questions <span class="admin-badge" data-count="unanswered"></span></button>
+        <button type="button" role="tab" class="admin-tab" aria-selected="false" aria-controls="tab-answers" id="t-answers">Your answers</button>
+        <button type="button" role="tab" class="admin-tab" aria-selected="false" aria-controls="tab-users" id="t-users">Visitors</button>
+      </nav>
+
+      <section id="tab-dashboard" role="tabpanel" aria-labelledby="t-dashboard" class="flex flex-col gap-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="m-0 text-[1.5rem] text-navy">Dashboard</h1>
+          <label class="ml-auto flex items-center gap-2 text-[0.9rem]">Period
+            <select class="admin-days min-h-10 rounded-lg border border-field bg-white px-2">
+              <option value="7">Last 7 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+          </label>
+          <button type="button" class="admin-refresh min-h-10 cursor-pointer rounded-lg border border-field bg-white px-3 font-semibold text-navy hover:border-navy">Refresh</button>
+        </div>
+        <div class="admin-tiles grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3"></div>
+        <div class="grid gap-6 desk:grid-cols-2">
+          <figure class="admin-card m-0" data-chart="by_hour"></figure>
+          <figure class="admin-card m-0" data-chart="by_weekday"></figure>
+        </div>
+        <figure class="admin-card m-0" data-chart="daily"></figure>
+        <section class="admin-card" aria-labelledby="top-title">
+          <h2 id="top-title" class="admin-h2">Most frequent questions</h2>
+          <div class="admin-top overflow-x-auto"></div>
+        </section>
+        <section class="admin-card" aria-labelledby="down-title">
+          <h2 id="down-title" class="admin-h2">Answers marked not helpful 👎</h2>
+          <div class="admin-down"></div>
+        </section>
+      </section>
+
+      <section id="tab-unanswered" role="tabpanel" aria-labelledby="t-unanswered" class="flex flex-col gap-4" hidden>
+        <h1 class="m-0 text-[1.5rem] text-navy">Questions the website does not answer</h1>
+        <p class="m-0 text-muted">Write the answer once: Arivazhai splits it into passages, indexes it for search (the same steps as the
+          website's pages), and gives it to everyone who asks, in any wording, citing "Answer from the admission office".</p>
+        <div class="admin-unanswered flex flex-col gap-3"></div>
+      </section>
+
+      <section id="tab-answers" role="tabpanel" aria-labelledby="t-answers" class="flex flex-col gap-4" hidden>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="m-0 text-[1.5rem] text-navy">Your answers</h1>
+          <button type="button" class="admin-new ml-auto min-h-10 cursor-pointer rounded-xl border-0 bg-gold px-4 font-bold text-navy-dark hover:bg-gold-dark">+ Add an answer</button>
+        </div>
+        <div class="admin-answers flex flex-col gap-3"></div>
+      </section>
+
+      <section id="tab-users" role="tabpanel" aria-labelledby="t-users" class="flex flex-col gap-4" hidden>
+        <h1 class="m-0 text-[1.5rem] text-navy">Visitors</h1>
+        <div class="admin-card flex flex-col gap-3">
+          <p class="m-0">Everyone who signed in to chat (name, mobile number, first and last visit, visits, questions asked) is saved
+            in an Excel file on the server, which only the admin can download.</p>
+          <p class="admin-users-count m-0 font-semibold text-navy"></p>
+          <button type="button" class="admin-download self-start min-h-11 cursor-pointer rounded-xl border-0 bg-navy px-5 font-semibold text-white hover:bg-navy-dark">Download Excel (users.xlsx)</button>
+          <p class="admin-download__status m-0 text-[0.9rem] text-muted" role="status"></p>
+        </div>
+      </section>
+    </div>
+
+    <dialog class="admin-editor m-auto w-[min(640px,calc(100%-32px))] rounded-2xl border-0 p-0 shadow-[0_20px_50px_rgba(13,27,61,0.35)] backdrop:bg-navy-dark/55" aria-labelledby="editor-title">
+      <form class="flex flex-col gap-3 p-6" novalidate>
+        <h2 id="editor-title" class="m-0 text-[1.25rem] text-navy">Answer a question</h2>
+        <label class="flex flex-col gap-1 font-semibold" for="editor-question">Question
+          <input id="editor-question" class="min-h-11 rounded-xl border-2 border-field px-3 font-normal focus-visible:border-navy" maxlength="500" required>
+        </label>
+        <label class="flex flex-col gap-1 font-semibold" for="editor-answer">Answer
+          <textarea id="editor-answer" class="min-h-40 rounded-xl border-2 border-field px-3 py-2 font-normal focus-visible:border-navy" maxlength="8000" required aria-describedby="editor-answer-hint"></textarea>
+        </label>
+        <p id="editor-answer-hint" class="-mt-2 mb-0 text-[0.8rem] text-muted">Plain sentences work best. Leave an empty line between paragraphs. Links: [Apply online](https://...)</p>
+        <p class="admin-editor__status m-0 text-danger-text" role="alert"></p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <button type="button" value="cancel" class="admin-editor__cancel min-h-11 cursor-pointer rounded-xl border border-field bg-white px-4 font-semibold text-navy">Cancel</button>
+          <button type="submit" class="min-h-11 cursor-pointer rounded-xl border-0 bg-gold px-5 font-bold text-navy-dark hover:bg-gold-dark disabled:opacity-60">Save and teach Arivazhai</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="admin-toast pointer-events-none fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[calc(100%-32px)] rounded-xl bg-navy-dark px-5 py-3 text-white shadow-brand" role="status" hidden></div>
+    <div class="admin-tip pointer-events-none fixed z-50 rounded-lg bg-ink px-2.5 py-1.5 text-[0.82rem] text-white shadow-brand" hidden></div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

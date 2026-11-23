@@ -74,11 +74,11 @@ describe("the chat", () => {
     loadPage(fetchMock);
     type("What are the library timings?");
     await flush();
-    expect($('[role="alert"]').textContent).toContain("Can't reach the assistant");
+    expect($('.chat__log [role="alert"]').textContent).toContain("Can't reach the assistant");
     buttonNamed("Try again").click();
     await flush();
     await flush();
-    expect($('[role="alert"]')).toBeNull();
+    expect($('.chat__log [role="alert"]')).toBeNull();
     expect($$(".message--user")).toHaveLength(1); // the question is asked again, not repeated
     expect(JSON.parse(chatCalls(fetchMock)[1][1].body)).toEqual({ message: "What are the library timings?", history: [] });
   });
@@ -97,7 +97,9 @@ describe("the chat", () => {
     expect(second.history.map((t) => t.role)).toEqual(["user", "assistant"]);
     expect($$(".message--assistant > .suggestions")).toHaveLength(1);
 
+    window.confirm = () => true; // "This conversation will be deleted from this device" (jsdom has no <dialog>)
     buttonNamed("New chat").click();
+    await flush();
     expect($$(".message--user")).toHaveLength(0);
     expect($("#welcome-suggestions").hidden).toBe(false);
     expect(document.activeElement).toBe(field());

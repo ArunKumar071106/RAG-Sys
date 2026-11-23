@@ -66,7 +66,8 @@
     try {
       response = await fetch(apiUrl("/api/chat"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // the signed-in visitor (name + mobile number given before chatting)
+        headers: { "Content-Type": "application/json", "X-Arivazhai-User": A.user ? A.user.token() : "" },
         body: JSON.stringify({ message: message, history: history }),
         signal: t.signal,
       });
@@ -88,7 +89,8 @@
       }
       // 503 with Retry-After: still starting (the first start builds the search index)
       const kind =
-        response.status === 429 ? "rate_limited"
+        response.status === 401 ? "login"
+        : response.status === 429 ? "rate_limited"
         : response.status === 503 ? (response.headers.get("Retry-After") ? "starting" : "unavailable")
         : response.status === 422 || response.status === 413 ? "invalid"
         : "server";

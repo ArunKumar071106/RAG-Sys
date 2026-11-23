@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { signedIn } from "./helpers.js";
 
 // Arivazhai's moments: the robot pops up centred over a blurred screen for 2-4 s and never stays in
 // the chat. The chat API is replaced with fixed replies here so each moment is shown on purpose;
@@ -39,6 +40,10 @@ async function ask(page, question) {
 async function settled(page) {
   await expect(overlay(page)).not.toHaveClass(/is-shown/, { timeout: 8000 });
 }
+
+test.beforeEach(async ({ page, request }) => {
+  await signedIn(page, request);
+});
 
 test("page load: loading, then welcome, then the robot leaves the chat", async ({ page }, info) => {
   const desktop = info.project.name === "desktop";

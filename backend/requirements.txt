@@ -17,3 +17,5 @@ rapidocr-onnxruntime==1.2.3
 google-genai==2.34.0
 anthropic==1.15.0
 fastembed==0.9.0
+openpyxl==3.1.5
+tzdata==2026.6

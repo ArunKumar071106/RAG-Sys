@@ -10,8 +10,13 @@ Endpoints (all under /api):
   POST /feedback             👍 / 👎 on an answer (saved without personal details, emailed daily)
   GET  /health               liveness + component status
   GET  /status               crawl / extraction / indexing status
+  POST /users                name + mobile number -> the token /chat needs (LOGIN_REQUIRED)
+  GET  /answers/{id}         an answer the admin wrote (the source page of its citations)
   POST /admin/reindex        start a reindex job      (Bearer ADMIN_TOKEN)
   GET  /admin/jobs/{job_id}  reindex job status       (Bearer ADMIN_TOKEN)
+  GET  /admin/dashboard      frequent questions, timings, unanswered questions, ratings (Bearer ADMIN_TOKEN)
+  GET/POST/PUT/DELETE /admin/answers[/{id}]  the admin's answers; saving indexes them  (Bearer ADMIN_TOKEN)
+  GET  /admin/users.xlsx     the visitors' names and phone numbers (Bearer ADMIN_TOKEN)
 
 Everything else is the chat page from frontend/ (plain HTML, CSS and JavaScript), so
 http://127.0.0.1:8000/ is the whole assistant.
@@ -20,13 +25,15 @@ http://127.0.0.1:8000/ is the whole assistant.
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
+import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -34,7 +41,10 @@ from rag import __version__
 from rag.api.security import BodySizeLimitMiddleware, RateLimiter, make_admin_dependency, make_rate_limit_dependency
 from rag.api.services import Services
 from rag.config import Settings, get_settings
+from rag.admin_answers import SOURCE_TITLE, AnswerStore
+from rag.dashboard import build_dashboard
 from rag.feedback import FeedbackLog, daily_reports, email_configured
+from rag.users import InvalidUser, UserStore
 from rag.refresh import scheduled_refreshes
 from rag.images.stage import image_file_path
 from rag.index.indexer import manifest_path
@@ -75,6 +85,17 @@ class FeedbackRequest(BaseModel):
     comment: str = Field(default="", max_length=1000)
 
 
+class UserRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    phone: str = Field(min_length=1, max_length=20)
+
+
+class AnswerRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+    answer: str = Field(min_length=1, max_length=8000)
+    resolves: list[str] = Field(default_factory=list, max_length=50)  # the unanswered questions it answers
+
+
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=6, ge=1, le=20)
@@ -91,6 +112,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per Qdrant Cloud request is noise
 
     feedback = FeedbackLog(settings.data_dir / "feedback") if settings.feedback_enabled else None
+    users = UserStore(settings.data_dir / "admin")
+    admin_answers = AnswerStore(settings.data_dir / "admin")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -115,8 +138,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "Authorization"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_headers=["Content-Type", "Authorization", "X-Arivazhai-User"],
     )
     rate_limited = Depends(make_rate_limit_dependency(RateLimiter(settings.rate_limit_per_minute)))
     admin_only = Depends(make_admin_dependency(settings.admin_token))
@@ -133,6 +156,13 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(status_code=503, detail="The assistant is not ready: " + (services.error or "index not loaded"))
         return services
 
+    def visitor(x_arivazhai_user: str = Header(default="")) -> str | None:
+        """The signed-in visitor (name + mobile number given); required for chatting when LOGIN_REQUIRED."""
+        user_id = users.verify(x_arivazhai_user)
+        if user_id is None and settings.login_required:
+            raise HTTPException(status_code=401, detail="Please sign in with your name and mobile number to chat.")
+        return user_id
+
     def check_length(text: str) -> None:
         if len(text) > settings.max_question_chars:
             raise HTTPException(status_code=422, detail=f"Message too long (max {settings.max_question_chars} characters)")
@@ -144,11 +174,16 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     # ------------------------------------------------------------------ chat
     @app.post("/api/chat", response_model=ChatResult, dependencies=[rate_limited])
-    async def chat(body: ChatRequest, services: Services = Depends(ready)) -> ChatResult:
+    async def chat(body: ChatRequest, services: Services = Depends(ready), user_id: str | None = Depends(visitor)) -> ChatResult:
         check_length(body.message)
         if not services.corpus.chunks:
             raise HTTPException(status_code=503, detail="The knowledge base is empty. Run the crawl/index pipeline first.")
+        started = time.monotonic()
         result = await services.answers.answer(body.message, body.history)
+        if feedback:
+            feedback.asked(body.message, result.mode, time.monotonic() - started)
+        if user_id:
+            await asyncio.to_thread(users.asked, user_id)
         if feedback and result.mode == "no_answer":
             # what people ask that the website does not answer: for the admission office's daily report
             feedback.unanswered(body.message, services.answers.retrieval_query(body.message, body.history))
@@ -174,6 +209,32 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(status_code=404, detail="Feedback is turned off")
         feedback.rating(body.question, body.answer, body.rating, body.comment)
         return {"ok": True}
+
+    @app.post("/api/users", dependencies=[rate_limited])
+    def sign_in(body: UserRequest):
+        """Name and mobile number before chatting; saved in DATA_DIR/admin/users.xlsx (admin only)."""
+        try:
+            user = users.register(body.name, body.phone)
+        except InvalidUser as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {"token": user["token"], "name": user["name"]}
+
+    @app.get("/api/answers/{answer_id}", response_class=HTMLResponse)
+    def admin_answer_page(answer_id: str):
+        """The source page of an answer the admission office wrote (cited like a website page)."""
+        entry = admin_answers.get(answer_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="Answer not found")
+        paragraphs = "".join(f"<p>{html.escape(p.strip())}</p>" for p in entry["answer"].split("\n\n") if p.strip())
+        return HTMLResponse(
+            f"<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
+            f"content=\"width=device-width, initial-scale=1\"><title>{SOURCE_TITLE}</title><style>body{{font-family:"
+            f"system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;line-height:1.6;color:#2d2d2d}}"
+            f"h1{{font-size:1.3rem;color:#323496}}small{{color:#5b6472}}p{{white-space:pre-line}}</style></head><body>"
+            f"<small>{SOURCE_TITLE} · AAA College of Engineering and Technology</small>"
+            f"<h1>{html.escape(entry['question'])}</h1>{paragraphs}"
+            f"<small>Updated {html.escape(entry.get('updated_at', '')[:10])}</small></body></html>",
+            headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"})
 
     # Type-ahead: cheap and called as people type, so it has its own, more generous limit.
     suggest_limited = Depends(make_rate_limit_dependency(RateLimiter(max(120, settings.rate_limit_per_minute * 6))))
@@ -274,6 +335,47 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(status_code=404, detail="Job not found")
         return job.__dict__
 
+    @app.get("/api/admin/check", dependencies=[rate_limited, admin_only])
+    def admin_check():
+        """The admin panel's sign-in: is this the admin password (ADMIN_TOKEN)?"""
+        return {"ok": True}
+
+    @app.get("/api/admin/dashboard", dependencies=[admin_only])
+    def dashboard(days: int = 30):
+        return build_dashboard(settings, feedback, users.count(), max(1, min(days, 365)))
+
+    @app.get("/api/admin/answers", dependencies=[admin_only])
+    def list_answers():
+        return sorted(admin_answers.all(), key=lambda e: e.get("updated_at", ""), reverse=True)
+
+    def saved(entry: dict | None, request: Request) -> dict:
+        job = svc(request).update_answers()  # chunk + embed + index, in the background
+        return {"answer": entry, "indexing": job.id if job else "queued"}
+
+    @app.post("/api/admin/answers", dependencies=[admin_only], status_code=201)
+    def add_answer(body: AnswerRequest, request: Request):
+        return saved(admin_answers.save(body.question, body.answer, resolves=body.resolves), request)
+
+    @app.put("/api/admin/answers/{answer_id}", dependencies=[admin_only])
+    def edit_answer(answer_id: str, body: AnswerRequest, request: Request):
+        try:
+            return saved(admin_answers.save(body.question, body.answer, answer_id, body.resolves), request)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Answer not found") from exc
+
+    @app.delete("/api/admin/answers/{answer_id}", dependencies=[admin_only])
+    def delete_answer(answer_id: str, request: Request):
+        if not admin_answers.delete(answer_id):
+            raise HTTPException(status_code=404, detail="Answer not found")
+        return saved(None, request)
+
+    @app.get("/api/admin/users.xlsx", dependencies=[admin_only])
+    def users_file():
+        if not users.path.exists():
+            raise HTTPException(status_code=404, detail="Nobody has signed in yet")
+        return FileResponse(users.path, filename="arivazhai-users.xlsx", headers={"Cache-Control": "no-store"},
+                            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
     # ------------------------------------------------------------------ the chat page
     page = settings.frontend_dir
     if page and (page / "index.html").is_file():
@@ -285,7 +387,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                 response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
                 # the chat may be embedded on the official website (?embed=1), nowhere else
                 response.headers.setdefault("Content-Security-Policy", f"frame-ancestors {FRAME_ANCESTORS}")
-                if request.url.path in ("/", "/index.html") or request.url.path.startswith(("/js/", "/css/")):
+                if request.url.path in ("/", "/index.html", "/admin.html") or request.url.path.startswith(("/js/", "/css/")):
                     response.headers.setdefault("Cache-Control", "no-cache")  # a new version shows on the next visit
             return response
 

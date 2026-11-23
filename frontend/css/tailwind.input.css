@@ -15,6 +15,7 @@
 @import "tailwindcss/theme.css" layer(theme) source(none);
 @import "tailwindcss/utilities.css" layer(utilities);
 @source "../index.html";
+@source "../admin.html";
 @source "../js";
 
 @import "./brand.css";
@@ -161,7 +162,7 @@
   }
 
   /* scrolling to a message keeps it clear of the question box stuck to the bottom */
-  .chat__log > * { scroll-margin-top: 16px; scroll-margin-bottom: 150px; }
+  .chat__log > * { scroll-margin-top: 96px; scroll-margin-bottom: 150px; } /* clear of the sticky Arivazhai bar */
 
   /* text in the chat bubbles, and answers rendered from Markdown */
   .bubble p:first-child { margin-top: 0; }
@@ -173,4 +174,29 @@
   .markdown th { @apply bg-white; }
   .markdown ul, .markdown ol { padding-left: 1.3em; }
   .citation { @apply inline-block px-px align-super text-[0.75em] leading-none font-bold no-underline hover:underline; }
+
+  /* the admin panel (admin.html) */
+  .admin-tab {
+    @apply min-h-11 cursor-pointer rounded-xl border border-field bg-white px-4 font-semibold text-navy hover:border-navy;
+    @apply aria-selected:border-navy aria-selected:bg-navy aria-selected:text-white;
+  }
+  .admin-badge:not(:empty) { @apply ml-1 rounded-full bg-brand px-2 py-0.5 text-[0.75rem] text-white; }
+  .admin-card { @apply rounded-2xl border border-line bg-white p-5 shadow-brand; }
+  .admin-h2 { @apply m-0 mb-1 font-heading text-[1.1rem] font-semibold text-navy; }
+  .admin-table { @apply border-collapse text-[0.9rem]; }
+  .admin-table th { @apply border-b-2 border-line px-2.5 py-2 text-left text-[0.8rem] tracking-[0.03em] text-muted uppercase; }
+  .admin-table td { @apply border-b border-line px-2.5 py-2 align-top; }
+  /* single-series column charts: one hue (a lighter step of the brand blue, validated), thin
+     columns with rounded tops from one baseline, a 2px gap between columns, recessive axes */
+  .admin-chart { @apply flex gap-2; }
+  .admin-scale { @apply flex h-[160px] flex-col justify-between text-right text-[0.75rem] text-muted; }
+  .admin-plot {
+    @apply flex h-[160px] items-end gap-0.5 border-b border-edge;
+    background: repeating-linear-gradient(to top, transparent 0 39px, var(--color-line) 39px 40px);
+  }
+  .admin-col { @apply flex h-full min-w-0 flex-1 cursor-default items-end justify-center border-0 bg-transparent p-0; }
+  .admin-col:hover, .admin-col:focus-visible { @apply bg-subtle; }
+  .admin-bar { @apply block w-full max-w-6 rounded-t-[4px] bg-[#4f52c4]; }
+  .admin-axis { @apply mt-1 flex gap-0.5 text-[0.7rem] text-muted; }
+  .admin-axis span { @apply min-w-0 flex-1 overflow-visible text-center whitespace-nowrap; }
 }

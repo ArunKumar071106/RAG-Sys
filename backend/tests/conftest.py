@@ -29,6 +29,7 @@ def make_settings(data_dir: Path, **overrides) -> Settings:
         crawl_allowed_domains=["127.0.0.1"],
         cors_origins=["http://localhost:5173"],
         admin_token="",
+        login_required=False,  # tests/test_admin.py checks signing in
         rate_limit_per_minute=0,
         qdrant_url="",  # never a real server, whatever the shell exports
         qdrant_api_key="",
