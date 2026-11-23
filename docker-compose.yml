@@ -1,8 +1,9 @@
-# Production-style stack: Qdrant server + FastAPI backend + nginx serving the chat page (plain HTML/CSS/JS).
-#   cp .env.example .env   # fill in ANTHROPIC_API_KEY, ADMIN_TOKEN
+# The college server: Qdrant (local, in its own container) + FastAPI backend + nginx serving the chat page
+# and the admin panel. Everything stays on the server except the questions sent to Gemini.
+#   cp .env.example .env   # GEMINI_API_KEY, ADMIN_TOKEN, REPORT_EMAIL_TO + SMTP_*, REFRESH_EVERY_DAYS=30
 #   docker compose up -d --build
-#   docker compose run --rm backend python -m rag.cli all     # crawl + index (first time)
-# Then open http://localhost:8080
+#   docker compose run --rm backend python -m rag.cli all     # crawl + index (first time, about an hour)
+# Then open http://<server>:8080  (admin panel: http://<server>:8080/admin.html)
 services:
   qdrant:
     image: qdrant/qdrant:v1.12.4
@@ -15,12 +16,15 @@ services:
     build:
       context: ./backend
       args:
-        WITH_ML: "true"   # BGE-M3 embeddings; set "false" with EMBEDDING_PROVIDER=hashing for a light image
+        WITH_ML: "false"  # FastEmbed search model: no PyTorch, a much smaller image. "true" adds BGE-M3 (EMBEDDING_PROVIDER=bge-m3)
     restart: unless-stopped
     env_file: .env
     environment:
       DATA_DIR: /data
-      QDRANT_URL: http://qdrant:6333
+      QDRANT_URL: http://qdrant:6333     # the Qdrant container below: the vectors stay on this server
+      QDRANT_API_KEY: ""
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-fastembed}
+      TZ: ${TZ:-Asia/Kolkata}            # REFRESH_HOUR=2 is 2 AM India time, REPORT_HOUR=18 is 6 PM
       CORS_ORIGINS: http://localhost:8080
       HF_HOME: /data/hf-cache
     volumes:

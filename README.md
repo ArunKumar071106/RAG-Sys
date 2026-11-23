@@ -565,8 +565,8 @@ docker compose run --rm backend python -m rag.cli all      # first crawl + index
 ```
 * `docker-compose.yml` points the backend at its own Qdrant (`QDRANT_URL: http://qdrant:6333`, overriding `.env`).
   To keep using Qdrant Cloud instead, delete that line.
-* With FastEmbed, set `WITH_ML: "false"` in `docker-compose.yml`: a much smaller image without PyTorch.
-* The containers run on UTC: `REFRESH_HOUR=20` is 1:30 AM and `REPORT_HOUR=12` is 5:30 PM in India.
+* The image uses FastEmbed (`WITH_ML: "false"`): no PyTorch, a much smaller image. The admin panel is at `/admin.html`.
+* The backend runs on India time (`TZ: Asia/Kolkata`): `REFRESH_HOUR=2` is 2 AM, `REPORT_HOUR=18` is 6 PM.
 * Updates refresh by themselves every `REFRESH_EVERY_DAYS` (see "Monthly refresh, automatically"); by hand:
   `docker compose run --rm backend python -m rag.cli refresh`. Logs: `docker compose logs -f backend`.
 * Put it behind HTTPS on a college address (e.g. `assistant.aaaenggcoll.ac.in`, through the college's web server
