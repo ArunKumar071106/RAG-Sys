@@ -43,6 +43,7 @@
         <button type="button" role="tab" class="admin-tab" aria-selected="true" aria-controls="tab-dashboard" id="t-dashboard">Dashboard</button>
         <button type="button" role="tab" class="admin-tab" aria-selected="false" aria-controls="tab-unanswered" id="t-unanswered">Unanswered questions <span class="admin-badge" data-count="unanswered"></span></button>
         <button type="button" role="tab" class="admin-tab" aria-selected="false" aria-controls="tab-answers" id="t-answers">Your answers</button>
+        <button type="button" role="tab" class="admin-tab" aria-selected="false" aria-controls="tab-files" id="t-files">Files</button>
         <button type="button" role="tab" class="admin-tab" aria-selected="false" aria-controls="tab-users" id="t-users">Visitors</button>
       </nav>
 
@@ -57,6 +58,7 @@
             </select>
           </label>
           <button type="button" class="admin-refresh min-h-10 cursor-pointer rounded-lg border border-field bg-white px-3 font-semibold text-navy hover:border-navy">Refresh</button>
+          <button type="button" class="admin-reset min-h-10 cursor-pointer rounded-lg border border-danger bg-white px-3 font-semibold text-danger-text hover:bg-danger-bg">Reset dashboard</button>
         </div>
         <div class="admin-tiles grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3"></div>
         <div class="grid gap-6 desk:grid-cols-2">
@@ -87,6 +89,20 @@
           <button type="button" class="admin-new ml-auto min-h-10 cursor-pointer rounded-xl border-0 bg-gold px-4 font-bold text-navy-dark hover:bg-gold-dark">+ Add an answer</button>
         </div>
         <div class="admin-answers flex flex-col gap-3"></div>
+      </section>
+
+      <section id="tab-files" role="tabpanel" aria-labelledby="t-files" class="flex flex-col gap-4" hidden>
+        <h1 class="m-0 text-[1.5rem] text-navy">Files</h1>
+        <p class="m-0 text-muted">Add notices, brochures or fee lists as PDF, Word (.docx), text or Markdown files (up to 20 MB). Arivazhai
+          reads the text, splits it into passages and indexes it like the website's pages; answers cite the file, which visitors can open.</p>
+        <label class="admin-drop flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-field bg-white px-6 py-8 text-center hover:border-navy [&.is-over]:border-navy [&.is-over]:bg-subtle">
+          <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true" focusable="false" class="text-navy"><path fill="currentColor" d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+          <span class="font-semibold text-navy">Drop files here, or <span class="text-link underline">choose files</span></span>
+          <span class="text-[0.85rem] text-muted">PDF, Word (.docx), .txt or .md · scanned PDFs (photos of paper) have no text to read</span>
+          <input class="admin-file-input sr-only" type="file" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" multiple>
+        </label>
+        <p class="admin-upload__status m-0 text-[0.9rem]" role="status"></p>
+        <div class="admin-files flex flex-col gap-3"></div>
       </section>
 
       <section id="tab-users" role="tabpanel" aria-labelledby="t-users" class="flex flex-col gap-4" hidden>

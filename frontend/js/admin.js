@@ -27,6 +27,7 @@
     thumbUp: "M1 21h4V9H1v12zm22-11a2 2 0 0 0-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10a2 2 0 0 0 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z",
     thumbDown: "M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2a2 2 0 0 0 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5a2 2 0 0 0-2-2zm4 0v12h4V3h-4z",
     check: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+    file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-1 7V3.5L18.5 9zM8 13h8v2H8zm0 4h5v2H8z",
     checkCircle: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
   };
 
@@ -344,7 +345,7 @@
         return;
       }
       if (job.state === "finished") {
-        toast("Ready: visitors now get this answer.", 5000);
+        toast("Ready: Arivazhai now uses it.", 5000);
         return;
       }
       if (job.state === "failed") {
@@ -391,6 +392,101 @@
     }
   }
 
+  // ------------------------------------------------------------------ uploaded files
+  const sizeText = (bytes) => (bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB");
+
+  async function loadFiles() {
+    const files = await getJson("/api/admin/files");
+    const list = $(".admin-files");
+    list.replaceChildren();
+    if (!files.length) {
+      list.append(el("p", { class: "m-0 text-muted", text: "No files yet." }));
+      return;
+    }
+    files.forEach((entry) => {
+      list.append(el("article", { class: "admin-card flex flex-wrap items-center gap-3 !p-4" }, [
+        el("span", { class: "grid size-10 shrink-0 place-items-center rounded-xl bg-subtle text-brand" }, [icon("file", 22)]),
+        el("div", { class: "min-w-0 flex-1" }, [
+          el("p", { class: "m-0 font-semibold break-words text-ink", text: entry.name }),
+          el("p", { class: "m-0 text-[0.85rem] text-muted",
+                    text: entry.type.toUpperCase() + " · " + sizeText(entry.size) + " · " + (entry.words || 0) + " words · added " + when(entry.uploaded_at) }),
+        ]),
+        el("a", { class: "min-h-9 rounded-lg border border-field bg-white px-3 py-1.5 text-[0.9rem] font-semibold text-navy no-underline",
+                  href: base + "/api/files/" + encodeURIComponent(entry.id), target: "_blank", rel: "noopener noreferrer", text: "Open" }),
+        el("button", { type: "button", class: "min-h-9 cursor-pointer rounded-lg border border-danger bg-white px-3 font-semibold text-danger-text",
+                       text: "Delete", onclick: () => removeFile(entry) }),
+      ]));
+    });
+  }
+
+  /** One file at a time, so each says how it went (a scanned PDF, a duplicate, too large…). */
+  async function upload(files) {
+    const status = $(".admin-upload__status");
+    let lastJob = null;
+    for (const file of files) {
+      status.className = "admin-upload__status m-0 text-[0.9rem] text-muted";
+      status.textContent = "Uploading " + file.name + "…";
+      try {
+        const response = await call("/api/admin/files?name=" + encodeURIComponent(file.name), {
+          method: "POST", body: file, headers: { "Content-Type": "application/octet-stream" },
+        });
+        lastJob = (await response.json()).indexing;
+        status.textContent = "Added " + file.name + ".";
+      } catch (err) {
+        if (err.message === "signed out") return;
+        status.className = "admin-upload__status m-0 text-[0.9rem] text-danger-text";
+        status.textContent = file.name + ": " + err.message;
+        if (files.length === 1) return;
+      }
+    }
+    loadFiles();
+    if (lastJob) followIndexing(lastJob);
+  }
+
+  const fileInput = $(".admin-file-input");
+  fileInput.addEventListener("change", () => {
+    const chosen = [...fileInput.files];
+    fileInput.value = ""; // the same file can be chosen again after fixing it
+    if (chosen.length) upload(chosen);
+  });
+  const drop = $(".admin-drop");
+  ["dragenter", "dragover"].forEach((type) => drop.addEventListener(type, (event) => {
+    event.preventDefault();
+    drop.classList.add("is-over");
+  }));
+  ["dragleave", "drop"].forEach((type) => drop.addEventListener(type, () => drop.classList.remove("is-over")));
+  drop.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const dropped = [...(event.dataTransfer ? event.dataTransfer.files : [])];
+    if (dropped.length) upload(dropped);
+  });
+
+  async function removeFile(entry) {
+    if (!window.confirm("Delete this file? Arivazhai will stop using it.\n\n" + entry.name)) return;
+    try {
+      const saved = await (await call("/api/admin/files/" + encodeURIComponent(entry.id), { method: "DELETE" })).json();
+      loadFiles();
+      followIndexing(saved.indexing);
+    } catch (err) {
+      if (err.message !== "signed out") toast(err.message);
+    }
+  }
+
+  // ------------------------------------------------------------------ reset the dashboard
+  $(".admin-reset").addEventListener("click", async () => {
+    const sure = window.confirm(
+      "Reset the dashboard?\n\nThe question counts, the unanswered questions and the ratings start again from zero. " +
+      "The old records are kept in an archive folder on the server. Your answers, files and the visitors list stay.");
+    if (!sure) return;
+    try {
+      await call("/api/admin/reset-dashboard", { method: "POST" });
+      toast("The dashboard starts from zero.", 5000);
+      loadAll();
+    } catch (err) {
+      if (err.message !== "signed out") toast(err.message);
+    }
+  });
+
   // ------------------------------------------------------------------ visitors
   $(".admin-download").addEventListener("click", async () => {
     const status = $(".admin-download__status");
@@ -412,7 +508,7 @@
   // ------------------------------------------------------------------ start
   async function loadAll() {
     try {
-      await Promise.all([loadDashboard(), loadAnswers()]);
+      await Promise.all([loadDashboard(), loadAnswers(), loadFiles()]);
     } catch (err) {
       if (err.message !== "signed out") toast("Could not load: " + err.message, 8000);
     }

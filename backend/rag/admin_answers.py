@@ -102,12 +102,14 @@ def answer_documents(settings) -> list[PageDocument]:
 
 
 def answer_chunks(settings) -> list:
-    """The admin answers through the same structure-aware chunker as the website's pages."""
+    """The admin's answers and uploaded files through the same structure-aware chunker as the website's pages."""
+    from rag.admin_files import file_documents
     from rag.chunking.text_chunker import StructureAwareChunker
 
     chunker = StructureAwareChunker(chunk_size=settings.chunk_size_tokens, overlap=settings.chunk_overlap_tokens,
-                                    min_tokens=1)  # a one-line answer is still an answer
-    return [chunk for doc in answer_documents(settings) for chunk in chunker.chunk_document(doc)]
+                                    min_tokens=1)  # a one-line answer or a short notice is still worth finding
+    docs = answer_documents(settings) + file_documents(settings)
+    return [chunk for doc in docs for chunk in chunker.chunk_document(doc)]
 
 
 def merge_answer_chunks(settings) -> int:

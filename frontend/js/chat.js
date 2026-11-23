@@ -179,9 +179,10 @@
    */
   /** Answers the admission office wrote are pages of our own backend (/api/answers/<id>), not of the website. */
   const OFFICE_ANSWER = "/api/answers/";
+  const OFFICE_FILE = "/api/files/"; // a file the admin uploaded (PDF, Word, text)
   function sourceUrl(url) {
     const value = String(url || "");
-    if (!value.startsWith(OFFICE_ANSWER)) return value;
+    if (!value.startsWith(OFFICE_ANSWER) && !value.startsWith(OFFICE_FILE)) return value;
     try {
       return new URL(A.api.apiUrl(value), window.location.href).toString();
     } catch (e) {
@@ -230,11 +231,12 @@
         { class: C.sourceList },
         sources.map((source, index) => {
           const href = safeHref(sourceUrl(source.url));
-          const office = String(source.url || "").startsWith(OFFICE_ANSWER);
+          const office = String(source.url || "").startsWith(OFFICE_ANSWER) ? "fromOffice"
+            : String(source.url || "").startsWith(OFFICE_FILE) ? "fromOfficeFile" : "";
           const label = href
             ? el("a", { href: href, target: "_blank", rel: "noopener noreferrer", class: C.sourceLink }, [
                 source.title,
-                office ? el("span", { class: C.sourceHeading, text: " - " + t("fromOffice") })
+                office ? el("span", { class: C.sourceHeading, text: " - " + t(office) })
                   : source.heading ? el("span", { class: C.sourceHeading, text: " - " + source.heading }) : null,
                 hidden(" (opens in a new tab)"),
               ])

@@ -42,13 +42,17 @@ def client_key(request: Request) -> str:
 
 
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, max_bytes: int):
+    """Refuses bodies over max_bytes; `larger` gives a few paths (an admin's file upload) their own limit."""
+
+    def __init__(self, app, max_bytes: int, larger: dict[str, int] | None = None):
         super().__init__(app)
         self.max_bytes = max_bytes
+        self.larger = larger or {}
 
     async def dispatch(self, request: Request, call_next):
         length = request.headers.get("content-length")
-        if length and length.isdigit() and int(length) > self.max_bytes:
+        limit = next((n for path, n in self.larger.items() if request.url.path == path), self.max_bytes)
+        if length and length.isdigit() and int(length) > limit:
             return JSONResponse({"detail": "Request body too large"}, status_code=413)
         return await call_next(request)
 

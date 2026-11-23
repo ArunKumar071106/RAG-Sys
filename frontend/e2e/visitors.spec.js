@@ -85,7 +85,7 @@ test("the admin panel: password, dashboard, answering an unanswered question", a
   await expect(page.getByLabel("Question", { exact: true })).toHaveValue(question);
   await page.getByLabel("Answer", { exact: true }).fill("Yes. A 100 kW solar power plant on the roofs supplies a third of the campus's electricity.");
   await page.getByRole("button", { name: "Save and teach Arivazhai" }).click();
-  await expect(page.locator(".admin-toast")).toHaveText("Ready: visitors now get this answer.", { timeout: 60_000 });
+  await expect(page.locator(".admin-toast")).toHaveText("Ready: Arivazhai now uses it.", { timeout: 60_000 });
   await expect(row).toContainText("Answered");
 
   const after = await (await request.post("/api/chat", { data: { message: "solar power plant on campus" }, headers: { "X-Arivazhai-User": user.token } })).json();
@@ -101,9 +101,11 @@ test("the admin panel: password, dashboard, answering an unanswered question", a
   await page.getByRole("tab", { name: "Your answers" }).click();
   page.once("dialog", (d) => d.accept());
   await page.locator(".admin-answers article", { hasText: question }).getByRole("button", { name: "Delete" }).click();
-  await expect(page.locator(".admin-toast")).toHaveText("Ready: visitors now get this answer.", { timeout: 60_000 });
-  const gone = await (await request.post("/api/chat", { data: { message: question }, headers: { "X-Arivazhai-User": user.token } })).json();
-  expect(gone.mode).toBe("no_answer");
+  // the earlier "Ready" toast may still be showing: ask until the re-indexing has taken the answer out
+  await expect
+    .poll(async () => (await (await request.post("/api/chat", { data: { message: question }, headers: { "X-Arivazhai-User": user.token } })).json()).mode,
+          { timeout: 60_000 })
+    .toBe("no_answer");
 });
 
 test("admin data is only for the admin", async ({ request }) => {
@@ -111,4 +113,43 @@ test("admin data is only for the admin", async ({ request }) => {
     expect((await request.get(path)).status()).toBe(401);
   }
   expect((await request.post("/api/chat", { data: { message: "hostel" } })).status()).toBe(401);
+});
+
+test("the admin uploads a Word file, Arivazhai cites it, and the dashboard can be reset", async ({ page, request }, info) => {
+  test.skip(info.project.name !== "desktop", "one run is enough: it changes the shared demo index");
+  const { execFileSync } = await import("node:child_process");
+  // a small Word file, made by the backend's tests helper (headings, a paragraph and a table)
+  const docx = execFileSync("../.venv/bin/python", ["-c",
+    "import sys; sys.path.insert(0, '../backend'); from tests.test_admin_files import docx, para, table;" +
+    "sys.stdout.buffer.write(docx(para('Sports quota 2026', 'Heading1'), para('Students with state-level sports certificates get a 10 percent fee waiver under the sports quota.'), table(['Level', 'Waiver'], ['State', '10%'], ['National', '25%'])))"]);
+  const path = join(SHOTS, "..", "..", "frontend", "test-results", "Sports quota.docx");
+  mkdirSync(dirname(path), { recursive: true });
+  (await import("node:fs")).writeFileSync(path, docx);
+
+  await page.goto("/admin.html");
+  await page.getByLabel("Password").fill(ADMIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("tab", { name: "Files" }).click();
+  await page.locator(".admin-file-input").setInputFiles(path);
+  await expect(page.locator(".admin-toast")).toHaveText("Ready: Arivazhai now uses it.", { timeout: 60_000 });
+  const row = page.locator(".admin-files article", { hasText: "Sports quota.docx" });
+  await expect(row).toContainText("DOCX");
+  await page.screenshot({ path: join(SHOTS, "admin-files.png"), fullPage: true });
+
+  const user = await (await request.post("/api/users", { data: { name: "Kavin", phone: "9876512340" } })).json();
+  const asked = await (await request.post("/api/chat", { data: { message: "Is there a fee waiver for sports quota students?" },
+                                                         headers: { "X-Arivazhai-User": user.token } })).json();
+  expect(asked.answer).toContain("10 percent");
+  expect(asked.sources.some((s) => s.url.startsWith("/api/files/"))).toBe(true);
+
+  // tidy up, then reset the dashboard
+  page.once("dialog", (d) => d.accept());
+  await row.getByRole("button", { name: "Delete" }).click();
+  await expect(page.locator(".admin-toast")).toHaveText("Ready: Arivazhai now uses it.", { timeout: 60_000 });
+  await expect(page.locator(".admin-files")).toContainText("No files yet.");
+  await page.getByRole("tab", { name: "Dashboard" }).click();
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Reset dashboard" }).click();
+  await expect(page.locator(".admin-toast")).toHaveText("The dashboard starts from zero.");
+  await expect(page.locator(".admin-tiles")).toContainText("Questions0");
 });

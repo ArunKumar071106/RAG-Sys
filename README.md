@@ -29,7 +29,7 @@ images (photos, posters, notices) alongside the answer.
 | Complete answers (no API key) | 60 questions written from the live website by someone who never saw this system, each with every fact a complete answer contains (2–6 per question, 245 facts; `backend/eval/facts_aaacet.jsonl`, `python -m rag.cli eval-facts --verbose`). Each fact is traced to where it is lost. Before: answers held **40%** of their facts; 32% were handed to the answer composer and left out, 22% were found but ranked below the results used, 6% were not in the knowledge base. After the fixes below: **74%** on the 40 questions used while fixing (was 44%; 21 complete answers, was 9) and **47%** on the 20 held-out questions never looked at (was 31%). What is left is mostly ranking (28% of held-out facts are found but ranked too low) and about 4% of facts that are only in scanned PDFs, images or a brochure the crawl never reached. |
 | Answer quality (no API key) | 40 everyday questions, each with the fact a correct answer must contain (`backend/eval/answers_aaacet.jsonl`, `python -m rag.cli eval-answers`): **40/40** (was 18/40 before the tab, chunking and answer fixes below). 20 held-out questions written after tuning and never tuned on (`answers_aaacet_holdout.jsonl`): **19/20** (was 16/20). Measured with hybrid search (all-MiniLM-L6-v2 stand-in) in extractive mode. Page retrieval after these changes: Recall@1 0.71, Recall@3 0.97, MRR 0.84. |
 | Official branding | Measured from the rendered site: red `#db2c1d` menu and buttons, white→indigo `#323496` header, gold `#e0ac2a` title box, `#151414` footer, Poppins / League Spartan, official logo, banner photo, full menu with dropdowns, contact details |
-| Tests | 213 backend tests, 35 page unit tests (Vitest + jsdom on the real index.html and scripts), 64 Playwright tests on desktop, tablet and mobile |
+| Tests | 223 backend tests, 35 page unit tests (Vitest + jsdom on the real index.html and scripts), 65 Playwright tests on desktop, tablet and mobile |
 | Embeddings | `bge-m3` (BGE-M3 via PyTorch, `requirements-ml.txt`) → falls back to **FastEmbed BGE-small** (`BAAI/bge-small-en-v1.5`, ONNX, installed by default, downloads ~70 MB on first start; `FASTEMBED_MODEL` selects another FastEmbed model) → falls back to an offline hashing embedder. The build environment could not download BGE weights; the hybrid numbers above use all-MiniLM-L6-v2 as a stand-in (a model of the same size class), so BGE-small itself is unmeasured. |
 | AI answers (Gemini, or Claude) / vision descriptions | Implemented and unit-tested with mocked clients; the Gemini client was checked against the real API (it reports a wrong key clearly). Needs `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY` for Claude; vision descriptions use Claude). Without a key the app answers in extractive mode (it quotes the most relevant sentences and tables). |
 | Off-topic questions | With Claude, the model replies "not covered" via a `[[NO_ANSWER]]` marker. In extractive mode, an off-topic question that shares a word with some page may still get loosely related quotes. |
@@ -259,6 +259,13 @@ scripts\build_css.cmd               # Windows
     embedded). The panel says "Ready: visitors now get this answer." The next visitor asking it in any wording gets it,
     cited as "Answer from the admission office" (`/api/answers/<id>`). The monthly refresh keeps them.
   * **Your answers:** edit or delete (deleting takes it out of the index). **Visitors:** download the Excel file.
+  * **Files:** upload notices, brochures or fee lists (PDF, Word .docx, .txt or .md, up to 20 MB; drop them or choose
+    them). The text is read with its structure (PDF pages, Word headings, paragraphs and tables, Markdown headings) and
+    goes through the same chunking and indexing as the website's pages; answers cite "Document from the admission office",
+    linking to the file (`/api/files/<id>`). Scanned PDFs (photos of paper) have no text and are refused with a reason;
+    the same file twice is refused too. Stored in `DATA_DIR/admin/files/`; deleting takes it out of the index.
+  * **Reset dashboard:** the question counts, unanswered questions and ratings start again from zero. Nothing is lost:
+    the old logs move to `DATA_DIR/feedback/archive/<date_time>/`. Answers, files and the visitors list stay.
 * **Around the chat:** the Arivazhai bar stays at the top while scrolling; under "Apply for admission" a Google map of the
   campus with "Open in Google Maps" (beside the chat on desktop, below it on smaller screens).
 * **Voice:** while listening, Arivazhai says when the voice is not audible: no sound for 4 seconds ("I can't hear you:
@@ -343,6 +350,7 @@ backend/
     demo/           fictional demo website generator (tests + offline demo)
     users.py        visitors (name + mobile number) in DATA_DIR/admin/users.xlsx, signed tokens
     admin_answers.py the admin's answers, chunked and indexed like website pages
+    admin_files.py  the admin's uploaded PDF / Word / text files, read with their structure
     dashboard.py    the admin dashboard's figures
     cli.py          command-line entry point
   eval/             labelled question sets (demo + AAACET samples)

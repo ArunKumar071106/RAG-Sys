@@ -17,6 +17,9 @@ Endpoints (all under /api):
   GET  /admin/dashboard      frequent questions, timings, unanswered questions, ratings (Bearer ADMIN_TOKEN)
   GET/POST/PUT/DELETE /admin/answers[/{id}]  the admin's answers; saving indexes them  (Bearer ADMIN_TOKEN)
   GET  /admin/users.xlsx     the visitors' names and phone numbers (Bearer ADMIN_TOKEN)
+  GET/POST/DELETE /admin/files[/{id}]  uploaded PDF / Word / text files; indexed like pages (Bearer ADMIN_TOKEN)
+  GET  /files/{id}           an uploaded file (the source page of its citations)
+  POST /admin/reset-dashboard  the dashboard starts from zero (the logs are archived) (Bearer ADMIN_TOKEN)
 
 Everything else is the chat page from frontend/ (plain HTML, CSS and JavaScript), so
 http://127.0.0.1:8000/ is the whole assistant.
@@ -42,6 +45,7 @@ from rag.api.security import BodySizeLimitMiddleware, RateLimiter, make_admin_de
 from rag.api.services import Services
 from rag.config import Settings, get_settings
 from rag.admin_answers import SOURCE_TITLE, AnswerStore
+from rag.admin_files import MAX_BYTES, TYPES, BadFile, FileStore
 from rag.dashboard import build_dashboard
 from rag.feedback import FeedbackLog, daily_reports, email_configured
 from rag.users import InvalidUser, UserStore
@@ -114,6 +118,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     feedback = FeedbackLog(settings.data_dir / "feedback") if settings.feedback_enabled else None
     users = UserStore(settings.data_dir / "admin")
     admin_answers = AnswerStore(settings.data_dir / "admin")
+    admin_files = FileStore(settings.data_dir / "admin")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -133,7 +138,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     app = FastAPI(title="Arivazhai - AAACET admission assistant API", version=__version__, lifespan=lifespan)
     app.state.services = services
-    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes,
+                       larger={"/api/admin/files": MAX_BYTES + 1024})  # the admin's file uploads
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -368,6 +374,51 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         if not admin_answers.delete(answer_id):
             raise HTTPException(status_code=404, detail="Answer not found")
         return saved(None, request)
+
+    @app.post("/api/admin/reset-dashboard", dependencies=[admin_only])
+    def reset_dashboard():
+        """Start the dashboard from zero: questions, unanswered questions and ratings move to an archive folder."""
+        if feedback is None:
+            raise HTTPException(status_code=404, detail="Feedback is turned off")
+        return {"archived": feedback.reset()}
+
+    @app.get("/api/admin/files", dependencies=[admin_only])
+    def list_files():
+        return sorted(admin_files.all(), key=lambda e: e.get("uploaded_at", ""), reverse=True)
+
+    @app.post("/api/admin/files", dependencies=[admin_only], status_code=201)
+    async def upload_file(request: Request, name: str):
+        """The file's bytes as the body, its name in ?name=; read, checked, kept, then indexed in the background."""
+        data = bytearray()
+        async for piece in request.stream():
+            data.extend(piece)
+            if len(data) > MAX_BYTES:
+                raise HTTPException(status_code=413, detail=f"The file is too large (the limit is {MAX_BYTES // (1024 * 1024)} MB).")
+        try:
+            entry = await asyncio.to_thread(admin_files.add, name, bytes(data))
+        except BadFile as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        job = svc(request).update_answers()
+        return {"file": entry, "indexing": job.id if job else "queued"}
+
+    @app.delete("/api/admin/files/{file_id}", dependencies=[admin_only])
+    def delete_file(file_id: str, request: Request):
+        if not admin_files.delete(file_id):
+            raise HTTPException(status_code=404, detail="File not found")
+        job = svc(request).update_answers()
+        return {"indexing": job.id if job else "queued"}
+
+    @app.get("/api/files/{file_id}")
+    def uploaded_file(file_id: str):
+        """An uploaded file, opened in the browser: the source of answers that cite it."""
+        entry = admin_files.get(file_id)
+        path = admin_files.path_of(entry) if entry else None
+        if path is None or not path.is_file():
+            raise HTTPException(status_code=404, detail="File not found")
+        suffix = path.suffix.lower()
+        return FileResponse(path, media_type=TYPES.get(suffix, "application/octet-stream"), filename=entry["name"],
+                            content_disposition_type="inline" if suffix != ".docx" else "attachment",
+                            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-cache"})
 
     @app.get("/api/admin/users.xlsx", dependencies=[admin_only])
     def users_file():

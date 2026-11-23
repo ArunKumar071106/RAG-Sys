@@ -90,6 +90,22 @@ class FeedbackLog:
         return Report(since=since, until=_now(), unanswered=self._read("unanswered.jsonl", since),
                       ratings=self._read("ratings.jsonl", since))
 
+    LOGS = ("questions.jsonl", "unanswered.jsonl", "ratings.jsonl")
+
+    def reset(self) -> str | None:
+        """The admin's "Reset dashboard": the logs move to archive/<time>/ (kept, not deleted), so the
+        dashboard and the unanswered list start from zero. Returns the archive folder's name, or None."""
+        with self._lock:
+            present = [name for name in self.LOGS if (self.folder / name).exists()]
+            if not present:
+                return None
+            stamp = _now().strftime("%Y-%m-%d_%H%M%S")
+            archive = self.folder / "archive" / stamp
+            archive.mkdir(parents=True, exist_ok=True)
+            for name in present:
+                (self.folder / name).replace(archive / name)
+            return stamp
+
     # the time of the last emailed report: the next one starts there
     def last_sent(self) -> datetime | None:
         try:
