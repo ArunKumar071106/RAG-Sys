@@ -19,7 +19,7 @@
       subtitle: "AAACET admission help desk · answers from the official website",
       newChat: "New chat",
       welcome:
-        "Vanakkam! I'm Arivazhai, the AAACET admission assistant. Ask me about eligibility, TNEA counselling, courses, fees, " +
+        "I'm Arivazhai, the AAACET admission assistant. Ask me about eligibility, TNEA counselling, courses, fees, " +
         "scholarships, hostel or placements. I answer from the official website and link every source.",
       tryAsking: "Try asking",
       preset1: "What is the eligibility for B.E. / B.Tech admission?",
@@ -83,7 +83,7 @@
       newChatText: "This conversation will be deleted from this device. It cannot be brought back.",
       newChatConfirm: "Delete and start new",
       newChatCancel: "Keep this chat",
-      hello: "Hello",
+      hello: "Vanakkam",
       menu: "Menu",
       closeMenu: "Close menu",
       collegeSite: "College website",
@@ -142,7 +142,7 @@
       subtitle: "AAACET சேர்க்கை உதவி மையம் · அதிகாரப்பூர்வ இணையதளத்திலிருந்து பதில்கள்",
       newChat: "புதிய உரையாடல்",
       welcome:
-        "வணக்கம்! நான் Arivazhai, AAACET சேர்க்கை உதவியாளர். தகுதி, TNEA கலந்தாய்வு, படிப்புகள், கட்டணம், உதவித்தொகை, " +
+        "நான் Arivazhai, AAACET சேர்க்கை உதவியாளர். தகுதி, TNEA கலந்தாய்வு, படிப்புகள், கட்டணம், உதவித்தொகை, " +
         "விடுதி அல்லது வேலைவாய்ப்பு பற்றி என்னிடம் கேளுங்கள். அதிகாரப்பூர்வ இணையதளத்திலிருந்து பதில் தருவேன், ஒவ்வொரு " +
         "தகவலுக்கும் இணைப்பும் தருவேன்.",
       tryAsking: "இவற்றைக் கேட்டுப் பாருங்கள்",

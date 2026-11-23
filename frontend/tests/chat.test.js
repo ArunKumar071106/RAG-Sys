@@ -17,7 +17,7 @@ const chatCalls = (fetchMock) => fetchMock.mock.calls.filter(([url]) => String(u
 describe("the chat", () => {
   it("welcomes with the parents' admission questions", () => {
     loadPage();
-    expect($(".chat__log").textContent).toContain("Vanakkam! I'm Arivazhai, the AAACET admission assistant");
+    expect($(".chat__log").textContent).toContain("I'm Arivazhai, the AAACET admission assistant");
     expect($$("#welcome-suggestions .chip").map((b) => b.textContent)).toContain("How do I apply for admission online?");
     expect($(".chat-input__send").disabled).toBe(true);
     expect($(".chat__new").disabled).toBe(true);

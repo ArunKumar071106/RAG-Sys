@@ -35,8 +35,8 @@ test("welcome screen", async ({ page }, info) => {
   if (info.project.name === "mobile") await expect(page.getByRole("heading", { level: 1, name: "Arivazhai" })).toBeAttached();
   else await expect(page.getByRole("heading", { level: 1, name: "Arivazhai" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Arivazhai", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Hello, Test Parent" })).toBeVisible();
-  await expect(page.getByText(/Vanakkam! I'm Arivazhai, the AAACET admission assistant/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Vanakkam, Test Parent" })).toBeVisible();
+  await expect(page.getByText(/^I'm Arivazhai, the AAACET admission assistant/)).toBeVisible();
   await expect(page.getByRole("button", { name: "How do I apply for admission online?" })).toBeVisible();
   await expectNoHorizontalScroll(page);
   await momentGone(page);

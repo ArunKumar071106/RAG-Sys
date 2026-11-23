@@ -1030,7 +1030,7 @@
       const show = (user) => {
         section.classList.toggle("is-signed-out", !user);
         if (name) name.textContent = user ? user.name : "";
-        if (hello) hello.textContent = user && user.name ? ", " + user.name : ""; // "Hello, Meena"
+        if (hello) hello.textContent = user && user.name ? ", " + user.name : ""; // "Vanakkam, Meena"
       };
       if (!people) {
         show({ name: "" }); // a page without sign-in (tests, or LOGIN_REQUIRED switched off)

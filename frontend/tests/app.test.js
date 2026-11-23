@@ -26,7 +26,7 @@ describe("the chat app", () => {
   it("greets the visitor by name, with question cards", () => {
     signedIn("Meena");
     loadPage();
-    expect($(".welcome__hello").textContent).toBe("Hello, Meena");
+    expect($(".welcome__hello").textContent).toBe("Vanakkam, Meena");
     expect($$cards()).toHaveLength(8);
     expect($$cards()[0].querySelector("svg")).not.toBeNull(); // each card has an icon
     expect($$cards()[0].textContent).toBe("What is the eligibility for B.E. / B.Tech admission?");
